@@ -1,94 +1,94 @@
-# Security Policy
+# Политика безопасности
 
-## Supported Versions
+## Поддерживаемые версии
 
-| Version | Supported          |
+| Версия | Поддерживается          |
 |---------|--------------------|
 | 0.3.x   | :white_check_mark: |
 
-## Reporting a Vulnerability
+## Сообщение об уязвимости
 
-If you discover a security vulnerability in OpenFang, please report it responsibly.
+Если вы обнаружите уязвимость в системе безопасности OpenFang, пожалуйста, сообщите о ней ответственно.
 
-**Do NOT open a public GitHub issue for security vulnerabilities.**
+**НЕ открывайте публичные GitHub issues для сообщения об уязвимостях безопасности.**
 
-### How to Report
+### Как сообщить
 
 1. Email: **jaber@rightnowai.co**
-2. Include:
-   - Description of the vulnerability
-   - Steps to reproduce
-   - Affected versions
-   - Potential impact assessment
-   - Suggested fix (if any)
+2. Включите:
+   - Описание уязвимости
+   - Шаги для воспроизведения
+   - Затронутые версии
+   - Оценку потенциального воздействия
+   - Предлагаемое исправление (если есть)
 
-### What to Expect
+### Чего ожидать
 
-- **Acknowledgment** within 48 hours
-- **Initial assessment** within 7 days
-- **Fix timeline** communicated within 14 days
-- **Credit** given in the advisory (unless you prefer anonymity)
+- **Подтверждение получения** в течение 48 часов
+- **Первоначальная оценка** в течение 7 дней
+- **Сроки исправления** сообщаются в течение 14 дней
+- **Упоминание автора** в информационном бюллетене (если вы не предпочитаете анонимность)
 
-### Scope
+### Область применения (Scope)
 
-The following are in scope for security reports:
+Следующие темы подлежат рассмотрению в отчетах о безопасности:
 
-- Authentication/authorization bypass
-- Remote code execution
-- Path traversal / directory traversal
-- Server-Side Request Forgery (SSRF)
-- Privilege escalation between agents or users
-- Information disclosure (API keys, secrets, internal state)
-- Denial of service via resource exhaustion
-- Supply chain attacks via skill ecosystem
-- WASM sandbox escapes
+- Обход аутентификации/авторизации
+- Удаленное выполнение кода (RCE)
+- Обход путей (Path traversal / directory traversal)
+- Подделка запросов на стороне сервера (SSRF)
+- Повышение привилегий между агентами или пользователями
+- Раскрытие информации (API-ключи, секреты, внутреннее состояние)
+- Отказ в обслуживании через исчерпание ресурсов
+- Атаки на цепочку поставок через экосистему навыков
+- Побег из песочницы WASM
 
-## Security Architecture
+## Архитектура безопасности
 
-OpenFang implements defense-in-depth with the following security controls:
+OpenFang реализует многоуровневую защиту (defense-in-depth) со следующими мерами контроля безопасности:
 
-### Access Control
-- **Capability-based permissions**: Agents only access resources explicitly granted
-- **RBAC multi-user**: Owner/Admin/User/Viewer role hierarchy
-- **Privilege escalation prevention**: Child agents cannot exceed parent capabilities
-- **API authentication**: Bearer token with loopback bypass for local CLI
+### Управление доступом
+- **Разрешения на основе возможностей**: агенты получают доступ только к явно предоставленным ресурсам.
+- **Многопользовательский RBAC**: иерархия ролей Owner/Admin/User/Viewer.
+- **Предотвращение повышения привилегий**: дочерние агенты не могут превышать возможности родителя.
+- **Аутентификация API**: токен Bearer с обходом loopback для локального CLI.
 
-### Input Validation
-- **Path traversal protection**: `safe_resolve_path()` / `safe_resolve_parent()` on all file operations
-- **SSRF protection**: Private IP blocking, DNS resolution checks, cloud metadata endpoint filtering
-- **Image validation**: Media type whitelist (png/jpeg/gif/webp), 5MB size limit
-- **Prompt injection scanning**: Skill content scanned for override attempts and data exfiltration
+### Валидация входных данных
+- **Защита от обхода путей**: `safe_resolve_path()` / `safe_resolve_parent()` во всех файловых операциях.
+- **Защита от SSRF**: блокировка частных IP-адресов, проверка разрешения DNS, фильтрация эндпоинтов облачных метаданных.
+- **Валидация изображений**: белый список типов медиа (png/jpeg/gif/webp), ограничение размера 5 МБ.
+- **Сканирование на промпт-инъекции**: контент навыков сканируется на попытки переопределения и эксфильтрации данных.
 
-### Cryptographic Security
-- **Ed25519 signed manifests**: Agent identity verification
-- **HMAC-SHA256 wire protocol**: Mutual authentication with nonce-based replay protection
-- **Secret zeroization**: `Zeroizing<String>` on all API key fields, wiped on drop
+### Криптографическая безопасность
+- **Манифесты, подписанные Ed25519**: проверка идентичности агента.
+- **Протокол HMAC-SHA256**: взаимная аутентификация с защитой от воспроизведения (replay protection) на основе nonce.
+- **Обнуление секретов**: `Zeroizing<String>` для всех полей API-ключей, очистка при удалении.
 
-### Runtime Isolation
-- **WASM dual metering**: Fuel limits + epoch interruption with watchdog thread
-- **Subprocess sandbox**: Environment isolation (`env_clear()`), restricted PATH
-- **Taint tracking**: Information flow labels prevent untrusted data in privileged operations
+### Изоляция во время выполнения (Runtime Isolation)
+- **Двойной учет WASM**: лимиты fuel + прерывание эпохи с помощью потока-сторожа.
+- **Песочница подпроцессов**: изоляция окружения (`env_clear()`), ограниченный PATH.
+- **Отслеживание загрязнения (Taint tracking)**: метки информационных потоков предотвращают попадание недоверенных данных в привилегированные операции.
 
-### Network Security
-- **GCRA rate limiter**: Cost-aware token buckets per IP
-- **Security headers**: CSP, X-Frame-Options, X-Content-Type-Options, HSTS
-- **Health redaction**: Public endpoint returns minimal info; full diagnostics require auth
-- **CORS policy**: Restricted to localhost when no API key configured
+### Сетевая безопасность
+- **Ограничитель скорости GCRA**: корзины токенов, учитывающие стоимость, для каждого IP.
+- **Заголовки безопасности**: CSP, X-Frame-Options, X-Content-Type-Options, HSTS.
+- **Редактирование данных о здоровье**: публичный эндпоинт возвращает минимум информации; полная диагностика требует авторизации.
+- **Политика CORS**: ограничена localhost, если не настроен API-ключ.
 
-### Audit
-- **Merkle hash chain**: Tamper-evident audit trail for all agent actions
-- **Tamper detection**: Chain integrity verification via `/api/audit/verify`
+### Аудит
+- **Цепочка хешей Меркла**: защищенный от несанкционированного доступа журнал аудита для всех действий агентов.
+- **Обнаружение подделок**: проверка целостности цепочки через `/api/audit/verify`.
 
-## Dependencies
+## Зависимости
 
-Security-critical dependencies are pinned and audited:
+Критически важные для безопасности зависимости зафиксированы и проходят аудит:
 
-| Dependency | Purpose |
+| Зависимость | Назначение |
 |------------|---------|
-| `ed25519-dalek` | Manifest signing |
-| `sha2` | Hash chain, checksums |
-| `hmac` | Wire protocol authentication |
-| `subtle` | Constant-time comparison |
-| `zeroize` | Secret memory wiping |
-| `rand` | Cryptographic randomness |
-| `governor` | Rate limiting |
+| `ed25519-dalek` | Подпись манифестов |
+| `sha2` | Цепочка хешей, контрольные суммы |
+| `hmac` | Аутентификация сетевого протокола |
+| `subtle` | Сравнение за константное время |
+| `zeroize` | Очистка секретов в памяти |
+| `rand` | Криптографическая случайность |
+| `governor` | Ограничение скорости |

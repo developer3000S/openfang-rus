@@ -2,31 +2,31 @@
 
 OpenFang предоставляет REST API, WebSocket и SSE-стриминг. По умолчанию API слушает `http://127.0.0.1:4200`.
 
-Все ответы защищены заголовками безопасности (CSP, X-Frame-Options, X-Content-Type-Options, HSTS) и проходят через GCRA rate limiter. Система безопасности включают Merkle-audit, taint tracking, WASM metering, Ed25519 подписи, SSRF-защиту и secret zeroization.
+Все ответы защищены заголовками безопасности (CSP, X-Frame-Options, X-Content-Type-Options, HSTS) и проходят через GCRA rate limiter. Система безопасности включает Merkle-audit, taint tracking, WASM metering, Ed25519 подписи, SSRF-защиту и secret zeroization.
 
 ## Основные разделы
 
 - Аутентификация и health
-- Эндпойнты агентов (создание, чат, управление)
+- Эндпоинты агентов (создание, чат, управление)
 - Workflows и triggers
 - Память и сессии
 - Каналы
 - Каталог моделей и провайдеры
-- OpenAI-совместимые эндпойнты (`/v1/chat/completions`)
+- OpenAI-совместимые эндпоинты (`/v1/chat/completions`)
 
 ## Аутентификация
 
-Когда в `config.toml` указан `api_key`, защищённые маршруты требуют заголовок:
+Когда в `config.toml` указан `api_key`, защищенные маршруты требуют заголовок:
 
 ```
-Authorization: Bearer <your-api-key>
+Authorization: Bearer <ваш-api-key>
 ```
 
 Публичные маршруты (без auth): `GET /api/health`, `GET /` (WebChat UI).
 
 ---
 
-## Эндпойнты агентов (выдержка)
+## Эндпоинты агентов
 
 `GET /api/agents` — список агентов
 
@@ -42,9 +42,9 @@ Authorization: Bearer <your-api-key>
 
 ### GET /api/agents/{id}
 
-Returns detailed information about a single agent.
+Возвращает подробную информацию об одном агенте.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -68,9 +68,9 @@ Returns detailed information about a single agent.
 
 ### POST /api/agents
 
-Spawn a new agent from a TOML manifest.
+Запустить нового агента из TOML-манифеста.
 
-**Request Body** (JSON):
+**Тело запроса** (JSON):
 
 ```json
 {
@@ -78,7 +78,7 @@ Spawn a new agent from a TOML manifest.
 }
 ```
 
-**Response** `201 Created`:
+**Ответ** `201 Created`:
 
 ```json
 {
@@ -89,9 +89,9 @@ Spawn a new agent from a TOML manifest.
 
 ### PUT /api/agents/{id}/update
 
-Update an agent's configuration at runtime.
+Обновить конфигурацию агента во время выполнения.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -101,7 +101,7 @@ Update an agent's configuration at runtime.
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -112,9 +112,9 @@ Update an agent's configuration at runtime.
 
 ### PUT /api/agents/{id}/mode
 
-Set an agent's operating mode. `Stable` mode pins the current model and freezes the skill registry. `Normal` mode restores default behavior.
+Установить режим работы агента. Режим `Stable` закрепляет текущую модель и замораживает реестр навыков. Режим `Normal` восстанавливает поведение по умолчанию.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -122,7 +122,7 @@ Set an agent's operating mode. `Stable` mode pins the current model and freezes 
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -134,21 +134,21 @@ Set an agent's operating mode. `Stable` mode pins the current model and freezes 
 
 ### POST /api/agents/{id}/message
 
-Send a message to an agent and receive the complete response.
+Отправить сообщение агенту и получить полный ответ.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
-  "message": "What files are in the current directory?"
+  "message": "Какие файлы находятся в текущей директории?"
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
-  "response": "Here are the files in the current directory:\n- Cargo.toml\n- README.md\n...",
+  "response": "Вот файлы в текущей директории:\n- Cargo.toml\n- README.md\n...",
   "input_tokens": 142,
   "output_tokens": 87,
   "iterations": 1
@@ -157,9 +157,9 @@ Send a message to an agent and receive the complete response.
 
 ### GET /api/agents/{id}/session
 
-Returns the agent's conversation history.
+Возвращает историю переписки агента.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -170,11 +170,11 @@ Returns the agent's conversation history.
   "messages": [
     {
       "role": "User",
-      "content": "Hello"
+      "content": "Привет"
     },
     {
       "role": "Assistant",
-      "content": "Hello! How can I help you?"
+      "content": "Привет! Чем я могу вам помочь?"
     }
   ]
 }
@@ -182,9 +182,9 @@ Returns the agent's conversation history.
 
 ### DELETE /api/agents/{id}
 
-Terminate an agent and remove it from the registry.
+Завершить работу агента и удалить его из реестра.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -195,13 +195,13 @@ Terminate an agent and remove it from the registry.
 
 ---
 
-## Workflow Endpoints
+## Эндпоинты воркфлоу (Workflow)
 
 ### GET /api/workflows
 
-List all registered workflows.
+Список всех зарегистрированных воркфлоу.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 [
@@ -217,9 +217,9 @@ List all registered workflows.
 
 ### POST /api/workflows
 
-Create a new workflow definition.
+Создать новое определение воркфлоу.
 
-**Request Body** (JSON):
+**Тело запроса** (JSON):
 
 ```json
 {
@@ -255,24 +255,24 @@ Create a new workflow definition.
 }
 ```
 
-**Step configuration options:**
+**Опции конфигурации шага:**
 
-| Field | Type | Description |
+| Поле | Тип | Описание |
 |-------|------|-------------|
-| `name` | string | Step name |
-| `agent_id` | string | Agent UUID (use either this or `agent_name`) |
-| `agent_name` | string | Agent name (use either this or `agent_id`) |
-| `prompt` | string | Prompt template with `{{input}}` and `{{output_var}}` placeholders |
+| `name` | string | Имя шага |
+| `agent_id` | string | UUID агента (используйте либо это, либо `agent_name`) |
+| `agent_name` | string | Имя агента (используйте либо это, либо `agent_id`) |
+| `prompt` | string | Шаблон промпта с заполнителями `{{input}}` и `{{output_var}}` |
 | `mode` | string | `"sequential"`, `"fan_out"`, `"collect"`, `"conditional"`, `"loop"` |
-| `timeout_secs` | integer | Timeout per step (default: 120) |
+| `timeout_secs` | integer | Тайм-аут на шаг (по умолчанию: 120) |
 | `error_mode` | string | `"fail"`, `"skip"`, `"retry"` |
-| `max_retries` | integer | For `"retry"` error mode (default: 3) |
-| `output_var` | string | Variable name to store output for later steps |
-| `condition` | string | For `"conditional"` mode |
-| `max_iterations` | integer | For `"loop"` mode (default: 5) |
-| `until` | string | For `"loop"` mode: stop condition |
+| `max_retries` | integer | Для режима ошибок `"retry"` (по умолчанию: 3) |
+| `output_var` | string | Имя переменной для сохранения вывода для последующих шагов |
+| `condition` | string | Для режима `"conditional"` |
+| `max_iterations` | integer | Для режима `"loop"` (по умолчанию: 5) |
+| `until` | string | Для режима `"loop"`: условие остановки |
 
-**Response** `201 Created`:
+**Ответ** `201 Created`:
 
 ```json
 {
@@ -282,9 +282,9 @@ Create a new workflow definition.
 
 ### POST /api/workflows/{id}/run
 
-Execute a workflow.
+Запустить воркфлоу.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -292,7 +292,7 @@ Execute a workflow.
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -304,9 +304,9 @@ Execute a workflow.
 
 ### GET /api/workflows/{id}/runs
 
-List execution history for a workflow.
+Список истории запусков воркфлоу.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 [
@@ -323,16 +323,16 @@ List execution history for a workflow.
 
 ---
 
-## Trigger Endpoints
+## Эндпоинты триггеров (Trigger)
 
 ### GET /api/triggers
 
-List all triggers. Optionally filter by agent.
+Список всех триггеров. Опционально фильтруется по агенту.
 
-**Query Parameters:**
-- `agent_id` (optional): Filter by agent UUID
+**Параметры запроса:**
+- `agent_id` (опционально): Фильтр по UUID агента
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 [
@@ -351,9 +351,9 @@ List all triggers. Optionally filter by agent.
 
 ### POST /api/triggers
 
-Create a new event trigger.
+Создать новый триггер событий.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -368,16 +368,16 @@ Create a new event trigger.
 }
 ```
 
-**Supported pattern types:**
+**Поддерживаемые типы шаблонов:**
 
-| Pattern | Description |
+| Шаблон | Описание |
 |---------|-------------|
-| `{"lifecycle": {}}` | All lifecycle events |
-| `{"agent_spawned": {"name_pattern": "*"}}` | Agent spawn events |
-| `{"agent_terminated": {}}` | Agent termination events |
-| `{"all": {}}` | All events |
+| `{"lifecycle": {}}` | Все события жизненного цикла |
+| `{"agent_spawned": {"name_pattern": "*"}}` | События запуска агентов |
+| `{"agent_terminated": {}}` | События завершения работы агентов |
+| `{"all": {}}` | Все события |
 
-**Response** `201 Created`:
+**Ответ** `201 Created`:
 
 ```json
 {
@@ -388,9 +388,9 @@ Create a new event trigger.
 
 ### PUT /api/triggers/{id}
 
-Update an existing trigger's configuration.
+Обновить конфигурацию существующего триггера.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -400,7 +400,7 @@ Update an existing trigger's configuration.
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -411,9 +411,9 @@ Update an existing trigger's configuration.
 
 ### DELETE /api/triggers/{id}
 
-Remove a trigger.
+Удалить триггер.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -424,13 +424,13 @@ Remove a trigger.
 
 ---
 
-## Memory Endpoints
+## Эндпоинты памяти (Memory)
 
 ### GET /api/memory/agents/{id}/kv
 
-List all key-value pairs for an agent.
+Список всех пар "ключ-значение" для агента.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -443,9 +443,9 @@ List all key-value pairs for an agent.
 
 ### GET /api/memory/agents/{id}/kv/{key}
 
-Get a specific key-value pair.
+Получить конкретную пару "ключ-значение".
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -454,7 +454,7 @@ Get a specific key-value pair.
 }
 ```
 
-**Response** `404 Not Found` (key does not exist):
+**Ответ** `404 Not Found` (ключ не существует):
 
 ```json
 {
@@ -464,9 +464,9 @@ Get a specific key-value pair.
 
 ### PUT /api/memory/agents/{id}/kv/{key}
 
-Set a key-value pair. Creates or overwrites.
+Установить пару "ключ-значение". Создает или перезаписывает.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -474,7 +474,7 @@ Set a key-value pair. Creates or overwrites.
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -485,9 +485,9 @@ Set a key-value pair. Creates or overwrites.
 
 ### DELETE /api/memory/agents/{id}/kv/{key}
 
-Delete a key-value pair.
+Удалить пару "ключ-значение".
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -498,13 +498,13 @@ Delete a key-value pair.
 
 ---
 
-## Channel Endpoints
+## Эндпоинты каналов (Channel)
 
 ### GET /api/channels
 
-List configured channel adapters and their status. Supports 40 channel adapters including Telegram, Discord, Slack, WhatsApp, Matrix, Email, Teams, Mattermost, IRC, Google Chat, Twitch, Rocket.Chat, Zulip, XMPP, LINE, Viber, Messenger, Reddit, Mastodon, Bluesky, and more.
+Список настроенных адаптеров каналов и их статус. Поддерживается 40 адаптеров каналов, включая Telegram, Discord, Slack, WhatsApp, Matrix, Email, Teams, Mattermost, IRC, Google Chat, Twitch, Rocket.Chat, Zulip, XMPP, LINE, Viber, Messenger, Reddit, Mastodon, Bluesky и другие.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -526,13 +526,13 @@ List configured channel adapters and their status. Supports 40 channel adapters 
 
 ---
 
-## Template Endpoints
+## Эндпоинты шаблонов (Template)
 
 ### GET /api/templates
 
-List available agent templates from the agents directory.
+Список доступных шаблонов агентов из директории agents.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -554,9 +554,9 @@ List available agent templates from the agents directory.
 
 ### GET /api/templates/{name}
 
-Get a specific template's manifest and raw TOML.
+Получить манифест конкретного шаблона и сырой TOML.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -581,13 +581,13 @@ Get a specific template's manifest and raw TOML.
 
 ---
 
-## System Endpoints
+## Системные эндпоинты
 
 ### GET /api/health
 
-Public health check. Does not require authentication. Returns a redacted subset of system status (no database or agent_count details).
+Публичная проверка здоровья. Не требует аутентификации. Возвращает сокращенное подмножество статуса системы (без деталей базы данных или количества агентов).
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -598,13 +598,13 @@ Public health check. Does not require authentication. Returns a redacted subset 
 }
 ```
 
-The `status` field is `"ok"` when all systems are healthy, or `"degraded"` when the database is unreachable.
+Поле `status` имеет значение `"ok"`, когда все системы исправны, или `"degraded"`, когда база данных недоступна.
 
 ### GET /api/health/detail
 
-Full health check with all dependency status. Requires authentication. Unlike the public `/api/health`, this endpoint includes database connectivity and agent counts.
+Полная проверка здоровья со статусом всех зависимостей. Требует аутентификации. В отличие от публичного `/api/health`, этот эндпоинт включает информацию о подключении к базе данных и количестве агентов.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -620,9 +620,9 @@ Full health check with all dependency status. Requires authentication. Unlike th
 
 ### GET /api/status
 
-Detailed kernel status including all agents.
+Подробный статус ядра, включая всех агентов.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -647,9 +647,9 @@ Detailed kernel status including all agents.
 
 ### GET /api/version
 
-Build and version information.
+Информация о сборке и версии.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -665,9 +665,9 @@ Build and version information.
 
 ### POST /api/shutdown
 
-Initiate graceful shutdown. Agent states are preserved to SQLite for restore on next boot.
+Инициировать корректное завершение работы. Состояния агентов сохраняются в SQLite для восстановления при следующем запуске.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -677,9 +677,9 @@ Initiate graceful shutdown. Agent states are preserved to SQLite for restore on 
 
 ### GET /api/profiles
 
-List available agent profiles (predefined configurations for common use cases).
+Список доступных профилей агентов (предопределенные конфигурации для распространенных случаев использования).
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -700,9 +700,9 @@ List available agent profiles (predefined configurations for common use cases).
 
 ### GET /api/tools
 
-List all available tools that agents can use.
+Список всех доступных инструментов, которые могут использовать агенты.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -723,9 +723,9 @@ List all available tools that agents can use.
 
 ### GET /api/config
 
-Retrieve current kernel configuration (secrets are redacted).
+Получить текущую конфигурацию ядра (секреты скрыты).
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -741,9 +741,9 @@ Retrieve current kernel configuration (secrets are redacted).
 
 ### GET /api/peers
 
-List OFP (OpenFang Protocol) wire peers and their connection status.
+Список пиров сети OFP (OpenFang Protocol) и статус их подключения.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -761,9 +761,9 @@ List OFP (OpenFang Protocol) wire peers and their connection status.
 
 ### GET /api/sessions
 
-List all active sessions across agents.
+Список всех активных сессий всех агентов.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -781,9 +781,9 @@ List all active sessions across agents.
 
 ### DELETE /api/sessions/{id}
 
-Delete a specific session and its conversation history.
+Удалить конкретную сессию и ее историю переписки.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -794,15 +794,15 @@ Delete a specific session and its conversation history.
 
 ---
 
-## Model Catalog Endpoints
+## Эндпоинты каталога моделей (Model Catalog)
 
-OpenFang maintains a built-in catalog of 51+ models across 20 providers. These endpoints allow you to browse available models, check provider authentication status, and resolve model aliases.
+OpenFang поддерживает встроенный каталог из 51+ модели от 20 провайдеров. Эти эндпоинты позволяют просматривать доступные модели, проверять статус аутентификации провайдеров и разрешать алиасы моделей.
 
 ### GET /api/models
 
-List the full model catalog. Returns all known models with their provider, tier, context window, and pricing information.
+Список всего каталога моделей. Возвращает все известные модели с их провайдером, уровнем (tier), окном контекста и информацией о ценообразовании.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -838,9 +838,9 @@ List the full model catalog. Returns all known models with their provider, tier,
 
 ### GET /api/models/{id}
 
-Get detailed information about a specific model.
+Получить подробную информацию о конкретной модели.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -857,7 +857,7 @@ Get detailed information about a specific model.
 }
 ```
 
-**Response** `404 Not Found`:
+**Ответ** `404 Not Found`:
 
 ```json
 {
@@ -867,9 +867,9 @@ Get detailed information about a specific model.
 
 ### GET /api/models/aliases
 
-List all model aliases. Aliases provide short names that resolve to full model IDs (e.g., `sonnet` resolves to `claude-sonnet-4-20250514`).
+Список всех алиасов моделей. Алиасы предоставляют короткие имена, которые разрешаются в полные ID моделей (например, `sonnet` разрешается в `claude-sonnet-4-20250514`).
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -890,9 +890,9 @@ List all model aliases. Aliases provide short names that resolve to full model I
 
 ### GET /api/providers
 
-List all known LLM providers and their authentication status. Auth status is detected by checking environment variable presence (never reads secret values).
+Список всех известных провайдеров LLM и статус их аутентификации. Статус аутентификации определяется путем проверки наличия переменных окружения (секретные значения никогда не считываются).
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -927,15 +927,15 @@ List all known LLM providers and their authentication status. Auth status is det
 
 ---
 
-## Provider Configuration Endpoints
+## Эндпоинты конфигурации провайдеров
 
-Manage LLM provider API keys at runtime without editing config files or restarting the daemon.
+Управляйте API-ключами провайдеров LLM во время выполнения без редактирования конфигурационных файлов или перезапуска демона.
 
 ### POST /api/providers/{name}/key
 
-Set an API key for a provider. The key is stored securely and takes effect immediately.
+Установить API-ключ для провайдера. Ключ хранится безопасно и вступает в силу немедленно.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -943,7 +943,7 @@ Set an API key for a provider. The key is stored securely and takes effect immed
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -954,9 +954,9 @@ Set an API key for a provider. The key is stored securely and takes effect immed
 
 ### DELETE /api/providers/{name}/key
 
-Remove the API key for a provider. Agents using this provider will fall back to the FallbackDriver or fail.
+Удалить API-ключ для провайдера. Агенты, использующие этого провайдера, перейдут на FallbackDriver или завершатся с ошибкой.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -967,9 +967,9 @@ Remove the API key for a provider. Agents using this provider will fall back to 
 
 ### POST /api/providers/{name}/test
 
-Test provider connectivity by making a minimal API call. Verifies that the configured API key is valid and the provider endpoint is reachable.
+Проверить соединение с провайдером, сделав минимальный вызов API. Проверяет, что настроенный API-ключ действителен и эндпоинт провайдера доступен.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -980,7 +980,7 @@ Test provider connectivity by making a minimal API call. Verifies that the confi
 }
 ```
 
-**Response** `401 Unauthorized`:
+**Ответ** `401 Unauthorized`:
 
 ```json
 {
@@ -992,15 +992,15 @@ Test provider connectivity by making a minimal API call. Verifies that the confi
 
 ---
 
-## Skills & Marketplace Endpoints
+## Эндпоинты навыков и маркетплейса (Skills & Marketplace)
 
-Manage the skill registry. Skills extend agent capabilities with Python, Node.js, WASM, or prompt-only modules. All skill installations go through SHA256 verification and prompt injection scanning.
+Управление реестром навыков. Навыки расширяют возможности агентов с помощью модулей на Python, Node.js, WASM или текстовых модулей (prompt-only). Все установки навыков проходят проверку SHA256 и сканирование на наличие промпт-инъекций.
 
 ### GET /api/skills
 
-List all installed skills.
+Список всех установленных навыков.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1026,9 +1026,9 @@ List all installed skills.
 
 ### POST /api/skills/install
 
-Install a skill from a local path or URL. The skill manifest is verified (SHA256 checksum) and scanned for prompt injection before installation.
+Установить навык из локального пути или по URL. Манифест навыка проверяется (контрольная сумма SHA256) и сканируется на наличие промпт-инъекций перед установкой.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -1037,7 +1037,7 @@ Install a skill from a local path or URL. The skill manifest is verified (SHA256
 }
 ```
 
-**Response** `201 Created`:
+**Ответ** `201 Created`:
 
 ```json
 {
@@ -1049,9 +1049,9 @@ Install a skill from a local path or URL. The skill manifest is verified (SHA256
 
 ### POST /api/skills/uninstall
 
-Remove an installed skill. Bundled skills cannot be uninstalled.
+Удалить установленный навык. Встроенные (bundled) навыки нельзя удалить.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -1059,7 +1059,7 @@ Remove an installed skill. Bundled skills cannot be uninstalled.
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1070,9 +1070,9 @@ Remove an installed skill. Bundled skills cannot be uninstalled.
 
 ### POST /api/skills/create
 
-Create a new skill from a template.
+Создать новый навык из шаблона.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -1082,7 +1082,7 @@ Create a new skill from a template.
 }
 ```
 
-**Response** `201 Created`:
+**Ответ** `201 Created`:
 
 ```json
 {
@@ -1094,13 +1094,13 @@ Create a new skill from a template.
 
 ### GET /api/marketplace/search
 
-Search the FangHub marketplace for community skills.
+Поиск в маркетплейсе FangHub по навыкам сообщества.
 
-**Query Parameters:**
-- `q` (required): Search query string
-- `page` (optional): Page number (default: 1)
+**Параметры запроса:**
+- `q` (обязательно): Строка поискового запроса
+- `page` (опционально): Номер страницы (по умолчанию: 1)
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1120,18 +1120,18 @@ Search the FangHub marketplace for community skills.
 
 ---
 
-## ClawHub Endpoints
+## Эндпоинты ClawHub
 
-Browse and install skills from ClawHub (OpenClaw ecosystem compatibility). All installations go through the full security pipeline: SHA256 verification, SKILL.md security scanning, and trust boundary enforcement.
+Просмотр и установка навыков из ClawHub (совместимость с экосистемой OpenClaw). Все установки проходят через полный конвейер безопасности: проверку SHA256, сканирование безопасности SKILL.md и применение границ доверия.
 
 ### GET /api/clawhub/search
 
-Search ClawHub for compatible skills.
+Поиск в ClawHub по совместимым навыкам.
 
-**Query Parameters:**
-- `q` (required): Search query
+**Параметры запроса:**
+- `q` (обязательно): Поисковый запрос
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1150,13 +1150,13 @@ Search ClawHub for compatible skills.
 
 ### GET /api/clawhub/browse
 
-Browse ClawHub categories.
+Просмотр категорий ClawHub.
 
-**Query Parameters:**
-- `category` (optional): Filter by category
-- `page` (optional): Page number (default: 1)
+**Параметры запроса:**
+- `category` (опционально): Фильтр по категории
+- `page` (опционально): Номер страницы (по умолчанию: 1)
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1175,9 +1175,9 @@ Browse ClawHub categories.
 
 ### GET /api/clawhub/skill/{slug}
 
-Get detailed information about a specific ClawHub skill.
+Получить подробную информацию о конкретном навыке ClawHub.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1194,9 +1194,9 @@ Get detailed information about a specific ClawHub skill.
 
 ### POST /api/clawhub/install
 
-Install a skill from ClawHub. Downloads, verifies SHA256 checksum, scans for prompt injection, and converts SKILL.md format to OpenFang skill.toml automatically.
+Установить навык из ClawHub. Автоматически скачивает, проверяет контрольную сумму SHA256, сканирует на промпт-инъекции и конвертирует формат SKILL.md в skill.toml OpenFang.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -1204,7 +1204,7 @@ Install a skill from ClawHub. Downloads, verifies SHA256 checksum, scans for pro
 }
 ```
 
-**Response** `201 Created`:
+**Ответ** `201 Created`:
 
 ```json
 {
@@ -1217,15 +1217,15 @@ Install a skill from ClawHub. Downloads, verifies SHA256 checksum, scans for pro
 
 ---
 
-## MCP & A2A Protocol Endpoints
+## Эндпоинты протоколов MCP и A2A
 
-OpenFang supports both Model Context Protocol (MCP) for tool interoperability and Agent-to-Agent (A2A) protocol for cross-system agent communication.
+OpenFang поддерживает как Model Context Protocol (MCP) для интероперабельности инструментов, так и протокол Agent-to-Agent (A2A) для взаимодействия агентов между различными системами.
 
 ### GET /api/mcp/servers
 
-List configured and connected MCP servers with their available tools.
+Список настроенных и подключенных MCP-серверов с их доступными инструментами.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1254,9 +1254,9 @@ List configured and connected MCP servers with their available tools.
 
 ### POST /mcp
 
-MCP HTTP transport endpoint. Accepts JSON-RPC 2.0 requests and exposes OpenFang tools via the MCP protocol to external clients.
+Эндпоинт HTTP-транспорта MCP. Принимает запросы JSON-RPC 2.0 и предоставляет инструменты OpenFang через протокол MCP внешним клиентам.
 
-**Request Body** (JSON-RPC 2.0):
+**Тело запроса** (JSON-RPC 2.0):
 
 ```json
 {
@@ -1266,7 +1266,7 @@ MCP HTTP transport endpoint. Accepts JSON-RPC 2.0 requests and exposes OpenFang 
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1291,9 +1291,9 @@ MCP HTTP transport endpoint. Accepts JSON-RPC 2.0 requests and exposes OpenFang 
 
 ### GET /.well-known/agent.json
 
-A2A agent card discovery endpoint. Returns the server's A2A agent card, which describes its capabilities, supported protocols, and available agents.
+Эндпоинт обнаружения карточки агента A2A. Возвращает карточку агента A2A сервера, которая описывает его возможности, поддерживаемые протоколы и доступных агентов.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1317,9 +1317,9 @@ A2A agent card discovery endpoint. Returns the server's A2A agent card, which de
 
 ### GET /a2a/agents
 
-List agents available via A2A protocol.
+Список агентов, доступных по протоколу A2A.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1336,9 +1336,9 @@ List agents available via A2A protocol.
 
 ### POST /a2a/tasks/send
 
-Send a task to an agent via A2A protocol. Follows the Google A2A specification for inter-agent task delegation.
+Отправить задачу агенту по протоколу A2A. Соответствует спецификации Google A2A для делегирования задач между агентами.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -1352,7 +1352,7 @@ Send a task to an agent via A2A protocol. Follows the Google A2A specification f
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1369,9 +1369,9 @@ Send a task to an agent via A2A protocol. Follows the Google A2A specification f
 
 ### GET /a2a/tasks/{id}
 
-Get the status and result of an A2A task.
+Получить статус и результат задачи A2A.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1390,9 +1390,9 @@ Get the status and result of an A2A task.
 
 ### POST /a2a/tasks/{id}/cancel
 
-Cancel a running A2A task.
+Отменить выполняющуюся задачу A2A.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1403,18 +1403,18 @@ Cancel a running A2A task.
 
 ---
 
-## Audit & Security Endpoints
+## Эндпоинты аудита и безопасности
 
-OpenFang maintains a Merkle hash chain audit trail for all security-relevant operations. These endpoints allow inspection and verification of the audit log integrity.
+OpenFang поддерживает журнал аудита в виде цепочки хешей Меркла для всех операций, имеющих отношение к безопасности. Эти эндпоинты позволяют просматривать и проверять целостность журнала аудита.
 
 ### GET /api/audit/recent
 
-Retrieve recent audit log entries.
+Получить последние записи журнала аудита.
 
-**Query Parameters:**
-- `limit` (optional): Number of entries to return (default: 50, max: 500)
+**Параметры запроса:**
+- `limit` (опционально): Количество возвращаемых записей (по умолчанию: 50, макс: 500)
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1435,9 +1435,9 @@ Retrieve recent audit log entries.
 
 ### GET /api/audit/verify
 
-Verify the integrity of the Merkle hash chain audit trail. Walks the entire chain and reports any broken links.
+Проверить целостность журнала аудита на основе цепочки хешей Меркла. Проходит по всей цепочке и сообщает о любых разорванных звеньях.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1448,7 +1448,7 @@ Verify the integrity of the Merkle hash chain audit trail. Walks the entire chai
 }
 ```
 
-**Response** `200 OK` (chain broken):
+**Ответ** `200 OK` (цепочка разорвана):
 
 ```json
 {
@@ -1461,9 +1461,9 @@ Verify the integrity of the Merkle hash chain audit trail. Walks the entire chai
 
 ### GET /api/security
 
-Security status overview showing the state of all 16 security systems.
+Обзор состояния безопасности, показывающий состояние всех 16 систем безопасности.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1492,18 +1492,18 @@ Security status overview showing the state of all 16 security systems.
 
 ---
 
-## Usage & Analytics Endpoints
+## Эндпоинты использования и аналитики (Usage & Analytics)
 
-Track token usage, costs, and model utilization across all agents. Powered by the metering engine with cost estimation from the model catalog.
+Отслеживание использования токенов, затрат и загрузки моделей по всем агентам. Работает на базе движка учета с оценкой стоимости из каталога моделей.
 
 ### GET /api/usage
 
-Get overall usage statistics.
+Получить общую статистику использования.
 
-**Query Parameters:**
-- `period` (optional): Time period (`hour`, `day`, `week`, `month`; default: `day`)
+**Параметры запроса:**
+- `period` (опционально): Период времени (`hour`, `day`, `week`, `month`; по умолчанию: `day`)
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1518,9 +1518,9 @@ Get overall usage statistics.
 
 ### GET /api/usage/summary
 
-Get a high-level usage summary with quota information.
+Получить высокоуровневую сводку использования с информацией о квотах.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1540,9 +1540,9 @@ Get a high-level usage summary with quota information.
 
 ### GET /api/usage/by-model
 
-Get usage breakdown by model.
+Получить разбивку использования по моделям.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1569,15 +1569,15 @@ Get usage breakdown by model.
 
 ---
 
-## Migration Endpoints
+## Эндпоинты миграции (Migration)
 
-Import data from OpenClaw or other agent frameworks. The migration engine handles YAML-to-TOML manifest conversion, SKILL.md parsing, and session history import.
+Импорт данных из OpenClaw или других фреймворков агентов. Движок миграции обрабатывает конвертацию манифестов из YAML в TOML, парсинг SKILL.md и импорт истории сессий.
 
 ### GET /api/migrate/detect
 
-Auto-detect migration sources on the system. Scans common locations for OpenClaw installations, config files, and agent data.
+Автоматическое обнаружение источников миграции в системе. Сканирует стандартные места на наличие установок OpenClaw, конфигурационных файлов и данных агентов.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1595,9 +1595,9 @@ Auto-detect migration sources on the system. Scans common locations for OpenClaw
 
 ### POST /api/migrate/scan
 
-Scan a specific path for importable data.
+Сканировать конкретный путь на наличие данных для импорта.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -1605,7 +1605,7 @@ Scan a specific path for importable data.
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1629,9 +1629,9 @@ Scan a specific path for importable data.
 
 ### POST /api/migrate
 
-Run the migration. Converts manifests, imports skills, and optionally imports session history.
+Запустить миграцию. Конвертирует манифесты, импортирует навыки и опционально импортирует историю сессий.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -1642,7 +1642,7 @@ Run the migration. Converts manifests, imports skills, and optionally imports se
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1658,13 +1658,13 @@ Run the migration. Converts manifests, imports skills, and optionally imports se
 
 ---
 
-## Session Management Endpoints
+## Эндпоинты управления сессиями
 
 ### POST /api/agents/{id}/session/reset
 
-Reset an agent's session, clearing all conversation history.
+Сбросить сессию агента, удалив всю историю переписки.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1676,9 +1676,9 @@ Reset an agent's session, clearing all conversation history.
 
 ### POST /api/agents/{id}/session/compact
 
-Trigger LLM-based session compaction. The agent's conversation is summarized by an LLM, keeping only the most recent messages plus a generated summary.
+Запустить сжатие сессии на базе LLM. Переписка агента резюмируется с помощью LLM, сохраняются только самые последние сообщения плюс сгенерированное резюме.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1687,7 +1687,7 @@ Trigger LLM-based session compaction. The agent's conversation is summarized by 
 }
 ```
 
-**Response** `200 OK` (no compaction needed):
+**Ответ** `200 OK` (сжатие не требуется):
 
 ```json
 {
@@ -1698,9 +1698,9 @@ Trigger LLM-based session compaction. The agent's conversation is summarized by 
 
 ### POST /api/agents/{id}/stop
 
-Cancel the agent's current LLM run. Aborts any in-progress generation.
+Отменить текущий запуск LLM для агента. Прерывает любую выполняющуюся генерацию.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1711,9 +1711,9 @@ Cancel the agent's current LLM run. Aborts any in-progress generation.
 
 ### PUT /api/agents/{id}/model
 
-Switch an agent's LLM model at runtime.
+Переключить модель LLM агента во время выполнения.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -1721,7 +1721,7 @@ Switch an agent's LLM model at runtime.
 }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1732,15 +1732,15 @@ Switch an agent's LLM model at runtime.
 
 ---
 
-## Cron/Scheduler Endpoints
+## Эндпоинты Cron/Планировщика
 
-Manage recurring and one-shot scheduled jobs. Jobs can trigger agent turns, system events, or workflow runs on a schedule.
+Управление повторяющимися и разовыми запланированными задачами. Задачи могут запускать ходы агентов, системные события или воркфлоу по расписанию.
 
 ### GET /api/cron/jobs
 
-List all cron jobs. Optionally filter by agent with `?agent_id=<uuid>`.
+Список всех задач cron. Опционально фильтруется по агенту: `?agent_id=<uuid>`.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1772,9 +1772,9 @@ List all cron jobs. Optionally filter by agent with `?agent_id=<uuid>`.
 
 ### POST /api/cron/jobs
 
-Create a new cron job.
+Создать новую задачу cron.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
@@ -1794,7 +1794,7 @@ Create a new cron job.
 }
 ```
 
-**Response** `201 Created`:
+**Ответ** `201 Created`:
 
 ```json
 {
@@ -1804,9 +1804,9 @@ Create a new cron job.
 
 ### DELETE /api/cron/jobs/{id}
 
-Delete a cron job by ID.
+Удалить задачу cron по ID.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 { "status": "deleted" }
@@ -1814,15 +1814,15 @@ Delete a cron job by ID.
 
 ### PUT /api/cron/jobs/{id}/enable
 
-Enable or disable a cron job.
+Включить или выключить задачу cron.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 { "enabled": false }
 ```
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 { "status": "updated", "enabled": false }
@@ -1830,9 +1830,9 @@ Enable or disable a cron job.
 
 ### GET /api/cron/jobs/{id}/status
 
-Get job metadata including last run time, status, and error history.
+Получить метаданные задачи, включая время последнего запуска, статус и историю ошибок.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1856,12 +1856,13 @@ Get job metadata including last run time, status, and error history.
   "last_status": "ok",
   "consecutive_errors": 0
 }
+```
 
 ### POST /api/cron/jobs/{id}/run
 
-Trigger a cron job immediately. The job executes asynchronously in the background — this endpoint returns immediately without waiting for completion. Poll `GET /api/cron/jobs/{id}/status` to check the result.
+Запустить задачу cron немедленно. Задача выполняется асинхронно в фоновом режиме — этот эндпоинт возвращает ответ сразу, не дожидаясь завершения. Опрашивайте `GET /api/cron/jobs/{id}/status`, чтобы проверить результат.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -1870,52 +1871,52 @@ Trigger a cron job immediately. The job executes asynchronously in the backgroun
 }
 ```
 
-**Error Responses**:
+**Ответы с ошибками**:
 
-- `400 Bad Request` — Invalid job ID or job is disabled
-- `404 Not Found` — Job not found
+- `400 Bad Request` — Неверный ID задачи или задача отключена
+- `404 Not Found` — Задача не найдена
 
 ---
 
-## WebSocket Protocol
+## Протокол WebSocket
 
-### Connecting
+### Подключение
 
 ```
 GET /api/agents/{id}/ws
 ```
 
-Upgrades to a WebSocket connection for real-time bidirectional chat with an agent. Returns `400` if the agent ID is invalid, or `404` if the agent does not exist.
+Переключает соединение на WebSocket для двустороннего чата с агентом в реальном времени. Возвращает `400`, если ID агента невалиден, или `404`, если агент не существует.
 
-### Message Format
+### Формат сообщений
 
-All messages are JSON-encoded strings.
+Все сообщения представляют собой строки в кодировке JSON.
 
-### Client to Server
+### От клиента к серверу
 
-**Send a message:**
+**Отправить сообщение:**
 
 ```json
 {
   "type": "message",
-  "content": "What is the weather like?"
+  "content": "Какая сейчас погода?"
 }
 ```
 
-Plain text (non-JSON) is also accepted and treated as a message.
+Обычный текст (не JSON) также принимается и обрабатывается как сообщение.
 
-**Chat commands** (sent as messages with `/` prefix):
+**Команды чата** (отправляются как сообщения с префиксом `/`):
 
-| Command | Description |
+| Команда | Описание |
 |---------|-------------|
-| `/new` | Start a new session (clear history) |
-| `/compact` | Trigger LLM session compaction |
-| `/model <name>` | Switch the agent's model |
-| `/stop` | Cancel current LLM run |
-| `/usage` | Show token usage and cost |
-| `/think` | Toggle extended thinking mode |
-| `/models` | List available models |
-| `/providers` | List LLM providers and auth status |
+| `/new` | Начать новую сессию (очистить историю) |
+| `/compact` | Запустить LLM-сжатие сессии |
+| `/model <name>` | Переключить модель агента |
+| `/stop` | Отменить текущий запуск LLM |
+| `/usage` | Показать использование токенов и стоимость |
+| `/think` | Переключить режим расширенного размышления |
+| `/models` | Список доступных моделей |
+| `/providers` | Список провайдеров LLM и статус их аутентификации |
 
 **Ping:**
 
@@ -1925,9 +1926,9 @@ Plain text (non-JSON) is also accepted and treated as a message.
 }
 ```
 
-### Server to Client
+### От сервера к клиенту
 
-**Connection confirmed** (sent immediately on connect):
+**Подключение подтверждено** (отправляется сразу после подключения):
 
 ```json
 {
@@ -1936,7 +1937,7 @@ Plain text (non-JSON) is also accepted and treated as a message.
 }
 ```
 
-**Thinking indicator** (sent when agent starts processing):
+**Индикатор размышления** (отправляется, когда агент начинает обработку):
 
 ```json
 {
@@ -1944,16 +1945,16 @@ Plain text (non-JSON) is also accepted and treated as a message.
 }
 ```
 
-**Text delta** (streaming token, sent as the LLM generates output):
+**Дельта текста** (потоковый токен, отправляется по мере генерации вывода LLM):
 
 ```json
 {
   "type": "text_delta",
-  "content": "The weather"
+  "content": "Погода"
 }
 ```
 
-**Tool use started** (sent when the agent invokes a tool):
+**Запуск использования инструмента** (отправляется, когда агент вызывает инструмент):
 
 ```json
 {
@@ -1962,12 +1963,12 @@ Plain text (non-JSON) is also accepted and treated as a message.
 }
 ```
 
-**Complete response** (sent when agent finishes, contains final aggregated response):
+**Полный ответ** (отправляется по завершении работы агента, содержит итоговый агрегированный ответ):
 
 ```json
 {
   "type": "response",
-  "content": "The weather today is sunny with a high of 72F.",
+  "content": "Сегодня солнечная погода, максимум 22°C.",
   "input_tokens": 245,
   "output_tokens": 32,
   "iterations": 2,
@@ -1975,7 +1976,7 @@ Plain text (non-JSON) is also accepted and treated as a message.
 }
 ```
 
-**Error:**
+**Ошибка:**
 
 ```json
 {
@@ -1984,7 +1985,7 @@ Plain text (non-JSON) is also accepted and treated as a message.
 }
 ```
 
-**Agent list update** (sent every 5 seconds with current agent states):
+**Обновление списка агентов** (отправляется каждые 5 секунд с текущими состояниями агентов):
 
 ```json
 {
@@ -2001,7 +2002,7 @@ Plain text (non-JSON) is also accepted and treated as a message.
 }
 ```
 
-**Pong** (response to ping):
+**Pong** (ответ на ping):
 
 ```json
 {
@@ -2009,80 +2010,80 @@ Plain text (non-JSON) is also accepted and treated as a message.
 }
 ```
 
-### Connection Lifecycle
+### Жизненный цикл соединения
 
-1. Client connects to `ws://host:port/api/agents/{id}/ws`.
-2. Server sends `{"type": "connected"}`.
-3. Client sends `{"type": "message", "content": "..."}`.
-4. Server sends `{"type": "thinking"}`, then zero or more `{"type": "text_delta"}` events, then `{"type": "response"}`.
-5. Server periodically sends `{"type": "agents_updated"}` every 5 seconds.
-6. Client sends a Close frame or disconnects to end the session.
+1. Клиент подключается к `ws://host:port/api/agents/{id}/ws`.
+2. Сервер отправляет `{"type": "connected"}`.
+3. Клиент отправляет `{"type": "message", "content": "..."}`.
+4. Сервер отправляет `{"type": "thinking"}`, затем ноль или более событий `{"type": "text_delta"}`, затем `{"type": "response"}`.
+5. Сервер периодически отправляет `{"type": "agents_updated"}` каждые 5 секунд.
+6. Клиент отправляет фрейм Close или отключается для завершения сессии.
 
 ---
 
-## SSE Streaming
+## SSE-стриминг (Server-Sent Events)
 
 ### POST /api/agents/{id}/message/stream
 
-Send a message and receive the response as a Server-Sent Events stream. This enables real-time token-by-token streaming.
+Отправить сообщение и получить ответ в виде потока Server-Sent Events. Это позволяет реализовать потоковую передачу текста по токенам в реальном времени.
 
-**Request Body** (JSON):
+**Тело запроса** (JSON):
 
 ```json
 {
-  "message": "Explain quantum computing"
+  "message": "Объясни квантовые вычисления"
 }
 ```
 
-**SSE Event Stream:**
+**Поток событий SSE:**
 
 ```
 event: chunk
-data: {"content":"Quantum","done":false}
+data: {"content":"Квантовые","done":false}
 
 event: chunk
-data: {"content":" computing","done":false}
+data: {"content":" вычисления","done":false}
 
 event: chunk
-data: {"content":" is a type","done":false}
+data: {"content":" — это тип","done":false}
 
 event: tool_use
 data: {"tool":"web_search"}
 
 event: tool_result
-data: {"tool":"web_search","input":{"query":"quantum computing basics"}}
+data: {"tool":"web_search","input":{"query":"основы квантовых вычислений"}}
 
 event: done
 data: {"done":true,"usage":{"input_tokens":150,"output_tokens":340}}
 ```
 
-### SSE Event Types
+### Типы событий SSE
 
-| Event Name | Description |
+| Имя события | Описание |
 |------------|-------------|
-| `chunk` | Text delta from the LLM. `"done": false` indicates more tokens are coming. |
-| `tool_use` | The agent is invoking a tool. Contains the tool name. |
-| `tool_result` | A tool invocation has completed. Contains the tool name and input. |
-| `done` | Final event. Contains `"done": true` and token usage statistics. |
+| `chunk` | Дельта текста от LLM. `"done": false` указывает на то, что ожидаются еще токенов. |
+| `tool_use` | Агент вызывает инструмент. Содержит имя инструмента. |
+| `tool_result` | Вызов инструмента завершен. Содержит имя инструмента и входные данные. |
+| `done` | Финальное событие. Содержит `"done": true` и статистику использования токенов. |
 
 ---
 
-## OpenAI-Compatible API
+## OpenAI-совместимый API
 
-OpenFang exposes an OpenAI-compatible API for drop-in integration with tools that support the OpenAI API format (Cursor, Continue, Open WebUI, etc.).
+OpenFang предоставляет OpenAI-совместимый API для бесшовной интеграции с инструментами, поддерживающими формат OpenAI API (Cursor, Continue, Open WebUI и т. д.).
 
 ### POST /v1/chat/completions
 
-Send a chat completion request using the OpenAI message format.
+Отправить запрос chat completion, используя формат сообщений OpenAI.
 
-**Request Body**:
+**Тело запроса**:
 
 ```json
 {
   "model": "openfang:coder",
   "messages": [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "Hello!"}
+    {"role": "system", "content": "Вы — полезный помощник."},
+    {"role": "user", "content": "Привет!"}
   ],
   "stream": false,
   "temperature": 0.7,
@@ -2090,16 +2091,16 @@ Send a chat completion request using the OpenAI message format.
 }
 ```
 
-**Model resolution** (the `model` field maps to an OpenFang agent):
+**Разрешение моделей** (поле `model` сопоставляется с агентом OpenFang):
 
-| Format | Example | Behavior |
+| Формат | Пример | Поведение |
 |--------|---------|----------|
-| `openfang:<name>` | `openfang:coder` | Find agent by name |
-| UUID | `a1b2c3d4-...` | Find agent by ID |
-| Plain string | `coder` | Try as agent name |
-| Any other | `gpt-4o` | Falls back to first registered agent |
+| `openfang:<name>` | `openfang:coder` | Поиск агента по имени |
+| UUID | `a1b2c3d4-...` | Поиск агента по ID |
+| Простая строка | `coder` | Попытка поиска по имени агента |
+| Любой другой | `gpt-4o` | Возврат к первому зарегистрированному агенту |
 
-**Image support** --- messages can include image content parts:
+**Поддержка изображений** — сообщения могут включать части с контентом изображений:
 
 ```json
 {
@@ -2108,7 +2109,7 @@ Send a chat completion request using the OpenAI message format.
     {
       "role": "user",
       "content": [
-        {"type": "text", "text": "Describe this image"},
+        {"type": "text", "text": "Опиши это изображение"},
         {"type": "image_url", "image_url": {"url": "data:image/png;base64,iVBOR..."}}
       ]
     }
@@ -2116,7 +2117,7 @@ Send a chat completion request using the OpenAI message format.
 }
 ```
 
-**Response (non-streaming)** `200 OK`:
+**Ответ (непотоковый)** `200 OK`:
 
 ```json
 {
@@ -2129,7 +2130,7 @@ Send a chat completion request using the OpenAI message format.
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "Hello! How can I help you today?"
+        "content": "Привет! Чем я могу вам сегодня помочь?"
       },
       "finish_reason": "stop"
     }
@@ -2142,10 +2143,10 @@ Send a chat completion request using the OpenAI message format.
 }
 ```
 
-**Streaming** --- Set `"stream": true` for SSE:
+**Потоковая передача** — установите `"stream": true` для SSE:
 
 ```
-data: {"id":"chatcmpl-...","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},"finish_reason":null}]}
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":"Привет"},"finish_reason":null}]}
 
 data: {"id":"chatcmpl-...","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}]}
 
@@ -2156,9 +2157,9 @@ data: [DONE]
 
 ### GET /v1/models
 
-List available models (agents) in OpenAI format.
+Список доступных моделей (агентов) в формате OpenAI.
 
-**Response** `200 OK`:
+**Ответ** `200 OK`:
 
 ```json
 {
@@ -2182,53 +2183,53 @@ List available models (agents) in OpenAI format.
 
 ---
 
-## Error Responses
+## Ответы с ошибками
 
-All error responses use a consistent JSON format:
+Все ответы с ошибками используют единообразный формат JSON:
 
 ```json
 {
-  "error": "Description of what went wrong"
+  "error": "Описание того, что пошло не так"
 }
 ```
 
-### HTTP Status Codes
+### Коды состояния HTTP
 
-| Code | Meaning |
+| Код | Значение |
 |------|---------|
-| `200` | Success |
-| `201` | Created (spawn agent, create workflow, create trigger, install skill) |
-| `400` | Bad request (invalid UUID, missing required fields, malformed TOML/JSON) |
-| `401` | Unauthorized (missing or invalid `Authorization: Bearer` header) |
-| `404` | Not found (agent, workflow, trigger, template, model, skill, or KV key does not exist) |
-| `429` | Too many requests (GCRA rate limit exceeded) |
-| `500` | Internal server error (agent loop failure, database error, driver error) |
+| `200` | Успех |
+| `201` | Создано (запуск агента, создание воркфлоу, создание триггера, установка навыка) |
+| `400` | Неверный запрос (некорректный UUID, отсутствие обязательных полей, неверный формат TOML/JSON) |
+| `401` | Не авторизован (отсутствует или недействителен заголовок `Authorization: Bearer`) |
+| `404` | Не найдено (агент, воркфлоу, триггер, шаблон, модель, навык или ключ KV не существуют) |
+| `429` | Слишком много запросов (превышен лимит скорости GCRA) |
+| `500` | Внутренняя ошибка сервера (сбой цикла агента, ошибка базы данных, ошибка драйвера) |
 
-### Request IDs
+### ID запросов (Request IDs)
 
-Every response includes an `x-request-id` header with a UUID for tracing:
+Каждый ответ включает заголовок `x-request-id` с UUID для трассировки:
 
 ```
 x-request-id: 550e8400-e29b-41d4-a716-446655440000
 ```
 
-Use this value when reporting issues or correlating requests in logs.
+Используйте это значение при сообщении о проблемах или сопоставлении запросов в логах.
 
-### Security Headers
+### Заголовки безопасности
 
-Every response includes security headers:
+Каждый ответ включает заголовки безопасности:
 
-| Header | Value |
+| Заголовок | Значение |
 |--------|-------|
-| `Content-Security-Policy` | `default-src 'self'` (with appropriate directives) |
+| `Content-Security-Policy` | `default-src 'self'` (с соответствующими директивами) |
 | `X-Frame-Options` | `DENY` |
 | `X-Content-Type-Options` | `nosniff` |
 | `Strict-Transport-Security` | `max-age=63072000; includeSubDomains` |
-| `X-Request-Id` | Unique UUID per request |
+| `X-Request-Id` | Уникальный UUID на запрос |
 
-### Rate Limiting
+### Ограничение скорости (Rate Limiting)
 
-The GCRA (Generic Cell Rate Algorithm) rate limiter provides cost-aware token bucket rate limiting with per-IP tracking and automatic stale entry cleanup. Different endpoints consume different token costs (e.g., `/api/agents/{id}/message` costs more than `/api/health`). When the limit is exceeded, the server returns `429 Too Many Requests`:
+Rate limiter GCRA (Generic Cell Rate Algorithm) обеспечивает ограничение скорости на основе корзин токенов с учетом стоимости запросов, отслеживанием по IP и автоматической очисткой устаревших записей. Разные эндпоинты потребляют разное количество токенов (например, `/api/agents/{id}/message` стоит дороже, чем `/api/health`). При превышении лимита сервер возвращает `429 Too Many Requests`:
 
 ```
 HTTP/1.1 429 Too Many Requests
@@ -2237,105 +2238,105 @@ Retry-After: 60
 {"error": "Rate limit exceeded"}
 ```
 
-The `Retry-After` header indicates the window duration in seconds.
+Заголовок `Retry-After` указывает длительность окна в секундах.
 
 ---
 
-## Endpoint Summary
+## Сводка эндпоинтов
 
-**76 endpoints total** across 15 groups.
+**Всего 76 эндпоинтов** в 15 группах.
 
-| Method | Path | Description |
+| Метод | Путь | Описание |
 |--------|------|-------------|
-| **System** | | |
-| GET | `/` | WebChat UI |
-| GET | `/api/health` | Health check (no auth, redacted) |
-| GET | `/api/health/detail` | Full health check (auth required) |
-| GET | `/api/status` | Kernel status |
-| GET | `/api/version` | Version info |
-| POST | `/api/shutdown` | Graceful shutdown |
-| GET | `/api/profiles` | List agent profiles |
-| GET | `/api/tools` | List available tools |
-| GET | `/api/config` | Configuration (secrets redacted) |
-| GET | `/api/peers` | List OFP wire peers |
-| **Agents** | | |
-| GET | `/api/agents` | List agents |
-| POST | `/api/agents` | Spawn agent |
-| GET | `/api/agents/{id}` | Get agent details |
-| PUT | `/api/agents/{id}/update` | Update agent config |
-| PUT | `/api/agents/{id}/mode` | Set agent mode (Stable/Normal) |
-| DELETE | `/api/agents/{id}` | Kill agent |
-| POST | `/api/agents/{id}/message` | Send message (blocking) |
-| POST | `/api/agents/{id}/message/stream` | Send message (SSE stream) |
-| GET | `/api/agents/{id}/session` | Get conversation history |
-| GET | `/api/agents/{id}/ws` | WebSocket chat |
-| POST | `/api/agents/{id}/session/reset` | Reset session |
-| POST | `/api/agents/{id}/session/compact` | LLM-based compaction |
-| POST | `/api/agents/{id}/stop` | Cancel current run |
-| PUT | `/api/agents/{id}/model` | Switch model |
-| **Workflows** | | |
-| GET | `/api/workflows` | List workflows |
-| POST | `/api/workflows` | Create workflow |
-| POST | `/api/workflows/{id}/run` | Run workflow |
-| GET | `/api/workflows/{id}/runs` | List workflow runs |
-| **Triggers** | | |
-| GET | `/api/triggers` | List triggers |
-| POST | `/api/triggers` | Create trigger |
-| PUT | `/api/triggers/{id}` | Update trigger |
-| DELETE | `/api/triggers/{id}` | Delete trigger |
-| **Memory** | | |
-| GET | `/api/memory/agents/{id}/kv` | List KV pairs |
-| GET | `/api/memory/agents/{id}/kv/{key}` | Get KV value |
-| PUT | `/api/memory/agents/{id}/kv/{key}` | Set KV value |
-| DELETE | `/api/memory/agents/{id}/kv/{key}` | Delete KV value |
-| **Channels** | | |
-| GET | `/api/channels` | List channels (40 adapters) |
-| **Templates** | | |
-| GET | `/api/templates` | List templates |
-| GET | `/api/templates/{name}` | Get template |
-| **Sessions** | | |
-| GET | `/api/sessions` | List sessions |
-| DELETE | `/api/sessions/{id}` | Delete session |
-| **Model Catalog** | | |
-| GET | `/api/models` | Full model catalog (51+ models) |
-| GET | `/api/models/{id}` | Model details |
-| GET | `/api/models/aliases` | List 23 model aliases |
-| GET | `/api/providers` | Provider list with auth status |
-| **Provider Config** | | |
-| POST | `/api/providers/{name}/key` | Set provider API key |
-| DELETE | `/api/providers/{name}/key` | Remove provider API key |
-| POST | `/api/providers/{name}/test` | Test provider connectivity |
-| **Skills & Marketplace** | | |
-| GET | `/api/skills` | List installed skills (60 bundled) |
-| POST | `/api/skills/install` | Install skill |
-| POST | `/api/skills/uninstall` | Uninstall skill |
-| POST | `/api/skills/create` | Create new skill |
-| GET | `/api/marketplace/search` | Search FangHub |
+| **Система** | | |
+| GET | `/` | Интерфейс WebChat |
+| GET | `/api/health` | Проверка здоровья (без auth, сокращенно) |
+| GET | `/api/health/detail` | Полная проверка здоровья (требуется auth) |
+| GET | `/api/status` | Статус ядра |
+| GET | `/api/version` | Информация о версии |
+| POST | `/api/shutdown` | Корректное завершение работы |
+| GET | `/api/profiles` | Список профилей агентов |
+| GET | `/api/tools` | Список доступных инструментов |
+| GET | `/api/config` | Конфигурация (секреты скрыты) |
+| GET | `/api/peers` | Список пиров сети OFP |
+| **Агенты** | | |
+| GET | `/api/agents` | Список агентов |
+| POST | `/api/agents` | Запустить агента |
+| GET | `/api/agents/{id}` | Детали агента |
+| PUT | `/api/agents/{id}/update` | Обновить конфиг агента |
+| PUT | `/api/agents/{id}/mode` | Установить режим агента (Stable/Normal) |
+| DELETE | `/api/agents/{id}` | Завершить работу агента |
+| POST | `/api/agents/{id}/message` | Отправить сообщение (блокирующий вызов) |
+| POST | `/api/agents/{id}/message/stream` | Отправить сообщение (поток SSE) |
+| GET | `/api/agents/{id}/session` | Получить историю переписки |
+| GET | `/api/agents/{id}/ws` | Чат через WebSocket |
+| POST | `/api/agents/{id}/session/reset` | Сбросить сессию |
+| POST | `/api/agents/{id}/session/compact` | Сжатие на базе LLM |
+| POST | `/api/agents/{id}/stop` | Отменить текущий запуск |
+| PUT | `/api/agents/{id}/model` | Переключить модель |
+| **Воркфлоу** | | |
+| GET | `/api/workflows` | Список воркфлоу |
+| POST | `/api/workflows` | Создать воркфлоу |
+| POST | `/api/workflows/{id}/run` | Запустить воркфлоу |
+| GET | `/api/workflows/{id}/runs` | Список запусков воркфлоу |
+| **Триггеры** | | |
+| GET | `/api/triggers` | Список триггеров |
+| POST | `/api/triggers` | Создать триггер |
+| PUT | `/api/triggers/{id}` | Обновить триггер |
+| DELETE | `/api/triggers/{id}` | Удалить триггер |
+| **Память** | | |
+| GET | `/api/memory/agents/{id}/kv` | Список пар KV |
+| GET | `/api/memory/agents/{id}/kv/{key}` | Получить значение KV |
+| PUT | `/api/memory/agents/{id}/kv/{key}` | Установить значение KV |
+| DELETE | `/api/memory/agents/{id}/kv/{key}` | Удалить значение KV |
+| **Каналы** | | |
+| GET | `/api/channels` | Список каналов (40 адаптеров) |
+| **Шаблоны** | | |
+| GET | `/api/templates` | Список шаблонов |
+| GET | `/api/templates/{name}` | Получить шаблон |
+| **Сессии** | | |
+| GET | `/api/sessions` | Список сессий |
+| DELETE | `/api/sessions/{id}` | Удалить сессию |
+| **Каталог моделей** | | |
+| GET | `/api/models` | Полный каталог (51+ модель) |
+| GET | `/api/models/{id}` | Детали модели |
+| GET | `/api/models/aliases` | Список 23 алиасов моделей |
+| GET | `/api/providers` | Список провайдеров со статусом auth |
+| **Конфиг провайдеров** | | |
+| POST | `/api/providers/{name}/key` | Установить API-ключ провайдера |
+| DELETE | `/api/providers/{name}/key` | Удалить API-ключ провайдера |
+| POST | `/api/providers/{name}/test` | Проверить соединение с провайдером |
+| **Навыки и маркетплейс** | | |
+| GET | `/api/skills` | Список навыков (60 встроенных) |
+| POST | `/api/skills/install` | Установить навык |
+| POST | `/api/skills/uninstall` | Удалить навык |
+| POST | `/api/skills/create` | Создать новый навык |
+| GET | `/api/marketplace/search` | Поиск в FangHub |
 | **ClawHub** | | |
-| GET | `/api/clawhub/search` | Search ClawHub |
-| GET | `/api/clawhub/browse` | Browse ClawHub |
-| GET | `/api/clawhub/skill/{slug}` | Skill details |
-| POST | `/api/clawhub/install` | Install from ClawHub |
-| **MCP & A2A** | | |
-| GET | `/api/mcp/servers` | MCP server connections |
-| POST | `/mcp` | MCP HTTP transport (JSON-RPC 2.0) |
-| GET | `/.well-known/agent.json` | A2A agent card |
-| GET | `/a2a/agents` | A2A agent list |
-| POST | `/a2a/tasks/send` | Send A2A task |
-| GET | `/a2a/tasks/{id}` | Get A2A task status |
-| POST | `/a2a/tasks/{id}/cancel` | Cancel A2A task |
-| **Audit & Security** | | |
-| GET | `/api/audit/recent` | Recent audit logs |
-| GET | `/api/audit/verify` | Verify Merkle chain integrity |
-| GET | `/api/security` | Security status (16 systems) |
-| **Usage & Analytics** | | |
-| GET | `/api/usage` | Usage statistics |
-| GET | `/api/usage/summary` | Usage summary with quota |
-| GET | `/api/usage/by-model` | Usage by model breakdown |
-| **Migration** | | |
-| GET | `/api/migrate/detect` | Detect migration sources |
-| POST | `/api/migrate/scan` | Scan for importable data |
-| POST | `/api/migrate` | Run migration |
+| GET | `/api/clawhub/search` | Поиск в ClawHub |
+| GET | `/api/clawhub/browse` | Просмотр ClawHub |
+| GET | `/api/clawhub/skill/{slug}` | Детали навыка |
+| POST | `/api/clawhub/install` | Установить из ClawHub |
+| **MCP и A2A** | | |
+| GET | `/api/mcp/servers` | Соединения с MCP-серверами |
+| POST | `/mcp` | HTTP-транспорт MCP (JSON-RPC 2.0) |
+| GET | `/.well-known/agent.json` | Карточка агента A2A |
+| GET | `/a2a/agents` | Список агентов A2A |
+| POST | `/a2a/tasks/send` | Отправить задачу A2A |
+| GET | `/a2a/tasks/{id}` | Статус задачи A2A |
+| POST | `/a2a/tasks/{id}/cancel` | Отменить задачу A2A |
+| **Аудит и безопасность** | | |
+| GET | `/api/audit/recent` | Последние логи аудита |
+| GET | `/api/audit/verify` | Проверить цепочку Меркла |
+| GET | `/api/security` | Статус безопасности (16 систем) |
+| **Использование и аналитика** | | |
+| GET | `/api/usage` | Статистика использования |
+| GET | `/api/usage/summary` | Сводка использования с квотой |
+| GET | `/api/usage/by-model` | Использование с разбивкой по моделям |
+| **Миграция** | | |
+| GET | `/api/migrate/detect` | Обнаружить источники миграции |
+| POST | `/api/migrate/scan` | Сканировать на наличие данных |
+| POST | `/api/migrate` | Запустить миграцию |
 | **OpenAI Compatible** | | |
-| POST | `/v1/chat/completions` | OpenAI-compatible chat |
-| GET | `/v1/models` | OpenAI-compatible model list |
+| POST | `/v1/chat/completions` | OpenAI-совместимый чат |
+| GET | `/v1/models` | Список моделей (OpenAI формат) |

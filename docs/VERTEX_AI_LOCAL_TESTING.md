@@ -1,60 +1,60 @@
-# Vertex AI Local Testing Guide
+# Руководство по локальному тестированию Vertex AI
 
-## Prerequisites
+## Предварительные условия
 
-1. **GCP Service Account JSON** at `C:\Users\at384\Downloads\osc\dbg-grcit-dev-e1-c79e5571a5a7.json`
-2. **gcloud CLI** installed and in PATH
-3. **Rust toolchain** with cargo
+1. **JSON сервисного аккаунта GCP** по адресу `C:\Users\at384\Downloads\osc\dbg-grcit-dev-e1-c79e5571a5a7.json`
+2. **gcloud CLI** установлен и добавлен в PATH
+3. **Rust toolchain** с установленным cargo
 
-## Quick Start (Recommended)
+## Быстрый старт (рекомендуется)
 
-### Option 1: Use the Batch File
+### Вариант 1: Использование пакетного файла
 
 ```batch
-# Run this from the openfang directory:
+# Запустите это из директории openfang:
 start-vertex.bat
 ```
 
-This automatically:
-- Clears proxy settings
-- Sets `GOOGLE_APPLICATION_CREDENTIALS`
-- Pre-fetches OAuth token via `gcloud auth print-access-token`
-- Sets `VERTEX_AI_ACCESS_TOKEN` env var
-- Starts OpenFang
+Это автоматически:
+- Очистит настройки прокси.
+- Установит `GOOGLE_APPLICATION_CREDENTIALS`.
+- Получит токен OAuth через `gcloud auth print-access-token`.
+- Установит переменную окружения `VERTEX_AI_ACCESS_TOKEN`.
+- Запустит OpenFang.
 
-### Option 2: Manual PowerShell Setup
+### Вариант 2: Ручная настройка PowerShell
 
 ```powershell
-# 1. Kill any existing instances
+# 1. Завершите работу всех существующих экземпляров
 taskkill /F /IM openfang.exe 2>$null
 
-# 2. Set environment variables (CRITICAL: clear proxy!)
+# 2. Установите переменные окружения (ВАЖНО: очистите прокси!)
 $env:HTTPS_PROXY = ""
 $env:HTTP_PROXY = ""
 $env:GOOGLE_APPLICATION_CREDENTIALS = "C:\Users\at384\Downloads\osc\dbg-grcit-dev-e1-c79e5571a5a7.json"
 
-# 3. Pre-fetch OAuth token (IMPORTANT: avoids subprocess issues on Windows)
+# 3. Предварительно получите токен OAuth (ВАЖНО: позволяет избежать проблем с подпроцессами в Windows)
 $env:VERTEX_AI_ACCESS_TOKEN = gcloud auth print-access-token
 
-# 4. Start OpenFang
+# 4. Запустите OpenFang
 cd C:\Users\at384\Downloads\osc\dllm\openfang
 .\target\debug\openfang.exe start
 ```
 
-## Testing the API
+## Тестирование API
 
-### Create an Agent
+### Создание агента
 
 ```powershell
 $env:HTTPS_PROXY = ""
 $env:HTTP_PROXY = ""
 
-# Spawn agent with default Vertex AI provider (from config.toml)
+# Создание агента с провайдером Vertex AI по умолчанию (из config.toml)
 $body = '{"manifest_toml":"name = \"test-agent\"\nmode = \"assistant\""}'
 Invoke-RestMethod -Uri "http://127.0.0.1:50051/api/agents" -Method POST -ContentType "application/json" -Body $body
 ```
 
-### Send Chat Request
+### Отправка запроса в чат
 
 ```powershell
 $env:HTTPS_PROXY = ""
@@ -65,7 +65,7 @@ $response = Invoke-RestMethod -Uri "http://127.0.0.1:50051/v1/chat/completions" 
 Write-Host $response.choices[0].message.content
 ```
 
-### Direct Vertex AI Test (Bypass OpenFang)
+### Прямой тест Vertex AI (минуя OpenFang)
 
 ```powershell
 $env:HTTPS_PROXY = ""
@@ -81,7 +81,7 @@ $body = @{contents = @(@{role = "user"; parts = @(@{text = "Hello!"})})} | Conve
 Invoke-RestMethod -Uri $url -Method POST -Headers @{Authorization = "Bearer $token"} -ContentType "application/json" -Body $body
 ```
 
-## Configuration
+## Конфигурация
 
 ### ~/.openfang/config.toml
 
@@ -97,75 +97,75 @@ decay_rate = 0.05
 listen_addr = "127.0.0.1:4200"
 ```
 
-## Environment Variables
+## Переменные окружения
 
-| Variable | Purpose | Required |
+| Переменная | Назначение | Обязательно |
 |----------|---------|----------|
-| `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON | Yes |
-| `VERTEX_AI_ACCESS_TOKEN` | Pre-fetched OAuth token (bypasses gcloud subprocess) | Recommended on Windows |
-| `GOOGLE_CLOUD_PROJECT` | Override project ID | No (auto-detected from JSON) |
-| `GOOGLE_CLOUD_REGION` / `VERTEX_AI_REGION` | Override region | No (defaults to us-central1) |
-| `HTTPS_PROXY` / `HTTP_PROXY` | **MUST be empty** for local testing | Critical |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Путь к JSON сервисного аккаунта | Да |
+| `VERTEX_AI_ACCESS_TOKEN` | Предварительно полученный токен OAuth (обходит подпроцесс gcloud) | Рекомендуется для Windows |
+| `GOOGLE_CLOUD_PROJECT` | Переопределение ID проекта | Нет (автоматически определяется из JSON) |
+| `GOOGLE_CLOUD_REGION` / `VERTEX_AI_REGION` | Переопределение региона | Нет (по умолчанию us-central1) |
+| `HTTPS_PROXY` / `HTTP_PROXY` | **Должны быть пустыми** для локального тестирования | Критично |
 
-## Troubleshooting
+## Устранение неполадок
 
-### "Agent processing failed" (500 Error)
+### "Agent processing failed" (Ошибка 500)
 
-**Cause:** gcloud subprocess not working properly on Windows.
+**Причина:** Подпроцесс gcloud не работает должным образом в Windows.
 
-**Solution:** Pre-fetch the token:
+**Решение:** Предварительно получите токен:
 ```powershell
 $env:VERTEX_AI_ACCESS_TOKEN = gcloud auth print-access-token
 ```
 
-### "Connection refused"
+### "Connection refused" (В соединении отказано)
 
-**Cause:** OpenFang not running or wrong port.
+**Причина:** OpenFang не запущен или указан неверный порт.
 
-**Solution:** Ensure server is running on port 50051:
+**Решение:** Убедитесь, что сервер запущен на порту 50051:
 ```powershell
 Get-NetTCPConnection -LocalPort 50051 -ErrorAction SilentlyContinue
 ```
 
-### Token Expired
+### Токен истек
 
-**Cause:** OAuth tokens expire after ~1 hour.
+**Причина:** Токены OAuth истекают примерно через 1 час.
 
-**Solution:** Re-fetch token:
+**Решение:** Получите токен повторно:
 ```powershell
 $env:VERTEX_AI_ACCESS_TOKEN = gcloud auth print-access-token
 ```
 
-## Build Commands
+## Команды сборки
 
 ```powershell
 cd C:\Users\at384\Downloads\osc\dllm\openfang
 $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
 
-# Debug build (faster compilation)
+# Дебаг-сборка (более быстрая компиляция)
 cargo build -p openfang-cli
 
-# Run tests
+# Запуск тестов
 cargo test -p openfang-runtime --lib vertex
 
-# Check formatting
+# Проверка форматирования
 cargo fmt --check -p openfang-runtime
 
-# Run clippy
+# Запуск clippy
 cargo clippy -p openfang-runtime --lib -- -W warnings
 ```
 
-## API Endpoints
+## Конечные точки API
 
-| Endpoint | Method | Purpose |
+| Эндпоинт | Метод | Назначение |
 |----------|--------|---------|
-| `http://127.0.0.1:50051/api/agents` | GET | List agents |
-| `http://127.0.0.1:50051/api/agents` | POST | Create agent |
-| `http://127.0.0.1:50051/api/agents/{id}` | DELETE | Delete agent |
-| `http://127.0.0.1:50051/v1/chat/completions` | POST | OpenAI-compatible chat |
-| `http://127.0.0.1:50051/` | GET | Dashboard UI |
+| `http://127.0.0.1:50051/api/agents` | GET | Список агентов |
+| `http://127.0.0.1:50051/api/agents` | POST | Создание агента |
+| `http://127.0.0.1:50051/api/agents/{id}` | DELETE | Удаление агента |
+| `http://127.0.0.1:50051/v1/chat/completions` | POST | OpenAI-совместимый чат |
+| `http://127.0.0.1:50051/` | GET | Интерфейс дашборда |
 
-## Files Modified in PR
+## Файлы, измененные в PR
 
-- `crates/openfang-runtime/src/drivers/vertex.rs` (NEW - ~790 lines)
-- `crates/openfang-runtime/src/drivers/mod.rs` (+62 lines)
+- `crates/openfang-runtime/src/drivers/vertex.rs` (НОВЫЙ - ~790 строк)
+- `crates/openfang-runtime/src/drivers/mod.rs` (+62 строки)

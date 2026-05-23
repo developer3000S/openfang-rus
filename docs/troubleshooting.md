@@ -1,132 +1,54 @@
-# Troubleshooting & FAQ
+# Устранение неполадок и FAQ
 
-Common issues, diagnostics, and answers to frequently asked questions about OpenFang.
+Общие проблемы, диагностика и ответы на часто задаваемые вопросы об OpenFang.
 
-## Table of Contents
+## Содержание
 
-- [Quick Diagnostics](#quick-diagnostics)
-- [Installation Issues](#installation-issues)
-- [Configuration Issues](#configuration-issues)
-- [LLM Provider Issues](#llm-provider-issues)
-- [Channel Issues](#channel-issues)
-- [Agent Issues](#agent-issues)
-- [API Issues](#api-issues)
-- [Desktop App Issues](#desktop-app-issues)
-- [Performance](#performance)
+- [Быстрая диагностика](#quick-diagnostics)
+- [Проблемы при установке](#installation-issues)
+- [Проблемы с конфигурацией](#configuration-issues)
+- [Проблемы с провайдерами LLM](#llm-provider-issues)
+- [Проблемы с каналами](#channel-issues)
+- [Проблемы с агентами](#agent-issues)
+- [Проблемы с API](#api-issues)
+- [Проблемы с десктопным приложением](#desktop-app-issues)
+- [Производительность](#performance)
 - [FAQ](#faq)
 
 ---
 
-## Quick Diagnostics
+<a name="quick-diagnostics"></a>
+## Быстрая диагностика
 
-## Проблемы с каналами
-
-### Telegram: бот не отвечает
-
-Проверьте:
-
-1. Токен бота установлен: `echo $TELEGRAM_BOT_TOKEN`
-2. Бот активирован (отправьте `/start` в чате)
-3. Если задано `allowed_users`, ваш Telegram ID присутствует в списке
-4. Просмотрите логи адаптера Telegram
-
-### Discord: бот оффлайн
-
-Проверьте:
-
-1. Токен корректен
-2. Включён Message Content Intent в настройках приложения Discord
-3. Бот приглашён на сервер с нужными правами
-4. Проверьте подключение Gateway в логах
-
-### Slack: бот не получает сообщения
-
-Проверьте:
-
-1. Установлены `SLACK_BOT_TOKEN` (xoxb-) и `SLACK_APP_TOKEN` (xapp-)
-2. Включён Socket Mode в настройках Slack-приложения
-3. Бот добавлен в каналы
-4. Требуемые scopes: `chat:write`, `app_mentions:read`, `im:history`, `im:read`, `im:write`
-
-### Вебхуки (WhatsApp, LINE, Viber и пр.)
-
-Проверьте:
-
-1. Сервер доступен публично или используйте туннель (ngrok)
-2. Webhook URL правильно сконфигурирован на платформе
-3. Порт открыт и не блокируется фаерволом
-4. Токен совпадает с настройками платформы
-
-### "Adapter failed to start"
-
-Причины:
-
-- Отсутствует или некорректен токен
-- Порт уже занят (для webhook-сервисов)
-- Сетевые проблемы
-
-Проверьте логи с повышенной детализацией:
+Запустите встроенный инструмент диагностики для автоматической проверки вашего окружения:
 
 ```bash
-RUST_LOG=openfang_channels=debug openfang start
+openfang doctor
+```
+
+Для автоматического исправления обнаруженных проблем используйте:
+
+```bash
+openfang doctor --repair
 ```
 
 ---
 
-## Проблемы с агентами
+<a name="installation-issues"></a>
+## Проблемы при установке
 
-### Агент зациклился
+### Ошибки Docker
 
-Причина: агент многократно вызывает один и тот же инструмент с одинаковыми параметрами.
+**Общие причины**:
+- Не указан API-ключ: `docker run -e GROQ_API_KEY=... ghcr.io/RightNow-AI/openfang`
+- Порт уже занят: измените маппинг портов `-p 3001:4200`
+- Отказано в доступе при монтировании тома: проверьте права доступа к директории
 
-Защита: OpenFang имеет loop guard:
+### Подключение к сервисам хоста из Docker
 
-- Предупреждение при 3 одинаковых вызовах
-- Блокировка при 5 одинаковых вызовах
-- Circuit breaker при 30 заблокированных вызовах (останов агента)
+Если вы запускаете OpenFang внутри Docker и вам нужно достучаться до сервиса, запущенного на хосте (Ollama на `127.0.0.1:11434`, whisper.cpp на `127.0.0.1:8090`, локальный Postgres и т. д.), `localhost` внутри контейнера указывает на сам контейнер, а не на хост. Вам необходимо включить мост к хосту.
 
-Ручная остановка запущенной задачи:
-
-```bash
-curl -X POST http://127.0.0.1:4200/api/agents/{id}/stop
-```
-
-Или через чат: `/stop`
-
-### Агент исчерпал контекст
-
-Причина: история переписки превысила окно контекста модели.
-
-Решение: компактировать сессию:
-
-```bash
-curl -X POST http://127.0.0.1:4200/api/agents/{id}/session/compact
-```
-
-Или: `/compact` в чате. Авто-компакция включена по умолчанию и настраивается в `[compaction]`.
-
-### Агент не использует инструменты
-
-Причина: инструменты не перечислены в возможностях агента (capabilities).
-
-Решение: проверьте манифест агента:
-```toml
-
-**Common causes**:
-- No API key provided: `docker run -e GROQ_API_KEY=... ghcr.io/RightNow-AI/openfang`
-- Port already in use: change the port mapping `-p 3001:4200`
-- Permission denied on volume mount: check directory permissions
-
-### Connecting to host services from Docker
-
-If you run OpenFang inside Docker and need to reach a service running on the
-host (Ollama on `127.0.0.1:11434`, whisper.cpp on `127.0.0.1:8090`, a local
-Postgres, etc.), `localhost` inside the container points at the container
-itself, not the host. You must opt in to the host bridge.
-
-On Docker Desktop (macOS/Windows) `host.docker.internal` resolves
-automatically. On Linux and on colima (macOS) it does not, and you must add
-the flag explicitly:
+В Docker Desktop (macOS/Windows) `host.docker.internal` разрешается автоматически. В Linux и colima (macOS) этого не происходит, и вы должны явно добавить флаг:
 
 ```bash
 docker run --rm \
@@ -136,14 +58,14 @@ docker run --rm \
   ghcr.io/rightnow-ai/openfang:latest
 ```
 
-Verify the bridge works:
+Проверьте работоспособность моста:
 
 ```bash
 docker exec <container> getent hosts host.docker.internal
 # 192.168.x.x  host.docker.internal
 ```
 
-For Docker Compose use `extra_hosts:`:
+Для Docker Compose используйте `extra_hosts:`:
 
 ```yaml
 services:
@@ -157,15 +79,11 @@ services:
       - OLLAMA_HOST=http://host.docker.internal:11434
 ```
 
-Without this flag on Linux/colima, calls to host services fail silently with
-connection refused or DNS lookup errors.
+Без этого флага в Linux/colima вызовы к сервисам хоста будут завершаться ошибкой "connection refused" или ошибками поиска DNS.
 
-### Curl-equipped reference image
+### Образ с предустановленным curl
 
-The default `ghcr.io/rightnow-ai/openfang` image does not ship `curl`, so
-`docker exec openfang curl ...` returns `exec: curl: not found`. If you need
-in-container probes for healthchecks or egress verification, build a thin
-overlay image:
+Базовый образ `ghcr.io/rightnow-ai/openfang` не содержит `curl`, поэтому команда `docker exec openfang curl ...` вернет `exec: curl: not found`. Если вам нужны проверки внутри контейнера (healthchecks), соберите тонкий слой поверх базового образа:
 
 ```dockerfile
 # Dockerfile.curl
@@ -176,66 +94,64 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 ```
 
-Build and run:
+Сборка и запуск:
 
 ```bash
 docker build -f Dockerfile.curl -t openfang-curl:latest .
 docker run --rm openfang-curl:latest curl -s https://example.com
 ```
 
-Use this variant when you need `HEALTHCHECK` directives or in-container
-diagnostics. The base image stays slim by default.
+Используйте этот вариант, если вам нужны директивы `HEALTHCHECK` или диагностика внутри контейнера.
 
 ---
 
-## Configuration Issues
+<a name="configuration-issues"></a>
+## Проблемы с конфигурацией
 
-### "Config file not found"
+### "Config file not found" (Файл конфигурации не найден)
 
-**Fix**: Run `openfang init` to create the default config:
+**Решение**: Запустите `openfang init` для создания конфигурации по умолчанию:
 ```bash
 openfang init
 ```
+Это создаст `~/.openfang/config.toml` с разумными настройками.
 
-This creates `~/.openfang/config.toml` with sensible defaults.
+### Предупреждения "Missing API key" при запуске
 
-### "Missing API key" warnings on start
+**Причина**: В окружении не найден API-ключ провайдера LLM.
 
-**Cause**: No LLM provider API key found in environment.
-
-**Fix**: Set at least one provider key:
+**Решение**: Установите хотя бы один ключ провайдера:
 ```bash
-export GROQ_API_KEY="gsk_..."     # Groq (free tier available)
-# OR
+export GROQ_API_KEY="gsk_..."     # Groq (есть бесплатный уровень)
+# ИЛИ
 export ANTHROPIC_API_KEY="sk-ant-..."
-# OR
+# ИЛИ
 export OPENAI_API_KEY="sk-..."
 ```
+Добавьте это в профиль вашей оболочки (shell profile), чтобы настройки сохранялись между сессиями.
 
-Add to your shell profile to persist across sessions.
+### Ошибки валидации конфига
 
-### Config validation errors
-
-Run validation manually:
+Запустите проверку вручную:
 ```bash
 openfang config show
 ```
 
-Common issues:
-- Malformed TOML syntax (use a TOML validator)
-- Invalid port numbers (must be 1-65535)
-- Missing required fields in channel configs
+Общие проблемы:
+- Некорректный синтаксис TOML (используйте валидатор TOML)
+- Недопустимые номера портов (должны быть в диапазоне 1-65535)
+- Отсутствие обязательных полей в конфигурациях каналов
 
-### "Port already in use"
+### "Port already in use" (Порт уже занят)
 
-**Fix**: Change the port in config or kill the existing process:
+**Решение**: Измените порт в конфиге или завершите существующий процесс:
 ```bash
-# Change API port
-# In config.toml:
+# Смена порта API
+# В config.toml:
 # [api]
 # listen_addr = "127.0.0.1:3001"
 
-# Or find and kill the process using the port
+# Или найдите и завершите процесс, использующий порт
 # Linux/macOS:
 lsof -i :4200
 # Windows:
@@ -244,299 +160,300 @@ netstat -aon | findstr :4200
 
 ---
 
-## LLM Provider Issues
+<a name="llm-provider-issues"></a>
+## Проблемы с провайдерами LLM
 
-### "Authentication failed" / 401 errors
+### "Authentication failed" / Ошибки 401
 
-**Causes**:
-- API key not set or incorrect
-- API key expired or revoked
-- Wrong env var name
+**Причины**:
+- API-ключ не установлен или неверен
+- Срок действия ключа истек или он отозван
+- Неверное имя переменной окружения
 
-**Fix**: Verify your key:
+**Решение**: Проверьте ваш ключ:
 ```bash
-# Check if the env var is set
+# Проверьте, установлена ли переменная
 echo $GROQ_API_KEY
 
-# Test the provider
+# Протестируйте провайдера
 curl http://127.0.0.1:4200/api/providers/groq/test -X POST
 ```
 
-### "Rate limited" / 429 errors
+### "Rate limited" / Ошибки 429
 
-**Cause**: Too many requests to the LLM provider.
+**Причина**: Слишком много запросов к провайдеру LLM.
 
-**Fix**:
-- The driver automatically retries with exponential backoff
-- Reduce `max_llm_tokens_per_hour` in agent capabilities
-- Switch to a provider with higher rate limits
-- Use multiple providers with model routing
+**Решение**:
+- Драйвер автоматически повторяет попытку с экспоненциальной задержкой.
+- Уменьшите `max_llm_tokens_per_hour` в возможностях агента.
+- Переключитесь на провайдера с более высокими лимитами.
+- Используйте нескольких провайдеров с маршрутизацией моделей.
 
-### Slow responses
+### Медленные ответы
 
-**Possible causes**:
-- Provider API latency (try Groq for fast inference)
-- Large context window (use `/compact` to shrink session)
-- Complex tool chains (check iteration count in response)
+**Возможные причины**:
+- Задержка API провайдера (используйте Groq для быстрого вывода).
+- Большое окно контекста (используйте `/compact` для сжатия сессии).
+- Сложные цепочки инструментов (проверьте количество итераций в ответе).
 
-**Fix**: Use per-agent model overrides to use faster models for simple agents:
+**Решение**: Используйте переопределение моделей для конкретных агентов, чтобы использовать более быстрые модели для простых задач:
 ```toml
 [model]
 provider = "groq"
-model = "llama-3.1-8b-instant"  # Fast, small model
+model = "llama-3.1-8b-instant"  # Быстрая маленькая модель
 ```
 
-### "Model not found"
+### "Model not found" (Модель не найдена)
 
-**Fix**: Check available models:
+**Решение**: Проверьте доступные модели:
 ```bash
 curl http://127.0.0.1:4200/api/models
 ```
-
-Or use an alias:
+Или используйте алиас:
 ```toml
 [model]
-model = "llama"  # Alias for llama-3.3-70b-versatile
+model = "llama"  # Алиас для llama-3.3-70b-versatile
 ```
-
-See the full alias list:
+Полный список алиасов:
 ```bash
 curl http://127.0.0.1:4200/api/models/aliases
 ```
 
-### Ollama / local models not connecting
+### Проблемы с подключением Ollama / локальных моделей
 
-**Fix**: Ensure the local server is running:
+**Решение**: Убедитесь, что локальный сервер запущен:
 ```bash
 # Ollama
-ollama serve  # Default: http://localhost:11434
+ollama serve  # По умолчанию: http://localhost:11434
 
 # vLLM
 python -m vllm.entrypoints.openai.api_server --model ...
 
 # LM Studio
-# Start from the LM Studio UI, enable API server
+# Запустите из интерфейса LM Studio, включите API сервер
 ```
 
 ---
 
-## Channel Issues
+<a name="channel-issues"></a>
+## Проблемы с каналами
 
-### Telegram bot not responding
+### Telegram: бот не отвечает
 
-**Checklist**:
-1. Bot token is correct: `echo $TELEGRAM_BOT_TOKEN`
-2. Bot has been started (send `/start` in Telegram)
-3. If `allowed_users` is set, your Telegram user ID is in the list
-4. Check logs for "Telegram adapter" messages
+Проверьте:
+1. Токен бота установлен верно: `echo $TELEGRAM_BOT_TOKEN`
+2. Бот активирован (отправьте `/start` в чате)
+3. Если задано `allowed_users`, ваш Telegram ID присутствует в списке
+4. Просмотрите логи адаптера Telegram
 
-### Discord bot offline
+### Discord: бот оффлайн
 
-**Checklist**:
-1. Bot token is correct
-2. **Message Content Intent** is enabled in Discord Developer Portal
-3. Bot has been invited to the server with correct permissions
-4. Check Gateway connection in logs
+Проверьте:
+1. Токен корректен
+2. Включён **Message Content Intent** в настройках приложения в Discord Developer Portal
+3. Бот приглашён на сервер с нужными правами
+4. Проверьте подключение Gateway в логах
 
-### Slack bot not receiving messages
+### Slack: бот не получает сообщения
 
-**Checklist**:
-1. Both `SLACK_BOT_TOKEN` (xoxb-) and `SLACK_APP_TOKEN` (xapp-) are set
-2. Socket Mode is enabled in the Slack app settings
-3. Bot has been added to the channels it should monitor
-4. Required scopes: `chat:write`, `app_mentions:read`, `im:history`, `im:read`, `im:write`
+Проверьте:
+1. Установлены `SLACK_BOT_TOKEN` (xoxb-) и `SLACK_APP_TOKEN` (xapp-)
+2. Включён Socket Mode в настройках Slack-приложения
+3. Бот добавлен в каналы, которые он должен мониторить
+4. Требуемые scopes: `chat:write`, `app_mentions:read`, `im:history`, `im:read`, `im:write`
 
-### Webhook-based channels (WhatsApp, LINE, Viber, etc.)
+### Вебхуки (WhatsApp, LINE, Viber и пр.)
 
-**Checklist**:
-1. Your server is publicly accessible (or use a tunnel like ngrok)
-2. Webhook URL is correctly configured in the platform dashboard
-3. Webhook port is open and not blocked by firewall
-4. Verify token matches between config and platform dashboard
+Проверьте:
+1. Ваш сервер доступен публично (или используйте туннель, например ngrok)
+2. Webhook URL правильно сконфигурирован на платформе
+3. Порт вебхука открыт и не блокируется фаерволом
+4. Токен совпадает в настройках OpenFang и платформы
 
-### "Channel adapter failed to start"
+### "Adapter failed to start" (Ошибка запуска адаптера)
 
-**Common causes**:
-- Missing or invalid token
-- Port already in use (for webhook-based channels)
-- Network connectivity issues
+Причины:
+- Отсутствует или некорректен токен
+- Порт уже занят (для webhook-сервисов)
+- Сетевые проблемы
 
-Check logs for the specific error:
+Проверьте логи с повышенной детализацией:
 ```bash
 RUST_LOG=openfang_channels=debug openfang start
 ```
 
 ---
 
-## Agent Issues
+<a name="agent-issues"></a>
+## Проблемы с агентами
 
-### Agent stuck in a loop
+### Агент зациклился
 
-**Cause**: The agent is repeatedly calling the same tool with the same parameters.
+**Причина**: Агент многократно вызывает один и тот же инструмент с одинаковыми параметрами.
 
-**Automatic protection**: OpenFang has a built-in loop guard:
-- **Warn** at 3 identical tool calls
-- **Block** at 5 identical tool calls
-- **Circuit breaker** at 30 total blocked calls (stops the agent)
+**Автоматическая защита**: OpenFang имеет встроенный "loop guard":
+- **Предупреждение** при 3 одинаковых вызовах инструмента
+- **Блокировка** при 5 одинаковых вызовах
+- **Circuit breaker** при 30 заблокированных вызовах (остановка агента)
 
-**Manual fix**: Cancel the agent's current run:
+**Ручное исправление**: Остановите текущую задачу агента:
 ```bash
 curl -X POST http://127.0.0.1:4200/api/agents/{id}/stop
 ```
+Или через чат: `/stop`
 
-Or via chat command: `/stop`
+### Агент исчерпал контекст
 
-### Agent running out of context
+**Причина**: История переписки превысила окно контекста модели.
 
-**Cause**: Conversation history is too long for the model's context window.
-
-**Fix**: Compact the session:
+**Решение**: Компактировать (сжать) сессию:
 ```bash
 curl -X POST http://127.0.0.1:4200/api/agents/{id}/session/compact
 ```
+Или `/compact` в чате. Авто-компакция включена по умолчанию (настраивается в `[compaction]`).
 
-Or via chat command: `/compact`
+### Агент не использует инструменты
 
-Auto-compaction is enabled by default when the session reaches the threshold (configurable in `[compaction]`).
+**Причина**: Инструменты не разрешены в возможностях агента (capabilities).
 
-### Agent not using tools
-
-**Cause**: Tools not granted in the agent's capabilities.
-
-**Fix**: Check the agent's manifest:
+**Решение**: Проверьте манифест агента:
 ```toml
 [capabilities]
-tools = ["file_read", "web_fetch", "shell_exec"]  # Must list each tool
-# OR
-# tools = ["*"]  # Grant all tools (use with caution)
+tools = ["file_read", "web_fetch", "shell_exec"]  # Должен быть список каждого инструмента
+# ИЛИ
+# tools = ["*"]  # Разрешить все инструменты (используйте с осторожностью)
 ```
 
-### "Permission denied" errors in agent responses
+### Ошибки "Permission denied" в ответах агента
 
-**Cause**: The agent is trying to use a tool or access a resource not in its capabilities.
+**Причина**: Агент пытается использовать инструмент или получить доступ к ресурсу, который не указан в его возможностях.
 
-**Fix**: Add the required capability to the agent manifest. Common ones:
-- `tools = [...]` for tool access
-- `network = ["*"]` for network access
-- `memory_write = ["self.*"]` for memory writes
-- `shell = ["*"]` for shell commands (use with caution)
+**Решение**: Добавьте необходимую возможность в манифест агента. Основные:
+- `tools = [...]` для доступа к инструментам
+- `network = ["*"]` для доступа к сети
+- `memory_write = ["self.*"]` для записи в память
+- `shell = ["*"]` для выполнения shell-команд (с осторожностью)
 
-### Agent spawning fails
+### Ошибка создания (spawn) агента
 
-**Check**:
-1. TOML manifest is valid: `openfang agent spawn --dry-run manifest.toml`
-2. LLM provider is configured and has a valid key
-3. Model specified in manifest exists in the catalog
+Проверьте:
+1. Манифест TOML валиден: `openfang agent spawn --dry-run manifest.toml`
+2. Провайдер LLM настроен и имеет валидный ключ
+3. Модель, указанная в манифесте, существует в каталоге
 
 ---
 
-## API Issues
+<a name="api-issues"></a>
+## Проблемы с API
 
 ### 401 Unauthorized
 
-**Cause**: API key required but not provided.
+**Причина**: Требуется API-ключ, но он не предоставлен.
 
-**Fix**: Include the Bearer token:
+**Решение**: Добавьте Bearer токен:
 ```bash
 curl -H "Authorization: Bearer your-api-key" http://127.0.0.1:4200/api/agents
 ```
 
 ### 429 Too Many Requests
 
-**Cause**: GCRA rate limiter triggered.
+**Причина**: Сработал ограничитель частоты запросов GCRA.
 
-**Fix**: Wait for the `Retry-After` period, or increase rate limits in config:
+**Решение**: Подождите время, указанное в `Retry-After`, или увеличьте лимиты в конфиге:
 ```toml
 [api]
-rate_limit_per_second = 20  # Increase if needed
+rate_limit_per_second = 20  # Увеличьте при необходимости
 ```
 
-### CORS errors from browser
+### Ошибки CORS в браузере
 
-**Cause**: Trying to access API from a different origin.
+**Причина**: Попытка доступа к API с другого домена (origin).
 
-**Fix**: Add your origin to CORS config:
+**Решение**: Добавьте ваш домен в конфиг CORS:
 ```toml
 [api]
 cors_origins = ["http://localhost:5173", "https://your-app.com"]
 ```
 
-### WebSocket disconnects
+### Разрывы WebSocket соединений
 
-**Possible causes**:
-- Idle timeout (send periodic pings)
-- Network interruption (reconnect automatically)
-- Agent crashed (check logs)
+**Возможные причины**:
+- Тайм-аут простоя (отправляйте периодические пинги)
+- Сетевые сбои (реализуйте авто-переподключение)
+- Сбой агента (проверьте логи)
 
-**Client-side fix**: Implement reconnection logic with exponential backoff.
+**Решение на стороне клиента**: Реализуйте логику переподключения с экспоненциальной задержкой.
 
-### OpenAI-compatible API not working with my tool
+### OpenAI-совместимый API не работает с моим инструментом
 
-**Checklist**:
-1. Use `POST /v1/chat/completions` (not `/api/agents/{id}/message`)
-2. Set the model to `openfang:agent-name` (e.g., `openfang:coder`)
-3. Streaming: set `"stream": true` for SSE responses
-4. Images: use `image_url` with `data:image/png;base64,...` format
-
----
-
-## Desktop App Issues
-
-### App won't start
-
-**Checklist**:
-1. Only one instance can run at a time (single-instance enforcement)
-2. Check if the daemon is already running on the same ports
-3. Try deleting `~/.openfang/daemon.json` and restarting
-
-### White/blank screen in app
-
-**Cause**: The embedded API server hasn't started yet.
-
-**Fix**: Wait a few seconds. If persistent, check logs for server startup errors.
-
-### System tray icon missing
-
-**Platform-specific**:
-- **Linux**: Requires a system tray (e.g., `libappindicator` on GNOME)
-- **macOS**: Should work out of the box
-- **Windows**: Check notification area settings, may need to show hidden icons
+Проверьте:
+1. Используйте `POST /v1/chat/completions` (а не `/api/agents/{id}/message`)
+2. Укажите модель как `openfang:имя-агента` (например, `openfang:coder`)
+3. Потоковая передача: установите `"stream": true` для ответов SSE
+4. Изображения: используйте `image_url` в формате `data:image/png;base64,...`
 
 ---
 
-## Performance
+<a name="desktop-app-issues"></a>
+## Проблемы с десктопным приложением
 
-### High memory usage
+### Приложение не запускается
 
-**Tips**:
-- Reduce the number of concurrent agents
-- Use session compaction for long-running agents
-- Use smaller models (Llama 8B instead of 70B for simple tasks)
-- Clear old sessions: `DELETE /api/sessions/{id}`
+Проверьте:
+1. Одновременно может быть запущен только один экземпляр приложения
+2. Проверьте, не запущен ли уже демон на тех же портах
+3. Попробуйте удалить `~/.openfang/daemon.json` и перезапустить приложение
 
-### Slow startup
+### Белый/пустой экран в приложении
 
-**Normal startup**: <200ms for the kernel, ~1-2s with channel adapters.
+**Причина**: Встроенный сервер API еще не запустился.
 
-If slower:
-- Check database size (`~/.openfang/data/openfang.db`)
-- Reduce the number of enabled channels
-- Check network connectivity (MCP server connections happen at boot)
+**Решение**: Подождите несколько секунд. Если проблема сохраняется, проверьте логи на наличие ошибок запуска сервера.
 
-### High CPU usage
+### Отсутствует иконка в системном трее
 
-**Possible causes**:
-- WASM sandbox execution (fuel-limited, should self-terminate)
-- Multiple agents running simultaneously
-- Channel adapters reconnecting (exponential backoff)
+**Зависит от платформы**:
+- **Linux**: Требуется поддержка системного трея (например, `libappindicator` в GNOME)
+- **macOS**: Должно работать "из коробки"
+- **Windows**: Проверьте настройки области уведомлений, возможно, иконка скрыта
 
 ---
 
+<a name="performance"></a>
+## Производительность
+
+### Высокое потребление памяти
+
+**Советы**:
+- Уменьшите количество одновременно работающих агентов
+- Используйте сжатие сессий (compaction) для долгоживущих агентов
+- Используйте модели меньшего размера (Llama 8B вместо 70B для простых задач)
+- Удаляйте старые сессии: `DELETE /api/sessions/{id}`
+
+### Медленный запуск
+
+**Нормальный запуск**: <200 мс для ядра, ~1-2 с с адаптерами каналов.
+
+Если дольше:
+- Проверьте размер базы данных (`~/.openfang/data/openfang.db`)
+- Уменьшите количество включенных каналов
+- Проверьте сетевое соединение (подключения к MCP серверам происходят при загрузке)
+
+### Высокая загрузка CPU
+
+**Возможные причины**:
+- Выполнение в песочнице WASM (ограничено лимитом "топлива", должно завершаться само)
+- Одновременная работа нескольких агентов
+- Переподключение адаптеров каналов (экспоненциальная задержка)
+
+---
+
+<a name="faq"></a>
 ## FAQ
 
-### How do I switch the default LLM provider?
+### Как сменить провайдера LLM по умолчанию?
 
-Edit `~/.openfang/config.toml`:
+Отредактируйте `~/.openfang/config.toml`:
 ```toml
 [default_model]
 provider = "groq"
@@ -544,126 +461,125 @@ model = "llama-3.3-70b-versatile"
 api_key_env = "GROQ_API_KEY"
 ```
 
-### Can I use multiple providers at the same time?
+### Можно ли использовать несколько провайдеров одновременно?
 
-Yes. Each agent can use a different provider via its manifest `[model]` section. The kernel creates a dedicated driver per unique provider configuration.
+Да. Каждый агент может использовать своего провайдера через секцию `[model]` в своем манифесте. Ядро создает отдельный драйвер для каждой уникальной конфигурации провайдера.
 
-### How do I add a new channel?
+### Как добавить новый канал?
 
-1. Add the channel config to `~/.openfang/config.toml` under `[channels]`
-2. Set the required environment variables (tokens, secrets)
-3. Restart the daemon
+1. Добавьте конфигурацию канала в `~/.openfang/config.toml` в раздел `[channels]`
+2. Установите необходимые переменные окружения (токены, секреты)
+3. Перезапустите демон
 
-### How do I update OpenFang?
+### Как обновить OpenFang?
 
 ```bash
-# From source
+# Из исходников
 cd openfang && git pull && cargo install --path crates/openfang-cli
 
 # Docker
 docker pull ghcr.io/RightNow-AI/openfang:latest
 ```
 
-### Can agents talk to each other?
+### Могут ли агенты общаться друг с другом?
 
-Yes. Agents can use the `agent_send`, `agent_spawn`, `agent_find`, and `agent_list` tools to communicate. The orchestrator template is specifically designed for multi-agent delegation.
+Да. Агенты могут использовать инструменты `agent_send`, `agent_spawn`, `agent_find` и `agent_list` для взаимодействия. Шаблон `orchestrator` специально разработан для делегирования задач между агентами.
 
-### Is my data sent to the cloud?
+### Отправляются ли мои данные в облако?
 
-Only LLM API calls go to the provider's servers. All agent data, memory, sessions, and configuration are stored locally in SQLite (`~/.openfang/data/openfang.db`). The OFP wire protocol uses HMAC-SHA256 mutual authentication for P2P communication.
+Только вызовы LLM API отправляются на серверы провайдеров. Все данные агентов, память, сессии и конфигурация хранятся локально в SQLite (`~/.openfang/data/openfang.db`). Протокол OFP использует взаимную аутентификацию HMAC-SHA256 для P2P-связи.
 
-### How do I back up my data?
+### Как сделать резервную копию данных?
 
-Back up these files:
-- `~/.openfang/config.toml` (configuration)
-- `~/.openfang/data/openfang.db` (all agent data, memory, sessions)
-- `~/.openfang/skills/` (installed skills)
+Создайте копии следующих файлов:
+- `~/.openfang/config.toml` (конфигурация)
+- `~/.openfang/data/openfang.db` (все данные агентов, память, сессии)
+- `~/.openfang/skills/` (установленные навыки)
 
-### How do I reset everything?
+### Как сбросить всё до заводских настроек?
 
 ```bash
 rm -rf ~/.openfang
-openfang init  # Start fresh
+openfang init  # Начните с чистого листа
 ```
 
-### Can I run OpenFang without an internet connection?
+### Можно ли запустить OpenFang без подключения к интернету?
 
-Yes, if you use a local LLM provider:
+Да, если вы используете локального провайдера LLM:
 - **Ollama**: `ollama serve` + `ollama pull llama3.2`
-- **vLLM**: Self-hosted model server
-- **LM Studio**: GUI-based local model runner
+- **vLLM**: Собственный сервер моделей
+- **LM Studio**: Локальный запуск моделей с графическим интерфейсом
 
-Set the provider in config:
+Укажите провайдера в конфиге:
 ```toml
 [default_model]
 provider = "ollama"
 model = "llama3.2"
 ```
 
-### What's the difference between OpenFang and OpenClaw?
+### В чем разница между OpenFang и OpenClaw?
 
-| Aspect | OpenFang | OpenClaw |
+| Аспект | OpenFang | OpenClaw |
 |--------|----------|----------|
-| Language | Rust | Python |
-| Channels | 40 | 38 |
-| Skills | 60 | 57 |
-| Providers | 20 | 3 |
-| Security | 16 systems | Config-based |
-| Binary size | ~30 MB | ~200 MB |
-| Startup | <200 ms | ~3 s |
+| Язык | Rust | Python |
+| Каналы | 40 | 38 |
+| Навыки | 60 | 57 |
+| Провайдеры | 20 | 3 |
+| Безопасность | 16 систем | На основе конфига |
+| Размер бинарного файла | ~30 МБ | ~200 МБ |
+| Время запуска | <200 мс | ~3 с |
 
-OpenFang can import OpenClaw configs: `openfang migrate --from openclaw`
+OpenFang может импортировать конфиги OpenClaw: `openfang migrate --from openclaw`
 
-### How do I report a bug or request a feature?
+### Как сообщить о баге или предложить фичу?
 
-- Bugs: Open an issue on GitHub
-- Security: See [SECURITY.md](../SECURITY.md) for responsible disclosure
-- Features: Open a GitHub discussion or PR
+- Баги: Откройте issue на GitHub
+- Безопасность: См. [SECURITY.md](../SECURITY.md) для ответственного разглашения
+- Фичи: Откройте обсуждение на GitHub или создайте PR
 
-### What are the system requirements?
+### Каковы системные требования?
 
-| Resource | Minimum | Recommended |
+| Ресурс | Минимум | Рекомендуется |
 |----------|---------|-------------|
-| RAM | 128 MB | 512 MB |
-| Disk | 50 MB (binary) | 500 MB (with data) |
-| CPU | Any x86_64/ARM64 | 2+ cores |
-| OS | Linux, macOS, Windows | Any |
-| Rust | 1.75+ (build only) | Latest stable |
+| RAM | 128 МБ | 512 МБ |
+| Диск | 50 МБ (бинарник) | 500 МБ (с данными) |
+| CPU | Любой x86_64/ARM64 | 2+ ядра |
+| ОС | Linux, macOS, Windows | Любая |
+| Rust | 1.75+ (только для сборки) | Последний стабильный |
 
-### How do I enable debug logging for a specific crate?
+### Как включить отладочные логи для конкретного крейта?
 
 ```bash
 RUST_LOG=openfang_runtime=debug,openfang_channels=info openfang start
 ```
 
-### Can I use OpenFang as a library?
+### Можно ли использовать OpenFang как библиотеку?
 
-Yes. Each crate is independently usable:
+Да. Каждый крейт можно использовать независимо:
 ```toml
 [dependencies]
 openfang-runtime = { path = "crates/openfang-runtime" }
 openfang-memory = { path = "crates/openfang-memory" }
 ```
-
-The `openfang-kernel` crate assembles everything, but you can use individual crates for custom integrations.
+Крейт `openfang-kernel` собирает всё воедино, но вы можете использовать отдельные крейты для кастомных интеграций.
 
 ---
 
-## Common Community Questions
+## Частые вопросы сообщества
 
-### How do I update OpenFang?
+### Как обновить OpenFang?
 
-Re-run the install script to get the latest release:
+Запустите скрипт установки повторно, чтобы получить последнюю версию:
 ```bash
 curl -fsSL https://openfang.sh/install | sh
 ```
-Or build from source:
+Или соберите из исходников:
 ```bash
 git pull origin main
 cargo build --release -p openfang-cli
 ```
 
-### How do I run OpenFang in Docker?
+### Как запустить OpenFang в Docker?
 
 ```bash
 docker run -d --name openfang \
@@ -672,61 +588,54 @@ docker run -d --name openfang \
   ghcr.io/rightnow-ai/openfang:latest
 ```
 
-To reach a host LLM (Ollama, vLLM, whisper.cpp) from inside the container,
-add `--add-host=host.docker.internal:host-gateway`. See
-[Connecting to host services from Docker](#connecting-to-host-services-from-docker).
-The default image does not ship `curl`; build the
-[curl-equipped overlay](#curl-equipped-reference-image) if you need
-in-container healthchecks.
+Чтобы достучаться до LLM на хосте (Ollama, vLLM, whisper.cpp) изнутри контейнера, добавьте `--add-host=host.docker.internal:host-gateway`. См. [Подключение к сервисам хоста из Docker](#connecting-to-host-services-from-docker). Базовый образ не содержит `curl`; соберите [образ с curl](#образ-с-предустановленным-curl), если вам нужны проверки внутри контейнера.
 
-### How do I protect the dashboard with a password?
+### Как защитить панель управления паролем?
 
-OpenFang has built-in dashboard authentication. Enable it in `~/.openfang/config.toml`:
+В OpenFang встроена аутентификация для панели управления. Включите её в `~/.openfang/config.toml`:
 
 ```toml
 [auth]
 enabled = true
 username = "admin"
-password_hash = "$argon2id$..."  # see below
+password_hash = "$argon2id$..."  # см. ниже
 ```
 
-Generate the password hash:
-
+Сгенерируйте хеш пароля:
 ```bash
 openfang auth hash-password
 ```
+Вставьте результат в поле `password_hash` и перезапустите демон.
 
-Paste the output into the `password_hash` field and restart the daemon.
+Для публичных серверов рекомендуется также использовать обратный прокси (Caddy, nginx) для настройки TLS.
 
-For public-facing deployments, you should also place a reverse proxy (Caddy, nginx) in front for TLS termination.
+### Как настроить модель эмбеддингов для памяти?
 
-### How do I configure the embedding model for memory?
-
-In `~/.openfang/config.toml`:
+В `~/.openfang/config.toml`:
 ```toml
 [memory]
-embedding_provider = "openai"     # or "ollama", "gemini"
+embedding_provider = "openai"     # или "ollama", "gemini"
 embedding_model = "text-embedding-3-small"
 embedding_api_key_env = "OPENAI_API_KEY"
 ```
 
-For local Ollama embeddings:
+Для локальных эмбеддингов Ollama:
 ```toml
 [memory]
 embedding_provider = "ollama"
 embedding_model = "nomic-embed-text"
 ```
 
-### Email channel responds to ALL emails — how do I restrict it?
+### Канал Email отвечает на ВСЕ письма — как ограничить список отправителей?
 
-Add `allowed_senders` to your email config:
+Добавьте `allowed_senders` в конфигурацию почты:
 ```toml
 [channels.email]
 allowed_senders = ["me@example.com", "boss@company.com"]
 ```
-Empty list = responds to everyone. Always set this to avoid auto-replying to spam.
+Пустой список означает ответ всем. Всегда настраивайте этот список во избежание автоответов на спам.
 
-### How do I use Z.AI / GLM-5?
+### Как использовать Z.AI / GLM-5?
 
 ```toml
 [default_model]
@@ -735,9 +644,9 @@ model = "glm-5-20250605"
 api_key_env = "ZHIPU_API_KEY"
 ```
 
-### How do I add Kimi 2.5?
+### Как добавить Kimi 2.5?
 
-Kimi models are built-in. Use alias `kimi` or the full model ID:
+Модели Kimi встроены. Используйте алиас `kimi` или полный ID модели:
 ```toml
 [default_model]
 provider = "moonshot"
@@ -745,27 +654,27 @@ model = "kimi-k2.5"
 api_key_env = "MOONSHOT_API_KEY"
 ```
 
-### Can I use multiple Telegram bots?
+### Можно ли использовать несколько ботов Telegram?
 
-Not yet — each channel type currently supports one bot. Multi-bot routing is tracked as a feature request (#586). As a workaround, run multiple OpenFang instances on different ports with different configs.
+Пока нет — каждый тип канала в данный момент поддерживает одного бота. Поддержка нескольких ботов планируется (задача #586). В качестве обходного решения можно запустить несколько экземпляров OpenFang на разных портах с разными конфигами.
 
-### Claude Code integration shows errors
+### Ошибки при интеграции с Claude Code
 
-Add to `~/.openfang/config.toml`:
+Добавьте в `~/.openfang/config.toml`:
 ```toml
 [claude_code]
 skip_permissions = true
 ```
-Then restart the daemon.
+Затем перезапустите демон.
 
-### Trader hand shell permissions
+### Права доступа для trader hand
 
-The trader hand needs shell access for executing trading scripts. In your agent's `agent.toml`:
+Руке "trader" нужен доступ к shell для выполнения торговых скриптов. В `agent.toml` вашего агента:
 ```toml
 [capabilities]
 shell = ["python *", "node *"]
 ```
 
-### OpenRouter free models don't work
+### Бесплатные модели OpenRouter не работают
 
-OpenRouter free models have strict rate limits and may return empty responses. Use a paid model or try a different free provider like Groq (`GROQ_API_KEY`).
+Бесплатные модели OpenRouter имеют строгие лимиты и могут возвращать пустые ответы. Используйте платные модели или попробуйте другого бесплатного провайдера, например Groq (`GROQ_API_KEY`).

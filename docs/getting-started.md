@@ -1,58 +1,59 @@
-# Getting Started with OpenFang
+# Начало работы с OpenFang
 
-This guide walks you through installing OpenFang, configuring your first LLM provider, spawning an agent, and chatting with it.
+Это руководство поможет вам установить OpenFang, настроить вашего первого провайдера LLM, создать агента и начать с ним общение.
 
-## Table of Contents
+## Содержание
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Spawn Your First Agent](#spawn-your-first-agent)
-- [Chat with an Agent](#chat-with-an-agent)
-- [Start the Daemon](#start-the-daemon)
-- [Using the WebChat UI](#using-the-webchat-ui)
-- [Next Steps](#next-steps)
+- [Установка](#installation)
+- [Конфигурация](#configuration)
+- [Создание вашего первого агента](#spawn-your-first-agent)
+- [Чат с агентом](#chat-with-agent)
+- [Запуск демона](#start-the-daemon)
+- [Использование веб-чата](#using-the-webchat-ui)
+- [Следующие шаги](#next-steps)
 
 ---
 
-## Installation
+<a name="installation"></a>
+## Установка
 
-### Option 1: Desktop App (Windows / macOS / Linux)
+### Вариант 1: Десктоп-приложение (Windows / macOS / Linux)
 
-Download the installer for your platform from the [latest release](https://github.com/RightNow-AI/openfang/releases/latest):
+Скачайте установщик для вашей платформы из [последнего релиза](https://github.com/RightNow-AI/openfang/releases/latest):
 
-| Platform | File |
+| Платформа | Файл |
 |---|---|
-| Windows | `.msi` installer |
-| macOS | `.dmg` disk image |
-| Linux | `.AppImage` or `.deb` |
+| Windows | установщик `.msi` |
+| macOS | образ диска `.dmg` |
+| Linux | `.AppImage` или `.deb` |
 
-The desktop app includes the full OpenFang system with a native window, system tray, auto-updates, and OS notifications. Updates are installed automatically in the background.
+Десктоп-приложение включает полную систему OpenFang с нативным окном, системным треем, автообновлениями и уведомлениями ОС. Обновления устанавливаются автоматически в фоновом режиме.
 
-### Option 2: Shell Installer (Linux / macOS)
+### Вариант 2: Shell-установщик (Linux / macOS)
 
 ```bash
 curl -sSf https://openfang.sh | sh
 ```
 
-This downloads the latest CLI binary and installs it to `~/.openfang/bin/`.
+Эта команда скачивает последний бинарный файл CLI и устанавливает его в `~/.openfang/bin/`.
 
-### Option 3: PowerShell Installer (Windows)
+### Вариант 3: PowerShell-установщик (Windows)
 
 ```powershell
 irm https://openfang.sh/install.ps1 | iex
 ```
 
-Downloads the latest CLI binary, verifies its SHA256 checksum, and adds it to your user PATH.
+Скачивает последний бинарный файл CLI, проверяет его контрольную сумму SHA256 и добавляет его в переменную окружения PATH.
 
-### Option 4: Cargo Install (Any Platform)
+### Вариант 4: Установка через Cargo (любая платформа)
 
-Requires Rust 1.75+:
+Требуется Rust 1.75+:
 
 ```bash
 cargo install --git https://github.com/RightNow-AI/openfang openfang-cli
 ```
 
-Or build from source:
+Или сборка из исходников:
 
 ```bash
 git clone https://github.com/RightNow-AI/openfang.git
@@ -60,7 +61,7 @@ cd openfang
 cargo install --path crates/openfang-cli
 ```
 
-### Option 5: Docker
+### Вариант 5: Docker
 
 ```bash
 docker pull ghcr.io/RightNow-AI/openfang:latest
@@ -73,18 +74,16 @@ docker run -d \
   ghcr.io/RightNow-AI/openfang:latest
 ```
 
-Or use Docker Compose:
+Или используйте Docker Compose:
 
 ```bash
 git clone https://github.com/RightNow-AI/openfang.git
 cd openfang
-# Set your API keys in environment or .env file
+# Установите ваши API-ключи в переменных окружения или в файле .env
 docker compose up -d
 ```
 
-**Reaching host services from the container.** If you run a local LLM
-(Ollama, whisper.cpp, vLLM) on the host and want the agent to call it, add
-the host-gateway bridge. Required on Linux and colima:
+**Доступ к сервисам хоста из контейнера.** Если вы запускаете локальную LLM (Ollama, whisper.cpp, vLLM) на хосте и хотите, чтобы агент мог обращаться к ней, добавьте мост host-gateway. Это необходимо в Linux и colima:
 
 ```bash
 docker run -d \
@@ -94,12 +93,9 @@ docker run -d \
   ghcr.io/rightnow-ai/openfang:latest
 ```
 
-For Compose, add `extra_hosts: ["host.docker.internal:host-gateway"]` to the
-service. See [Troubleshooting → Connecting to host services from Docker](troubleshooting.md#connecting-to-host-services-from-docker)
-and the [curl-equipped overlay image](troubleshooting.md#curl-equipped-reference-image)
-if you need in-container `curl` for healthchecks.
+Для Compose добавьте `extra_hosts: ["host.docker.internal:host-gateway"]` в конфигурацию сервиса. Подробности см. в [Устранение неполадок → Подключение к сервисам хоста из Docker](troubleshooting.md#connecting-to-host-services-from-docker).
 
-### Verify Installation
+### Проверка установки
 
 ```bash
 openfang --version
@@ -107,79 +103,81 @@ openfang --version
 
 ---
 
-## Configuration
+<a name="configuration"></a>
+## Конфигурация
 
-### Initialize
+### Инициализация
 
-Run the init command to create the `~/.openfang/` directory and a default config file:
+Запустите команду инициализации, чтобы создать директорию `~/.openfang/` и файл конфигурации по умолчанию:
 
 ```bash
 openfang init
 ```
 
-This creates:
+Это создаст:
 
 ```
 ~/.openfang/
-  config.toml    # Main configuration
-  data/          # Database and runtime data
-  agents/        # Agent manifests (optional)
+  config.toml    # Основная конфигурация
+  data/          # База данных и данные рантайма
+  agents/        # Манифесты агентов (опционально)
 ```
 
-### Set Up an API Key
+### Настройка API-ключа
 
-OpenFang needs at least one LLM provider API key. Set it as an environment variable:
+OpenFang требует API-ключ хотя бы одного провайдера LLM. Установите его как переменную окружения:
 
 ```bash
 # Anthropic (Claude)
 export ANTHROPIC_API_KEY=sk-ant-...
 
-# Or OpenAI
+# Или OpenAI
 export OPENAI_API_KEY=sk-...
 
-# Or Groq (free tier available)
+# Или Groq (есть бесплатный уровень)
 export GROQ_API_KEY=gsk_...
 ```
-Add the export to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to persist it.
+Добавьте команду export в профиль вашей оболочки (`~/.bashrc`, `~/.zshrc` и т. д.), чтобы настройки сохранялись.
 
-### Edit the Config
+### Редактирование конфига
 
-The default config uses Anthropic. To change the provider, edit `~/.openfang/config.toml`:
+По умолчанию используется Anthropic. Чтобы сменить провайдера, отредактируйте `~/.openfang/config.toml`:
 
 ```toml
 [default_model]
-provider = "groq"                      # anthropic, openai, groq, ollama, etc.
-model = "llama-3.3-70b-versatile"      # Model identifier for the provider
-api_key_env = "GROQ_API_KEY"           # Env var holding the API key
+provider = "groq"                      # anthropic, openai, groq, ollama и т. д.
+model = "llama-3.3-70b-versatile"      # Идентификатор модели провайдера
+api_key_env = "GROQ_API_KEY"           # Переменная окружения с ключом
 
 [memory]
-decay_rate = 0.05                      # Memory confidence decay rate
+decay_rate = 0.05                      # Скорость затухания уверенности в памяти
 
 [network]
-listen_addr = "127.0.0.1:4200"        # OFP listen address
+listen_addr = "127.0.0.1:4200"        # Адрес прослушивания OFP
 ```
 
-### Verify Your Setup
+### Проверка настроек
 
 ```bash
 openfang doctor
 ```
 
-This checks that your config exists, API keys are set, and the toolchain is available.
+Эта команда проверяет наличие конфига, установленные API-ключи и доступность инструментов.
 
 ---
 
-## Spawn Your First Agent
+<a name="spawn-your-first-agent"></a>
+## Создание вашего первого агента
 
-### Using a Built-in Template
+### Использование встроенного шаблона
 
-OpenFang ships with 30 agent templates. Spawn the hello-world agent:
+OpenFang поставляется с 30 шаблонами агентов. Запустите агента hello-world:
 
 ```bash
 openfang agent spawn agents/hello-world/agent.toml
 ```
 
-Output:
+Вывод:
 
 ```
 Agent spawned successfully!
@@ -187,15 +185,15 @@ Agent spawned successfully!
   Name: hello-world
 ```
 
-### Using a Custom Manifest
+### Использование собственного манифеста
 
-Create your own `my-agent.toml`:
+Создайте файл `my-agent.toml`:
 
 ```toml
 name = "my-assistant"
 version = "0.1.0"
-description = "A helpful assistant"
-author = "you"
+description = "Полезный помощник"
+author = "вы"
 module = "builtin:chat"
 
 [model]
@@ -207,19 +205,19 @@ memory_read = ["*"]
 memory_write = ["self.*"]
 ```
 
-Then spawn it:
+Затем создайте агента:
 
 ```bash
 openfang agent spawn my-agent.toml
 ```
 
-### List Running Agents
+### Список запущенных агентов
 
 ```bash
 openfang agent list
 ```
 
-Output:
+Вывод:
 
 ```
 ID                                     NAME             STATE      PROVIDER     MODEL
@@ -229,43 +227,44 @@ a1b2c3d4-e5f6-...                     hello-world      Running    groq         l
 
 ---
 
-## Chat with an Agent
+<a name="chat-with-agent"></a>
+## Чат с агентом
 
-Start an interactive chat session using the agent ID:
+Начните интерактивную сессию чата, используя ID агента:
 
 ```bash
 openfang agent chat a1b2c3d4-e5f6-...
 ```
 
-Or use the quick chat command (picks the first available agent):
+Или используйте команду быстрого чата (выбирает первого доступного агента):
 
 ```bash
 openfang chat
 ```
 
-Or specify an agent by name:
+Или укажите агента по имени:
 
 ```bash
 openfang chat hello-world
 ```
 
-Example session:
+Пример сессии:
 
 ```
 Chat session started (daemon mode). Type 'exit' or Ctrl+C to quit.
 
-you> Hello! What can you do?
+you> Привет! Что ты умеешь?
 
-agent> I'm the hello-world agent running on OpenFang. I can:
-- Read files from the filesystem
-- Fetch web pages
+agent> Я агент hello-world, работающий на OpenFang. Я умею:
+- Читать файлы из файловой системы
+- Загружать веб-страницы
 
-Try asking me to read a file or look up something on the web!
+Попробуй попросить меня прочитать файл или найти что-нибудь в сети!
   [tokens: 142 in / 87 out | iterations: 1]
 
-you> List the files in the current directory
+you> Покажи список файлов в текущей директории
 
-agent> Here are the files in the current directory:
+agent> Вот список файлов в текущей директории:
 - Cargo.toml
 - Cargo.lock
 - README.md
@@ -280,78 +279,78 @@ Chat session ended.
 
 ---
 
-## Start the Daemon
+<a name="start-the-daemon"></a>
+## Запуск демона
 
-For persistent agents, multi-user access, and the WebChat UI, start the daemon:
+Для работы постоянных агентов, многопользовательского доступа и интерфейса WebChat запустите демон:
 
 ```bash
 openfang start
 ```
 
-Output:
+Демон предоставляет:
+- **REST API** по адресу `http://127.0.0.1:4200/api/`
+- **WebSocket** эндпоинт `ws://127.0.0.1:4200/api/agents/{id}/ws`
+- **WebChat UI** по адресу `http://127.0.0.1:4200/`
+- **P2P сеть OFP** на порту 4200
 
-Press Ctrl+C to stop.
-```
+### Остановка демона
 
-The daemon provides:
-- **REST API** at `http://127.0.0.1:4200/api/`
-- **WebSocket** endpoint at `ws://127.0.0.1:4200/api/agents/{id}/ws`
-- **WebChat UI** at `http://127.0.0.1:4200/`
-- **OFP networking** on port 4200
-
-### Stop the Daemon
-
-Press `Ctrl+C` in the terminal running the daemon, or:
-
-```bash
-```
+Нажмите `Ctrl+C` в терминале с запущенным демоном или используйте команды управления процессами.
 
 ---
 
-## Using the WebChat UI
+<a name="using-the-webchat-ui"></a>
+## Использование веб-интерфейса чата
 
-With the daemon running, open your browser to:
+Когда демон запущен, откройте браузер и перейдите по адресу:
 
 ```
 http://127.0.0.1:4200/
 ```
 
-The embedded WebChat UI allows you to:
-- View all running agents
-- Chat with any agent in real-time (via WebSocket)
-- See streaming responses as they are generated
-- View token usage per message
+Встроенный WebChat позволяет:
+- Видеть всех запущенных агентов.
+- Общаться с любым агентом в реальном времени (через WebSocket).
+- Видеть потоковые ответы по мере их генерации.
+- Отслеживать использование токенов для каждого сообщения.
 
-Now that you have OpenFang running:
+---
 
-- **Explore agent templates**: Browse the `agents/` directory for 30 pre-built agents (coder, researcher, writer, ops, analyst, security-auditor, and more).
-- **Create custom agents**: Write your own `agent.toml` manifests. See the [Architecture guide](architecture.md) for details on capabilities and scheduling.
-- **Set up channels**: Connect any of 40 messaging platforms (Telegram, Discord, Slack, WhatsApp, LINE, Mastodon, and 34 more). See [Channel Adapters](channel-adapters.md).
-- **Use bundled skills**: 60 expert knowledge skills are pre-installed (GitHub, Docker, Kubernetes, security audit, prompt engineering, etc.). See [Skill Development](skill-development.md).
-- **Build custom skills**: Extend agents with Python, WASM, or prompt-only skills. See [Skill Development](skill-development.md).
-- **Use the API**: 76 REST/WS/SSE endpoints, including an OpenAI-compatible `/v1/chat/completions`. See [API Reference](api-reference.md).
-- **Switch LLM providers**: 20 providers supported (Anthropic, OpenAI, Gemini, Groq, DeepSeek, xAI, Ollama, and more). Per-agent model overrides.
-- **Set up workflows**: Chain multiple agents together. Use `openfang workflow create` with a TOML workflow definition.
-- **Use MCP**: Connect to external tools via Model Context Protocol. Configure in `config.toml` under `[[mcp_servers]]`.
-- **Migrate from OpenClaw**: Run `openfang migrate --from openclaw`. See [MIGRATION.md](../MIGRATION.md).
-- **Desktop app**: Run `cargo tauri dev` for a native desktop experience with system tray.
-- **Run diagnostics**: `openfang doctor` checks your entire setup.
+<a name="next-steps"></a>
+## Следующие шаги
 
+Теперь, когда OpenFang запущен:
+
+- **Изучите шаблоны агентов**: В директории `agents/` находятся 30 готовых агентов (программист, исследователь, писатель, сисадмин, аналитик, аудитор безопасности и другие).
+- **Создавайте собственных агентов**: Пишите свои манифесты `agent.toml`. Подробности о возможностях и планировании см. в [Руководстве по архитектуре](architecture.md).
+- **Настройте каналы**: Подключите любую из 40 платформ обмена сообщениями (Telegram, Discord, Slack, WhatsApp, LINE, Mastodon и еще 34). См. [Адаптеры каналов](channel-adapters.md).
+- **Используйте встроенные навыки**: 60 экспертных навыков уже предустановлены (GitHub, Docker, Kubernetes, аудит безопасности, промпт-инжиниринг и т. д.). См. [Разработка навыков](skill-development.md).
+- **Разрабатывайте свои навыки**: Расширяйте возможности агентов с помощью Python, WASM или чисто текстовых навыков. См. [Разработка навыков](skill-development.md).
+- **Используйте API**: 76 REST/WS/SSE эндпоинтов, включая OpenAI-совместимый `/v1/chat/completions`. См. [Справочник API](api-reference.md).
+- **Меняйте провайдеров LLM**: Поддерживается 20 провайдеров (Anthropic, OpenAI, Gemini, Groq, DeepSeek, xAI, Ollama и другие). Возможно переопределение модели для каждого агента.
+- **Настраивайте воркфлоу**: Объединяйте нескольких агентов в цепочки. Используйте `openfang workflow create` с определением воркфлоу в формате TOML.
+- **Используйте MCP**: Подключайтесь к внешним инструментам через Model Context Protocol. Настройте в `config.toml` в разделе `[[mcp_servers]]`.
+- **Мигрируйте с OpenClaw**: Запустите `openfang migrate --from openclaw`. См. [MIGRATION.md](../MIGRATION.md).
+- **Десктоп-приложение**: Запустите `cargo tauri dev` для нативной работы с системным треем.
+- **Проведите диагностику**: `openfang doctor` проверит всю вашу установку.
+
+### Шпаргалка по командам
 
 ```bash
-openfang init                          # Initialize ~/.openfang/
-openfang start                         # Start the daemon
-openfang status                        # Check daemon status
-openfang doctor                        # Run diagnostic checks
+openfang init                          # Инициализация ~/.openfang/
+openfang start                         # Запуск демона
+openfang status                        # Проверка статуса демона
+openfang doctor                        # Запуск диагностических проверок
 
-openfang agent spawn <manifest.toml>   # Spawn an agent
-openfang agent list                    # List all agents
-openfang agent chat <id>               # Chat with an agent
-openfang workflow run <id> <input>     # Run a workflow
-openfang trigger list                  # List event triggers
-openfang trigger create <args>         # Create a trigger
-openfang trigger delete <id>           # Delete a trigger
+openfang agent spawn <manifest.toml>   # Создание агента
+openfang agent list                    # Список всех агентов
+openfang agent chat <id>               # Чат с агентом
+openfang workflow run <id> <input>     # Запуск воркфлоу
+openfang trigger list                  # Список триггеров событий
+openfang trigger create <args>         # Создание триггера
+openfang trigger delete <id>           # Удаление триггера
 
-openfang skill install <source>        # Install a skill
-openfang mcp                           # Start MCP server (stdio)
+openfang skill install <source>        # Установка навыка
+openfang mcp                           # Запуск MCP сервера (stdio)
 ```

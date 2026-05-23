@@ -1,197 +1,197 @@
-# Changelog
+# Список изменений (Changelog)
 
-All notable changes to OpenFang will be documented in this file.
+Все заметные изменения в OpenFang будут задокументированы в этом файле.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Формат основан на [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+и этот проект придерживается [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
 ## [0.5.10] - 2026-04-17
 
-### Fixed
+### Исправлено
 
-- Non-loopback requests with no `api_key` configured now return 401 by default. Opt out with `OPENFANG_ALLOW_NO_AUTH=1`. Fixes the B1/B2 authentication bypass from #1034.
-- Agent `context.md` is re-read on every turn so external updates take effect mid-session. Opt out per agent with `cache_context = true` on the manifest. Fixes #843.
-- `openfang config get default_model.base_url` now prints the configured URL instead of an empty string. Missing keys return a clear "not found" error. Fixes #905.
-- `schedule_create`, `schedule_list`, and `schedule_delete` tools plus the `/api/schedules` routes now use the kernel cron scheduler, so scheduled jobs actually fire. One-shot idempotent migration imports legacy shared-memory entries at startup. Fixes #1069.
-- Multimodal user messages now combine text and image blocks into a single message so the LLM sees both. Fixes #1043.
+- Запросы не через loopback без настроенного `api_key` теперь по умолчанию возвращают 401. Можно отключить с помощью `OPENFANG_ALLOW_NO_AUTH=1`. Исправляет обход аутентификации B1/B2 из #1034.
+- Агент `context.md` перечитывается на каждом ходу, так что внешние обновления вступают в силу в середине сессии. Можно отключить для конкретного агента с помощью `cache_context = true` в манифесте. Исправляет #843.
+- `openfang config get default_model.base_url` теперь выводит настроенный URL вместо пустой строки. Отсутствующие ключи возвращают четкую ошибку "not found". Исправляет #905.
+- Инструменты `schedule_create`, `schedule_list` и `schedule_delete`, а также маршруты `/api/schedules` теперь используют планировщик cron ядра, так что запланированные задачи действительно запускаются. Одноразовый идемпотентный импорт миграции переносит устаревшие записи из общей памяти при запуске. Исправляет #1069.
+- Мультимодальные сообщения пользователя теперь объединяют текстовые блоки и блоки изображений в одно сообщение, чтобы LLM видела и то, и другое. Исправляет #1043.
 
-### Added
+### Добавлено
 
-- `openfang hand config <id>` subcommand: get, set, unset, and list settings on an active hand instance. Fixes #809.
-- Optional per-channel `prefix_agent_name` setting (`off` / `bracket` / `bold_bracket`). Wraps outbound agent responses so users in multi-agent channels can see which agent replied. Default is off, byte-identical to prior behavior. Fixes #980.
+- Подкоманда `openfang hand config <id>`: получение, установка, сброс и просмотр настроек активного экземпляра Hand. Исправляет #809.
+- Опциональная настройка `prefix_agent_name` для каждого канала (`off` / `bracket` / `bold_bracket`). Оборачивает исходящие ответы агентов, чтобы пользователи в многоагентных каналах могли видеть, какой агент ответил. По умолчанию выключено, поведение идентично предыдущему. Исправляет #980.
 
-### Closed as invalid
+### Закрыто как недействительное
 
-- #818 and #819. Both reference a knowledge-domain API that does not exist on `main`. Filed against an unmerged feature branch (`plan/013-audit-remediation`). Close with a note to build the proposed validation and stale-timestamp surfacing into that feature when it lands.
+- #818 и #819. Оба ссылаются на API базы знаний, которого не существует в `main`. Подано против неслитой ветки функции (`plan/013-audit-remediation`). Закрыто с пометкой встроить предложенную валидацию и отображение меток времени устаревания в эту функцию, когда она будет реализована.
 
 ## [0.5.9] - 2026-04-10
 
-### Changed
+### Изменено
 
-- **BREAKING:** Dashboard password hashing switched from SHA256 to Argon2id. Existing `password_hash` values in `config.toml` must be regenerated with `openfang auth hash-password`. Only affects users with `[auth] enabled = true`.
+- **BREAKING:** Хеширование паролей дашборда переключено с SHA256 на Argon2id. Существующие значения `password_hash` в `config.toml` должны быть перегенерированы с помощью `openfang auth hash-password`. Влияет только на пользователей с `[auth] enabled = true`.
 
-### Fixed
+### Исправлено
 
-- Dashboard passwords were hashed with plain SHA256 (no salt), making them vulnerable to rainbow table and GPU-accelerated brute force attacks. Now uses Argon2id with random salts.
+- Пароли дашборда хешировались чистым SHA256 (без соли), что делало их уязвимыми для атак с использованием радужных таблиц и брутфорса на GPU. Теперь используется Argon2id со случайными солями.
 
 ## [0.1.0] - 2026-02-24
 
-### Added
+### Добавлено
 
-#### Core Platform
-- 15-crate Rust workspace: types, memory, runtime, kernel, api, channels, wire, cli, migrate, skills, hands, extensions, desktop, xtask
-- Agent lifecycle management: spawn, list, kill, clone, mode switching (Full/Assist/Observe)
-- SQLite-backed memory substrate with structured KV, semantic recall, vector embeddings
-- 41 built-in tools (filesystem, web, shell, browser, scheduling, collaboration, image analysis, inter-agent, TTS, media)
-- WASM sandbox with dual metering (fuel + epoch interruption with watchdog thread)
-- Workflow engine with pipelines, fan-out parallelism, conditional steps, loops, and variable expansion
-- Visual workflow builder with drag-and-drop node graph, 7 node types, and TOML export
-- Trigger system with event pattern matching, content filters, and fire limits
-- Event bus with publish/subscribe and correlation IDs
-- 7 Hands packages for autonomous agent actions
+#### Ядро платформы (Core Platform)
+- Воркспейс Rust из 15 крейтов: types, memory, runtime, kernel, api, channels, wire, cli, migrate, skills, hands, extensions, desktop, xtask
+- Управление жизненным циклом агента: запуск (spawn), список (list), завершение (kill), клонирование (clone), переключение режимов (Full/Assist/Observe)
+- Субстрат памяти на базе SQLite со структурированным KV, семантическим поиском, векторными эмбеддингами
+- 41 встроенный инструмент (файловая система, веб, шелл, браузер, планирование, совместная работа, анализ изображений, межагентное взаимодействие, TTS, медиа)
+- Песочница WASM с двойным учетом (fuel + прерывание эпохи с помощью потока-сторожа)
+- Движок воркфлоу с пайплайнами, параллелизмом (fan-out), условными шагами, циклами и расширением переменных
+- Визуальный конструктор воркфлоу с графом узлов (drag-and-drop), 7 типами узлов и экспортом в TOML
+- Система триггеров с сопоставлением шаблонов событий, фильтрами контента и лимитами запуска
+- Шина событий с механизмом публикация/подписка и ID корреляции
+- 7 пакетов Hands для автономных действий агентов
 
-#### LLM Support
-- 3 native LLM drivers: Anthropic, Google Gemini, OpenAI-compatible
-- 27 providers: Anthropic, Gemini, OpenAI, Groq, OpenRouter, DeepSeek, Together, Mistral, Fireworks, Cohere, Perplexity, xAI, AI21, Cerebras, SambaNova, Hugging Face, Replicate, Ollama, vLLM, LM Studio, and more
-- Model catalog with 130+ built-in models, 23 aliases, tier classification
-- Intelligent model routing with task complexity scoring
-- Fallback driver for automatic failover between providers
-- Cost estimation and metering engine with per-model pricing
-- Streaming support (SSE) across all drivers
+#### Поддержка LLM
+- 3 нативных драйвера LLM: Anthropic, Google Gemini, OpenAI-совместимый
+- 27 провайдеров: Anthropic, Gemini, OpenAI, Groq, OpenRouter, DeepSeek, Together, Mistral, Fireworks, Cohere, Perplexity, xAI, AI21, Cerebras, SambaNova, Hugging Face, Replicate, Ollama, vLLM, LM Studio и другие
+- Каталог моделей с более чем 130 встроенными моделями, 23 алиасами, классификацией по уровням
+- Интеллектуальная маршрутизация моделей с оценкой сложности задачи
+- Драйвер фоллбэка для автоматического переключения между провайдерами при сбоях
+- Движок оценки стоимости и учета с ценообразованием для каждой модели
+- Поддержка потоковой передачи (SSE) для всех драйверов
 
-#### Token Management & Context
-- Token-aware session compaction (chars/4 heuristic, triggers at 70% context capacity)
-- In-loop emergency trimming at 70%/90% thresholds with summary injection
-- Tool profile filtering (cuts default 41 tools to 4-10 for chat agents, saving 15-20K tokens)
-- Context budget allocation for system prompt, tools, history, and response
-- MAX_TOOL_RESULT_CHARS reduced from 50K to 15K to prevent tool result bloat
-- Default token quota raised from 100K to 1M per hour
+#### Управление токенами и контекст
+- Сжатие сессии с учетом токенов (эвристика chars/4, срабатывает при 70% емкости контекста)
+- Экстренная обрезка в цикле при порогах 70%/90% с вставкой резюме
+- Фильтрация профилей инструментов (сокращает стандартные 41 инструмент до 4-10 для чат-агентов, экономя 15-20К токенов)
+- Распределение бюджета контекста для системного промпта, инструментов, истории и ответа
+- MAX_TOOL_RESULT_CHARS уменьшен с 50K до 15K для предотвращения раздувания результатов инструментов
+- Квота токенов по умолчанию увеличена со 100K до 1M в час
 
-#### Security
-- Capability-based access control with privilege escalation prevention
-- Path traversal protection in all file tools
-- SSRF protection blocking private IPs and cloud metadata endpoints
-- Ed25519 signed agent manifests
-- Merkle hash chain audit trail with tamper detection
-- Information flow taint tracking
-- HMAC-SHA256 mutual authentication for peer wire protocol
-- API key authentication with Bearer token
-- GCRA rate limiter with cost-aware token buckets
-- Security headers middleware (CSP, X-Frame-Options, HSTS)
-- Secret zeroization on all API key fields
-- Subprocess environment isolation
-- Health endpoint redaction (public minimal, auth full)
-- Loop guard with SHA256-based detection and circuit breaker thresholds
-- Session repair (validates and fixes orphaned tool results, empty messages)
+#### Безопасность
+- Управление доступом на основе возможностей с предотвращением повышения привилегий
+- Защита от обхода путей во всех файловых инструментах
+- Защита от SSRF (блокировка частных IP и эндпоинтов облачных метаданных)
+- Манифесты агентов, подписанные Ed25519
+- Аудиторский след в виде цепочки хешей Меркла с обнаружением подделок
+- Отслеживание загрязнения информационных потоков (taint tracking)
+- Взаимная аутентификация HMAC-SHA256 для пирингового протокола
+- Аутентификация по API-ключу с Bearer-токеном
+- Ограничитель скорости GCRA с корзинами токенов, учитывающими стоимость
+- Middleware заголовков безопасности (CSP, X-Frame-Options, HSTS)
+- Обнуление (zeroization) секретов во всех полях ключей API
+- Изоляция окружения подпроцессов
+- Редактирование эндпоинта здоровья (публичный — минимум инфо, авторизованный — полная инфо)
+- Защита от циклов с обнаружением на основе SHA256 и порогами автоматического отключения
+- Восстановление сессий (проверка и исправление "осиротевших" результатов инструментов, пустых сообщений)
 
-#### Channels
-- 40 channel adapters: Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Email, Teams, Mattermost, Google Chat, Webex, Feishu/Lark, LINE, Viber, Facebook Messenger, Mastodon, Bluesky, Reddit, LinkedIn, Twitch, IRC, XMPP, and 18 more
-- Unified bridge with agent routing, command handling, message splitting
-- Per-channel user filtering and RBAC enforcement
-- Graceful shutdown, exponential backoff, secret zeroization on all adapters
+#### Каналы
+- 40 адаптеров каналов: Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Email, Teams, Mattermost, Google Chat, Webex, Feishu/Lark, LINE, Viber, Facebook Messenger, Mastodon, Bluesky, Reddit, LinkedIn, Twitch, IRC, XMPP и еще 18
+- Единый мост с маршрутизацией агентов, обработкой команд, разбиением сообщений
+- Фильтрация пользователей для каждого канала и применение RBAC
+- Чистое завершение работы, экспоненциальная задержка, обнуление секретов во всех адаптерах
 
 #### API
-- 100+ REST/WS/SSE API endpoints (axum 0.8)
-- WebSocket real-time streaming with per-agent connections
-- OpenAI-compatible `/v1/chat/completions` API (streaming SSE + non-streaming)
-- OpenAI-compatible `/v1/models` endpoint
-- WebChat embedded UI with Alpine.js
-- Google A2A protocol support (agent card, task send/get/cancel)
-- Prometheus text-format `/api/metrics` endpoint for monitoring
-- Multi-session management: list, create, switch, label sessions per agent
-- Usage analytics: summary, by-model, daily breakdown
-- Config hot-reload via polling (30-second interval, no restart required)
+- Более 100 эндпоинтов REST/WS/SSE API (axum 0.8)
+- Потоковая передача в реальном времени через WebSocket с подключениями для каждого агента
+- OpenAI-совместимый API `/v1/chat/completions` (потоковый SSE + непотоковый)
+- OpenAI-совместимый эндпоинт `/v1/models`
+- Встроенный UI WebChat на Alpine.js
+- Поддержка протокола Google A2A (карточка агента, отправка/получение/отмена задачи)
+- Эндпоинт `/api/metrics` в текстовом формате Prometheus для мониторинга
+- Управление несколькими сессиями: список, создание, переключение, метки сессий для каждого агента
+- Аналитика использования: сводка, по моделям, ежедневная разбивка
+- Горячая перезагрузка конфигурации через опрос (интервал 30 секунд, перезапуск не требуется)
 
-#### Web UI
-- Chat message search with Ctrl+F, real-time filtering, text highlighting
-- Voice input with hold-to-record mic button (WebM/Opus codec)
-- TTS audio playback inline in tool cards
-- Browser screenshot rendering in chat (inline images)
-- Canvas rendering with iframe sandbox and CSP support
-- Session switcher dropdown in chat header
-- 6-step first-run setup wizard with provider API key help (12 providers)
-- Skill marketplace with 4 tabs (Installed, ClawHub, MCP Servers, Quick Start)
-- Copy-to-clipboard on messages, message timestamps
-- Visual workflow builder with drag-and-drop canvas
+#### Веб-интерфейс (Web UI)
+- Поиск по сообщениям чата с помощью Ctrl+F, фильтрация в реальном времени, подсветка текста
+- Голосовой ввод с кнопкой удержания микрофона для записи (кодек WebM/Opus)
+- Воспроизведение аудио TTS прямо в карточках инструментов
+- Рендеринг скриншотов браузера в чате (встроенные изображения)
+- Рендеринг Canvas с песочницей iframe и поддержкой CSP
+- Выпадающий список переключения сессий в заголовке чата
+- 6-шаговый мастер первой настройки с помощью по ключам API провайдеров (12 провайдеров)
+- Маркетплейс навыков с 4 вкладками (Установленные, ClawHub, MCP-серверы, Быстрый старт)
+- Копирование сообщений в буфер обмена, метки времени сообщений
+- Визуальный конструктор воркфлоу с drag-and-drop холстом
 
-#### Client SDKs
-- JavaScript SDK (`@openfang/sdk`): full REST API client with streaming, TypeScript declarations
-- Python client SDK (`openfang_client`): zero-dependency stdlib client with SSE streaming
-- Python agent SDK (`openfang_sdk`): decorator-based framework for writing Python agents
-- Usage examples for both languages (basic + streaming)
+#### Клиентские SDK
+- JavaScript SDK (`@openfang/sdk`): полный клиент REST API с потоковой передачей, объявлениями TypeScript
+- Python клиент SDK (`openfang_client`): клиент на стандартной библиотеке без зависимостей с потоковой передачей SSE
+- Python агент SDK (`openfang_sdk`): фреймворк на основе декораторов для написания Python-агентов
+- Примеры использования для обоих языков (базовые + потоковая передача)
 
 #### CLI
-- 14+ subcommands: init, start, agent, workflow, trigger, migrate, skill, channel, config, chat, status, doctor, dashboard, mcp
-- Daemon auto-detection via PID file
-- Shell completion generation (bash, zsh, fish, PowerShell)
-- MCP server mode for IDE integration
+- Более 14 подкоманд: init, start, agent, workflow, trigger, migrate, skill, channel, config, chat, status, doctor, dashboard, mcp
+- Автоопределение демона через файл PID
+- Генерация автодополнения для шелла (bash, zsh, fish, PowerShell)
+- Режим сервера MCP для интеграции с IDE
 
-#### Skills Ecosystem
-- 60 bundled skills across 14 categories
-- Skill registry with TOML manifests
-- 4 runtimes: Python, Node.js, WASM, PromptOnly
-- FangHub marketplace with search/install
-- ClawHub client for OpenClaw skill compatibility
-- SKILL.md parser with auto-conversion
-- SHA256 checksum verification
-- Prompt injection scanning on skill content
+#### Экосистема навыков (Skills Ecosystem)
+- 60 встроенных навыков в 14 категориях
+- Реестр навыков с манифестами TOML
+- 4 рантайма: Python, Node.js, WASM, PromptOnly
+- Маркетплейс FangHub с поиском и установкой
+- Клиент ClawHub для совместимости с навыками OpenClaw
+- Парсер SKILL.md с автоматической конвертацией
+- Проверка контрольных сумм SHA256
+- Сканирование контента навыков на наличие промпт-инъекций
 
-#### Desktop App
-- Tauri 2.0 native desktop app
-- System tray with status and quick actions
-- Single-instance enforcement
-- Hide-to-tray on close
-- Updated CSP for media, frame, and blob sources
+#### Десктопное приложение
+- Нативное приложение Tauri 2.0
+- Системный трей со статусом и быстрыми действиями
+- Запуск только одного экземпляра
+- Сворачивание в трей при закрытии
+- Обновленный CSP для медиа, фреймов и blob-источников
 
-#### Session Management
-- LLM-based session compaction with token-aware triggers
-- Multi-session per agent with named labels
-- Session switching via API and UI
-- Cross-channel canonical sessions
-- Extended chat commands: `/new`, `/compact`, `/model`, `/stop`, `/usage`, `/think`
+#### Управление сессиями
+- Сжатие сессий на базе LLM с триггерами, учитывающими токены
+- Несколько сессий на агента с именованными метками
+- Переключение сессий через API и UI
+- Канонические сессии между каналами
+- Расширенные команды чата: `/new`, `/compact`, `/model`, `/stop`, `/usage`, `/think`
 
-#### Image Support
-- `ContentBlock::Image` with base64 inline data
-- Media type validation (png, jpeg, gif, webp only)
-- 5MB size limit enforcement
-- Mapped to all 3 native LLM drivers
+#### Поддержка изображений
+- `ContentBlock::Image` с встроенными данными base64
+- Валидация типов медиа (только png, jpeg, gif, webp)
+- Ограничение размера 5 МБ
+- Маппинг на все 3 нативных драйвера LLM
 
-#### Usage Tracking
-- Per-response cost estimation with model-aware pricing
-- Usage footer in WebSocket responses and WebChat UI
-- Usage events persisted to SQLite
-- Quota enforcement with hourly windows
+#### Отслеживание использования
+- Оценка стоимости каждого ответа с учетом ценообразования моделей
+- Футер использования в ответах WebSocket и UI WebChat
+- События использования сохраняются в SQLite
+- Принудительное применение квот с часовыми окнами
 
-#### Interoperability
-- OpenClaw migration engine (YAML/JSON5 to TOML)
-- MCP client (JSON-RPC 2.0 over stdio/SSE, tool namespacing)
-- MCP server (exposes OpenFang tools via MCP protocol)
-- A2A protocol client and server
-- Tool name compatibility mappings (21 OpenClaw tool names)
+#### Интероперабельность
+- Движок миграции OpenClaw (YAML/JSON5 в TOML)
+- Клиент MCP (JSON-RPC 2.0 через stdio/SSE, пространство имен инструментов)
+- Сервер MCP (предоставляет инструменты OpenFang через протокол MCP)
+- Клиент и сервер протокола A2A
+- Маппинг совместимости имен инструментов (21 имя инструментов OpenClaw)
 
-#### Infrastructure
-- Multi-stage Dockerfile (debian:bookworm-slim runtime)
-- docker-compose.yml with volume persistence
+#### Инфраструктура
+- Многостадийный Dockerfile (рантайм debian:bookworm-slim)
+- docker-compose.yml с постоянными томами
 - GitHub Actions CI (check, test, clippy, format)
-- GitHub Actions release (multi-platform, GHCR push, SHA256 checksums)
-- Cross-platform install script (curl/irm one-liner)
-- systemd service file for Linux deployment
+- Релиз через GitHub Actions (многоплатформенный, пуш в GHCR, контрольные суммы SHA256)
+- Кроссплатформенный скрипт установки (однострочник curl/irm)
+- Файл сервиса systemd для развертывания в Linux
 
-#### Multi-User
-- RBAC with Owner/Admin/User/Viewer roles
-- Channel identity resolution
-- Per-user authorization checks
-- Device pairing and approval system
+#### Многопользовательский режим
+- RBAC с ролями Owner/Admin/User/Viewer
+- Разрешение идентичности каналов
+- Проверки авторизации для каждого пользователя
+- Система сопряжения и одобрения устройств
 
-#### Production Readiness
-- 1731+ tests across 15 crates, 0 failures
-- Cross-platform support (Linux, macOS, Windows)
-- Graceful shutdown with signal handling (SIGINT/SIGTERM on Unix, Ctrl+C on Windows)
-- Daemon PID file with stale process detection
-- Release profile with LTO, single codegen unit, symbol stripping
-- Prometheus metrics for monitoring
-- Config hot-reload without restart
+#### Готовность к продакшну (Production Readiness)
+- Более 1731 теста в 15 крейтах, 0 ошибок
+- Кроссплатформенная поддержка (Linux, macOS, Windows)
+- Чистое завершение работы с обработкой сигналов (SIGINT/SIGTERM в Unix, Ctrl+C в Windows)
+- Файл PID демона с обнаружением зависших процессов
+- Профиль релиза с LTO, single codegen unit, удалением символов
+- Метрики Prometheus для мониторинга
+- Горячая перезагрузка конфигурации без перезапуска
 
 [0.1.0]: https://github.com/RightNow-AI/openfang/releases/tag/v0.1.0

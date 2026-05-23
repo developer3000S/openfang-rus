@@ -1,141 +1,141 @@
-# OpenFang Architecture
+# Архитектура OpenFang
 
-Документ описывает внутреннюю архитектуру OpenFang: структуру crate'ов, последовательность загрузки ядра, жизненный цикл агента, подсистему памяти, абстракцию драйверов LLM, модель безопасности на основе возможностей, протокол OFP, стек жёсткой безопасности, систему каналов и навыков, а также механизмы стабильности.
+Этот документ описывает внутреннюю архитектуру OpenFang: структуру крейтов (crates), последовательность загрузки ядра, жизненный цикл агента, подсистему памяти, абстракцию драйверов LLM, модель безопасности на основе возможностей, протокол OFP, стек усиленной безопасности, систему каналов и навыков, а также механизмы стабильности.
 
 ---
 
-## Структура crate'ов
+## Структура крейтов
 
-OpenFang организован как Cargo workspace с 14 crate'ами (13 кода + xtask). Ниже — краткое дерево зависимостей и назначение основных crate'ов.
+OpenFang организован как Cargo workspace с 14 крейтами (13 с кодом + xtask). Ниже приведено дерево зависимостей и назначение основных крейтов.
 
 ```
-openfang-cli            CLI интерфейс, автопоиск демона, MCP-сервер
+openfang-cli            CLI-интерфейс, автопоиск демона, MCP-сервер
     |
-openfang-desktop        Tauri 2.0 десктоп-приложение (WebView + системный трей)
+openfang-desktop        Десктопное приложение Tauri 2.0 (WebView + системный трей)
     |
-openfang-api            REST/WS/SSE API сервер (Axum), 76 эндпойнтов
+openfang-api            REST/WS/SSE API сервер (Axum), 76 эндпоинтов
     |
-openfang-kernel         Ядро: собирает подсистемы, workflow, RBAC, метрики
+openfang-kernel         Ядро: собирает подсистемы, воркфлоу, RBAC, метрики
     |
     +-- openfang-runtime    Цикл агента, LLM-драйверы, встроенные инструменты, WASM-песочница
-    +-- openfang-channels   40 адаптеров каналов, форматтер, лимитер
+    +-- openfang-channels   40 адаптеров каналов, форматировщик, лимитер
     +-- openfang-wire       OFP P2P с аутентификацией HMAC-SHA256
     +-- openfang-migrate    Движок миграции (OpenClaw -> OpenFang)
-    +-- openfang-skills     Встроенные навыки и FangHub интеграция
+    +-- openfang-skills     Встроенные навыки и интеграция с FangHub
     |
 openfang-memory         SQLite-подсистема памяти, сессии, семантический поиск
     |
 openfang-types          Общие типы: Agent, Capability, Event, Tool, Config, Taint, ModelCatalog
 ```
 
-### Краткая ответственность crate'ов
+### Зоны ответственности крейтов
 
 - `openfang-types` — определения общих типов, манифестов, схем подписей и каталога моделей.
-- `openfang-memory` — реализация памяти на SQLite: KV, векторные embeddings, канонические сессии и usage events.
-- `openfang-runtime` — движок исполнения агентов: loop агента, обработка инструментов, WASM, MCP/A2A и безопасность цикла.
-- `openfang-kernel` — координатор подсистем: реестр агентов, планировщик, менеджер способностей, EventBus и WorkflowEngine.
-- `openfang-api` — HTTP/WS сервер с 76 эндпойнтами и совместимостью OpenAI API.
-- `openfang-channels` — слой адаптеров для 40 каналов; форматирование и политика доставки.
-- `openfang-wire` — OFP протокол для P2P с HMAC аутентификацией.
+- `openfang-memory` — реализация памяти на SQLite: KV, векторные эмбеддинги, канонические сессии и события использования.
+- `openfang-runtime` — движок исполнения агентов: цикл агента, обработка инструментов, WASM, MCP/A2A и безопасность цикла.
+- `openfang-kernel` — координатор подсистем: реестр агентов, планировщик, менеджер возможностей, EventBus и WorkflowEngine.
+- `openfang-api` — HTTP/WS сервер с 76 эндпоинтами и совместимостью с OpenAI API.
+- `openfang-channels` — слой адаптеров для 40 каналов; форматирование и политики доставки.
+- `openfang-wire` — протокол OFP для P2P с HMAC-аутентификацией.
 - `openfang-cli` — Clap CLI с командами управления и автоподключением к демону.
-- `openfang-desktop` — Tauri приложение, запускающее ядро in-process и WebView.
+- `openfang-desktop` — приложение Tauri, запускающее ядро внутри процесса и WebView.
 
 ---
 
-## Kernel Boot Sequence
+## Последовательность загрузки ядра
 
-When `OpenFangKernel::boot_with_config()` is called (either by the daemon or in-process by the CLI/desktop app), the following sequence executes:
-
-```
-1. Load configuration
-   - Read ~/.openfang/config.toml (or specified path)
-   - Apply #[serde(default)] defaults for missing fields
-   - Validate config and log warnings (missing API keys, etc.)
-
-2. Create data directory
-   - Ensure ~/.openfang/data/ exists
-
-3. Initialize memory substrate
-   - Open SQLite database (openfang.db)
-   - Run schema migrations (up to v5)
-   - Set memory decay rate
-
-4. Initialize LLM driver
-   - Read API key from environment variable
-   - Create driver for the configured provider
-   - Validate driver config
-
-5. Initialize model catalog
-   - Build ModelCatalog with 51 builtin models, 20+ aliases, 20 providers
-   - Run detect_auth() to check env var presence (never reads secrets)
-   - Store as kernel.model_catalog
-
-6. Initialize metering engine
-   - Create MeteringEngine with cost catalog (20+ model families)
-   - Wire to model catalog for pricing source
-
-7. Initialize model router
-   - Create ModelRouter with TaskComplexity scoring
-   - Validate configured models and resolve aliases
-
-8. Initialize core subsystems
-   - AgentRegistry (DashMap-based concurrent agent store)
-   - CapabilityManager (DashMap-based capability grants)
-   - EventBus (async broadcast channel)
-   - AgentScheduler (quota tracking per agent, hourly window reset)
-   - Supervisor (health monitoring, panic/restart counters)
-   - WorkflowEngine (workflow registration and execution, run eviction cap 200)
-   - TriggerEngine (event pattern matching)
-   - BackgroundExecutor (continuous/periodic agent loops)
-   - WasmSandbox (Wasmtime engine, dual fuel+epoch metering)
-
-9. Initialize RBAC auth manager
-   - Create AuthManager with UserRole hierarchy
-   - Set up channel identity resolution
-
-10. Initialize skill registry
-    - Load 60 bundled skills via parse_bundled()
-    - Load user-installed skills from disk
-    - Wire skill tools into tool_runner fallback chain
-    - Inject PromptOnly skill context into system prompts
-
-11. Initialize web tools context
-    - Create WebSearchEngine (4-provider cascading: Tavily->Brave->Perplexity->DDG)
-    - Create WebFetchEngine (SSRF-protected)
-    - Bundle as WebToolsContext
-
-12. Restore persisted agents
-    - Load all agents from SQLite
-    - Re-register in memory (registry, capabilities, scheduler)
-    - Set state to Running
-
-13. Publish KernelStarted event
-
-14. Return kernel instance
-```
-
-When the daemon wraps the kernel in `Arc`, additional steps occur:
+При вызове `OpenFangKernel::boot_with_config()` (либо демоном, либо встроенным в CLI/десктоп приложение ядром) выполняется следующая последовательность:
 
 ```
-15. Set self-handle (weak Arc reference for trigger dispatch)
+1. Загрузка конфигурации
+   - Чтение ~/.openfang/config.toml (или указанного пути)
+   - Применение значений по умолчанию #[serde(default)] для отсутствующих полей
+   - Валидация конфига и логирование предупреждений (отсутствующие ключи API и т. д.)
 
-16. Connect to MCP servers
-    - Background connect to configured MCP servers (stdio/SSE)
-    - Namespace tools as mcp_{server}_{tool}
-    - Store connections in kernel.mcp_connections
+2. Создание директории данных
+   - Убедиться в наличии ~/.openfang/data/
 
-17. Start heartbeat monitor
-    - Background tokio task for agent health checks
-    - Publishes HealthCheckFailed events on anomalies
+3. Инициализация субстрата памяти
+   - Открытие базы данных SQLite (openfang.db)
+   - Запуск миграций схемы (до v5)
+   - Установка скорости затухания памяти
 
-18. Start background agent loops (continuous, periodic, proactive)
+4. Инициализация драйвера LLM
+   - Чтение API-ключа из переменной окружения
+   - Создание драйвера для настроенного провайдера
+   - Валидация конфигурации драйвера
+
+5. Инициализация каталога моделей
+   - Сборка ModelCatalog с 51 встроенной моделью, 20+ алиасами, 20 провайдерами
+   - Запуск detect_auth() для проверки наличия переменных окружения (секреты не читаются)
+   - Сохранение как kernel.model_catalog
+
+6. Инициализация движка учета (metering)
+   - Создание MeteringEngine с каталогом стоимости (20+ семейств моделей)
+   - Подключение к каталогу моделей для получения цен
+
+7. Инициализация роутера моделей
+   - Создание ModelRouter с оценкой TaskComplexity
+   - Валидация настроенных моделей и разрешение алиасов
+
+8. Инициализация основных подсистем
+   - AgentRegistry (конкурентное хранилище агентов на базе DashMap)
+   - CapabilityManager (предоставление возможностей на базе DashMap)
+   - EventBus (асинхронный канал вещания)
+   - AgentScheduler (отслеживание квот на агента, ежечасный сброс окна)
+   - Supervisor (мониторинг здоровья, счетчики паник/перезапусков)
+   - WorkflowEngine (регистрация и выполнение воркфлоу, лимит хранения запусков 200)
+   - TriggerEngine (сопоставление шаблонов событий)
+   - BackgroundExecutor (непрерывные/периодические циклы агентов)
+   - WasmSandbox (движок Wasmtime, двойной учет fuel+epoch)
+
+9. Инициализация менеджера аутентификации RBAC
+   - Создание AuthManager с иерархией UserRole
+   - Настройка разрешения идентичности каналов
+
+10. Инициализация реестра навыков
+    - Загрузка 60 встроенных навыков через parse_bundled()
+    - Загрузка установленных пользователем навыков с диска
+    - Подключение инструментов навыков в цепочку фоллбэка tool_runner
+    - Инъекция контекста навыков PromptOnly в системные промпты
+
+11. Инициализация контекста веб-инструментов
+    - Создание WebSearchEngine (каскад из 4 провайдеров: Tavily->Brave->Perplexity->DDG)
+    - Создание WebFetchEngine (с защитой от SSRF)
+    - Объединение в WebToolsContext
+
+12. Восстановление сохраненных агентов
+    - Загрузка всех агентов из SQLite
+    - Повторная регистрация в памяти (реестр, возможности, планировщик)
+    - Установка состояния в Running
+
+13. Публикация события KernelStarted
+
+14. Возврат экземпляра ядра
+```
+
+Когда демон оборачивает ядро в `Arc`, выполняются дополнительные шаги:
+
+```
+15. Установка self-handle (слабая ссылка Arc для диспетчеризации триггеров)
+
+16. Подключение к MCP-серверам
+    - Фоновое подключение к настроенным MCP-серверам (stdio/SSE)
+    - Пространство имен инструментов mcp_{server}_{tool}
+    - Сохранение соединений в kernel.mcp_connections
+
+17. Запуск монитора сердцебиения (heartbeat)
+    - Фоновая задача tokio для проверки здоровья агентов
+    - Публикация событий HealthCheckFailed при аномалиях
+
+18. Запуск фоновых циклов агентов (непрерывных, периодических, проактивных)
 ```
 
 ---
 
-## Agent Lifecycle
+## Жизненный цикл агента
 
-### States
+### Состояния
 
 ```
     spawn                    message/tick              kill
@@ -149,119 +149,119 @@ When the daemon wraps the kernel in `Arc`, additional steps occur:
                       +------> [Running]
 ```
 
-- **Running**: Agent is active and can receive messages.
-- **Suspended**: Agent is paused (e.g., during daemon shutdown). Persisted to SQLite for restore on next boot.
-- **Terminated**: Agent has been killed. Removed from registry and persistent storage.
+- **Running**: Агент активен и может получать сообщения.
+- **Suspended**: Агент приостановлен (например, во время остановки демона). Сохранен в SQLite для восстановления при следующем запуске.
+- **Terminated**: Агент был убит. Удален из реестра и постоянного хранилища.
 
-### Spawn Flow
+### Поток запуска (Spawn Flow)
 
-1. Generate new `AgentId` (UUID v4) and `SessionId`.
-2. Create a session in the memory substrate.
-3. Parse the manifest and extract capabilities.
-4. Validate capability inheritance (`validate_capability_inheritance()` prevents privilege escalation).
-5. Grant capabilities via `CapabilityManager`.
-6. Register with the `AgentScheduler` (quota tracking).
-7. Create `AgentEntry` and register in `AgentRegistry`.
-8. Persist to SQLite via `memory.save_agent()`.
-9. If agent has a parent, update parent's children list.
-10. Register proactive triggers (if schedule mode is `Proactive`).
-11. Publish `Lifecycle::Spawned` event and evaluate triggers.
+1. Генерация нового `AgentId` (UUID v4) и `SessionId`.
+2. Создание сессии в субстрате памяти.
+3. Парсинг манифеста и извлечение возможностей.
+4. Валидация наследования возможностей (`validate_capability_inheritance()` предотвращает повышение привилегий).
+5. Предоставление возможностей через `CapabilityManager`.
+6. Регистрация в `AgentScheduler` (отслеживание квот).
+7. Создание `AgentEntry` и регистрация в `AgentRegistry`.
+8. Сохранение в SQLite через `memory.save_agent()`.
+9. Если у агента есть родитель, обновление списка детей родителя.
+10. Регистрация проактивных триггеров (если режим планирования — `Proactive`).
+11. Публикация события `Lifecycle::Spawned` и оценка триггеров.
 
-### Message Flow
+### Поток сообщений (Message Flow)
 
-1. **RBAC check**: `AuthManager` resolves channel identity and checks user role permissions.
-2. **Channel policy check**: `ChannelBridgeHandle.authorize_channel_user()` enforces DM/group policy.
-3. **Quota check**: `AgentScheduler` verifies the agent has not exceeded its token-per-hour limit.
-4. **Entry lookup**: Fetch `AgentEntry` from the registry.
-5. **Module dispatch**: Based on `manifest.module`:
-   - `builtin:chat` or unrecognized: LLM agent loop
-   - `wasm:path/to/module.wasm`: WASM sandbox execution
-   - `python:path/to/script.py`: Python subprocess execution (env_clear() + selective vars)
-6. **LLM agent loop** (for `builtin:chat`):
-   a. Load or create session from memory.
-   b. Load canonical context summary (cross-channel memory) into system prompt.
-   c. Append stability guidelines to system prompt.
-   d. Resolve LLM driver (per-agent override or kernel default).
-   e. Gather available tools (filtered by capabilities + skill tools + MCP tools).
-   f. Initialize loop guard (tool loop detection).
-   g. Run session repair (validate and fix message history).
-   h. Run iterative loop: send messages to LLM, execute tool calls, accumulate results.
-   i. Auto-compact session if threshold exceeded (block-aware compaction).
-   j. Save updated session and canonical session back to memory.
-7. **Cost estimation**: `MeteringEngine.estimate_cost_with_catalog()` computes cost in USD.
-8. **Record usage**: Update quota tracking with token counts; persist usage event.
-9. **Return result**: `AgentLoopResult` with response text, token usage, iteration count, and `cost_usd`.
+1. **Проверка RBAC**: `AuthManager` разрешает идентичность канала и проверяет права роли пользователя.
+2. **Проверка политики канала**: `ChannelBridgeHandle.authorize_channel_user()` применяет политику ЛС/групп.
+3. **Проверка квоты**: `AgentScheduler` проверяет, не превысил ли агент лимит токенов в час.
+4. **Поиск записи**: Получение `AgentEntry` из реестра.
+5. **Диспетчеризация модуля**: На основе `manifest.module`:
+   - `builtin:chat` или неопознанный: цикл LLM-агента
+   - `wasm:path/to/module.wasm`: исполнение в песочнице WASM
+   - `python:path/to/script.py`: исполнение Python в подпроцессе (env_clear() + выборочные переменные)
+6. **Цикл LLM-агента** (для `builtin:chat`):
+   a. Загрузка или создание сессии из памяти.
+   b. Загрузка сводки канонического контекста (межканальная память) в системный промпт.
+   c. Добавление рекомендаций по стабильности в системный промпт.
+   d. Разрешение драйвера LLM (переопределение для агента или значение по умолчанию ядра).
+   e. Сбор доступных инструментов (отфильтрованных по возможностям + инструменты навыков + инструменты MCP).
+   f. Инициализация защиты цикла (обнаружение зацикливания инструментов).
+   g. Запуск исправления сессии (валидация и исправление истории сообщений).
+   h. Запуск итеративного цикла: отправка сообщений в LLM, выполнение вызовов инструментов, накопление результатов.
+   i. Автоматическое сжатие сессии при превышении порога (сжатие с учетом блоков).
+   j. Сохранение обновленной сессии и канонической сессии обратно в память.
+7. **Оценка стоимости**: `MeteringEngine.estimate_cost_with_catalog()` вычисляет стоимость в USD.
+8. **Запись использования**: Обновление отслеживания квот количеством токенов; сохранение события использования.
+9. **Возврат результата**: `AgentLoopResult` с текстом ответа, использованием токенов, количеством итераций и `cost_usd`.
 
-### Kill Flow
+### Поток завершения (Kill Flow)
 
-1. Check caller has `AgentKill(target_name)` capability.
-2. Remove from `AgentRegistry`.
-3. Stop background loops via `BackgroundExecutor`.
-4. Unregister from `AgentScheduler`.
-5. Revoke all capabilities.
-6. Unsubscribe from `EventBus`.
-7. Remove triggers.
-8. Remove from persistent storage (SQLite).
-
----
-
-## Agent Loop Stability
-
-The agent loop includes multiple hardening layers to prevent runaway behavior:
-
-### Loop Guard
-
-`LoopGuard` detects when an agent is stuck calling the same tool with the same parameters. Uses SHA256 hashing of `(tool_name, params)` to identify repetition.
-
-- **Warn threshold** (default 3): Logs a warning and injects a hint to the LLM.
-- **Block threshold** (default 5): Refuses the tool call and returns an error to the LLM.
-- **Circuit breaker** (default 30): Terminates the agent loop entirely.
-
-Configured via `LoopGuardConfig`.
-
-### Session Repair
-
-`validate_and_repair()` runs before each agent loop iteration to ensure message history consistency:
-
-- Drops orphaned `ToolResult` messages (no matching `ToolUse`).
-- Removes empty messages.
-- Merges consecutive same-role messages.
-
-### Tool Result Truncation
-
-`truncate_tool_result()` enforces a 50,000 character hard cap on tool output. Truncated results include a marker showing the original size.
-
-### Tool Timeout
-
-All tool executions are wrapped in a universal 60-second `tokio::time::timeout`. Tools that exceed this limit return a timeout error to the LLM rather than hanging indefinitely.
-
-### Max Continuations
-
-`MAX_CONTINUATIONS = 3` prevents infinite "Please continue" loops. After 3 continuation attempts, the agent returns its partial response rather than requesting another round.
-
-### Inter-Agent Depth Limit
-
-`MAX_AGENT_CALL_DEPTH = 5` enforced via `tokio::task_local!` in the tool runner. Prevents unbounded recursive agent-to-agent calls.
-
-### Stability Guidelines
-
-`STABILITY_GUIDELINES` are appended to every agent's system prompt. These contain anti-loop and anti-retry behavioral rules that the LLM follows to avoid degenerate patterns.
-
-### Block-Aware Compaction
-
-The session compactor handles all content block types (Text, ToolUse, ToolResult, Image) rather than assuming text-only messages. Auto-compaction triggers when the session exceeds the configured threshold (default 80% of context window), keeping the most recent messages (default 20).
+1. Проверка наличия у вызывающего возможности `AgentKill(target_name)`.
+2. Удаление из `AgentRegistry`.
+3. Остановка фоновых циклов через `BackgroundExecutor`.
+4. Снятие с регистрации в `AgentScheduler`.
+5. Отзыв всех возможностей.
+6. Отписка от `EventBus`.
+7. Удаление триггеров.
+8. Удаление из постоянного хранилища (SQLite).
 
 ---
 
-## Memory Substrate
+## Стабильность цикла агента
 
-The memory substrate (`openfang-memory`) provides six layers of storage:
+Цикл агента включает в себя несколько уровней защиты для предотвращения неконтролируемого поведения:
 
-### 1. Structured KV Store
+### Защита цикла (Loop Guard)
 
-Per-agent key-value storage backed by SQLite. Keys are strings, values are JSON. Used by the `memory_store` and `memory_recall` tools.
+`LoopGuard` обнаруживает, когда агент застревает на вызове одного и того же инструмента с одними и теми же параметрами. Использует хеширование SHA256 пары `(tool_name, params)` для идентификации повторений.
 
-A shared memory namespace (fixed agent ID `00000000-...01`) enables cross-agent data sharing.
+- **Порог предупреждения** (по умолчанию 3): логирует предупреждение и вставляет подсказку для LLM.
+- **Порог блокировки** (по умолчанию 5): отклоняет вызов инструмента и возвращает ошибку в LLM.
+- **Автоматический выключатель** (по умолчанию 30): полностью прерывает цикл агента.
+
+Настраивается через `LoopGuardConfig`.
+
+### Исправление сессии (Session Repair)
+
+`validate_and_repair()` запускается перед каждой итерацией цикла агента для обеспечения согласованности истории сообщений:
+
+- Отбрасывает "осиротевшие" сообщения `ToolResult` (без соответствующего `ToolUse`).
+- Удаляет пустые сообщения.
+- Объединяет идущие подряд сообщения с одной и той же ролью.
+
+### Обрезка результатов инструментов
+
+`truncate_tool_result()` устанавливает жесткий лимит в 50 000 символов для вывода инструмента. Обрезанные результаты включают маркер, показывающий исходный размер.
+
+### Тайм-аут инструментов
+
+Выполнение всех инструментов обернуто в универсальный 60-секундный `tokio::time::timeout`. Инструменты, превышающие этот лимит, возвращают ошибку тайм-аута в LLM вместо того, чтобы зависать бесконечно.
+
+### Максимум продолжений
+
+`MAX_CONTINUATIONS = 3` предотвращает бесконечные циклы "Пожалуйста, продолжай". После 3 попыток продолжения агент возвращает свой частичный ответ вместо запроса следующего раунда.
+
+### Лимит глубины межагентных вызовов
+
+`MAX_AGENT_CALL_DEPTH = 5` обеспечивается через `tokio::task_local!` в исполнителе инструментов. Предотвращает неограниченные рекурсивные вызовы между агентами.
+
+### Рекомендации по стабильности
+
+`STABILITY_GUIDELINES` добавляются к системному промпту каждого агента. Они содержат правила поведения против зацикливания и бесконечных повторов, которым следует LLM во избежание дегенеративных паттернов.
+
+### Сжатие с учетом блоков (Block-Aware Compaction)
+
+Компоновщик сессий обрабатывает все типы блоков контента (Text, ToolUse, ToolResult, Image), а не предполагает только текстовые сообщения. Автоматическое сжатие срабатывает, когда сессия превышает настроенный порог (по умолчанию 80% окна контекста), сохраняя самые последние сообщения (по умолчанию 20).
+
+---
+
+## Субстрат памяти
+
+Субстрат памяти (`openfang-memory`) предоставляет шесть уровней хранения:
+
+### 1. Структурированное хранилище KV
+
+Хранилище "ключ-значение" для каждого агента на базе SQLite. Ключи — строки, значения — JSON. Используется инструментами `memory_store` и `memory_recall`.
+
+Общее пространство имен памяти (фиксированный ID агента `00000000-...01`) позволяет обмениваться данными между агентами.
 
 ```
 agent_id | key         | value
@@ -271,40 +271,40 @@ uuid-b   | state       | {"step": 3}
 shared   | project     | {"name": "foo"}
 ```
 
-### 2. Semantic Search
+### 2. Семантический поиск
 
-Vector embeddings for similarity-based memory retrieval. Documents are embedded using the configured embedding driver and stored with their vectors. Queries are embedded at search time and matched by cosine similarity.
+Векторные эмбеддинги для поиска в памяти на основе сходства. Документы эмбеддятся с помощью настроенного драйвера эмбеддингов и сохраняются вместе с их векторами. Запросы эмбеддятся во время поиска и сопоставляются по косинусному сходству.
 
-### 3. Knowledge Graph
+### 3. Граф знаний
 
-Entity-relation storage for structured knowledge. Agents can store entities (with types and properties) and relations between them. Supports graph traversal queries.
+Хранилище сущностей и связей для структурированных знаний. Агенты могут хранить сущности (с типами и свойствами) и связи между ними. Поддерживает запросы обхода графа.
 
-### 4. Session Manager
+### 4. Менеджер сессий
 
-Conversation history storage. Each agent has a session containing its message history (user, assistant, tool use, tool result, image). Sessions track context window token counts. Sessions are persisted to SQLite and restored on kernel reboot.
+Хранилище истории диалогов. У каждого агента есть сессия, содержащая историю его сообщений (user, assistant, tool use, tool result, image). Сессии отслеживают количество токенов в окне контекста. Сессии сохраняются в SQLite и восстанавливаются при перезагрузке ядра.
 
-### 5. Task Board
+### 5. Доска задач (Task Board)
 
-A shared task queue for multi-agent collaboration:
-- `task_post`: Create a task with title, description, and optional assignee.
-- `task_claim`: Claim the next available task.
-- `task_complete`: Mark a task as done with a result.
-- `task_list`: List tasks filtered by status (pending, claimed, completed).
+Общая очередь задач для совместной работы нескольких агентов:
+- `task_post`: создать задачу с заголовком, описанием и опциональным исполнителем.
+- `task_claim`: взять следующую доступную задачу.
+- `task_complete`: отметить задачу как выполненную с результатом.
+- `task_list`: список задач, отфильтрованный по статусу (ожидает, взята, выполнена).
 
-### 6. Usage and Canonical Sessions
+### 6. Использование и канонические сессии
 
-- **Usage tracking**: `usage_events` table persists token counts, cost estimates, and model usage per agent. `UsageStore` provides query and aggregation APIs.
-- **Canonical sessions**: Cross-channel memory. `CanonicalSession` tracks a user's conversation context across multiple channels. Compaction produces summaries that are injected into system prompts. Stored in `canonical_sessions` table (schema v5).
+- **Отслеживание использования**: таблица `usage_events` хранит количество токенов, оценки стоимости и использование моделей для каждого агента. `UsageStore` предоставляет API для запросов и агрегации.
+- **Канонические сессии**: межканальная память. `CanonicalSession` отслеживает контекст диалога пользователя в нескольких каналах. Сжатие создает резюме, которые вставляются в системные промпты. Хранится в таблице `canonical_sessions` (схема v5).
 
-### SQLite Architecture
+### Архитектура SQLite
 
-All memory operations go through `Arc<Mutex<Connection>>` with Tokio's `spawn_blocking` for async bridging. This ensures thread safety without requiring an async SQLite driver. Schema migrations run automatically through five versions.
+Все операции с памятью проходят через `Arc<Mutex<Connection>>` с использованием `spawn_blocking` от Tokio для асинхронного моста. Это обеспечивает потокобезопасность без необходимости использования асинхронного драйвера SQLite. Миграции схемы выполняются автоматически через пять версий.
 
 ---
 
-## LLM Driver Abstraction
+## Абстракция драйверов LLM
 
-The `LlmDriver` trait (`openfang-runtime`) provides a unified interface for all LLM providers:
+Трейт `LlmDriver` (`openfang-runtime`) предоставляет унифицированный интерфейс для всех провайдеров LLM:
 
 ```rust
 #[async_trait]
@@ -330,128 +330,128 @@ pub trait LlmDriver: Send + Sync {
 }
 ```
 
-### Provider Architecture
+### Архитектура провайдеров
 
-Three native driver implementations cover all 20 providers with 51 models:
+Три нативных реализации драйверов охватывают всех 20 провайдеров с 51 моделью:
 
-1. **AnthropicDriver**: Native Anthropic Messages API. Handles Claude-specific features (content blocks including images, tool use blocks, streaming deltas). Supports `ContentBlock::Image` with media type validation and 5MB cap.
+1. **AnthropicDriver**: нативный Anthropic Messages API. Обрабатывает специфичные для Claude функции (блоки контента, включая изображения, блоки использования инструментов, потоковые дельты). Поддерживает `ContentBlock::Image` с валидацией типа медиа и ограничением в 5 МБ.
 
-2. **GeminiDriver**: Native Google Gemini API (v1beta). Uses `x-goog-api-key` auth, `systemInstruction`, `functionDeclarations`, `streamGenerateContent?alt=sse`. Maps Gemini function call responses to the unified `ToolUse` stop reason.
+2. **GeminiDriver**: нативный Google Gemini API (v1beta). Использует аутентификацию `x-goog-api-key`, `systemInstruction`, `functionDeclarations`, `streamGenerateContent?alt=sse`. Сопоставляет ответы вызова функций Gemini с унифицированной причиной остановки `ToolUse`.
 
-3. **OpenAiCompatDriver**: OpenAI-compatible Chat Completions API. Works with any provider that implements the OpenAI API format. Configured with different base URLs per provider. Covers 18+ providers including OpenAI, DeepSeek, Groq, Mistral, Together, and local runners.
+3. **OpenAiCompatDriver**: OpenAI-совместимый Chat Completions API. Работает с любым провайдером, реализующим формат API OpenAI. Настраивается с различными базовыми URL для каждого провайдера. Охватывает более 18 провайдеров, включая OpenAI, DeepSeek, Groq, Mistral, Together и локальные раннеры.
 
-### Provider Configuration
+### Конфигурация провайдеров
 
-| Provider | Driver | Base URL | Key Required |
+| Провайдер | Драйвер | Базовый URL | Ключ обязателен |
 |----------|--------|----------|--------------|
-| `anthropic` | Anthropic | `https://api.anthropic.com` | Yes |
-| `gemini` | Gemini | `https://generativelanguage.googleapis.com` | Yes |
-| `openai` | OpenAI-compat | `https://api.openai.com` | Yes |
-| `deepseek` | OpenAI-compat | `https://api.deepseek.com` | Yes |
-| `groq` | OpenAI-compat | `https://api.groq.com/openai` | Yes |
-| `openrouter` | OpenAI-compat | `https://openrouter.ai/api` | Yes |
-| `mistral` | OpenAI-compat | `https://api.mistral.ai` | Yes |
-| `together` | OpenAI-compat | `https://api.together.xyz` | Yes |
-| `fireworks` | OpenAI-compat | `https://api.fireworks.ai/inference` | Yes |
-| `perplexity` | OpenAI-compat | `https://api.perplexity.ai` | Yes |
-| `cohere` | OpenAI-compat | `https://api.cohere.ai` | Yes |
-| `ai21` | OpenAI-compat | `https://api.ai21.com` | Yes |
-| `cerebras` | OpenAI-compat | `https://api.cerebras.ai` | Yes |
-| `sambanova` | OpenAI-compat | `https://api.sambanova.ai` | Yes |
-| `huggingface` | OpenAI-compat | `https://api-inference.huggingface.co` | Yes |
-| `xai` | OpenAI-compat | `https://api.x.ai` | Yes |
-| `replicate` | OpenAI-compat | `https://api.replicate.com` | Yes |
-| `ollama` | OpenAI-compat | `http://localhost:11434` | No |
-| `vllm` | OpenAI-compat | `http://localhost:8000` | No |
-| `lmstudio` | OpenAI-compat | `http://localhost:1234` | No |
+| `anthropic` | Anthropic | `https://api.anthropic.com` | Да |
+| `gemini` | Gemini | `https://generativelanguage.googleapis.com` | Да |
+| `openai` | OpenAI-compat | `https://api.openai.com` | Да |
+| `deepseek` | OpenAI-compat | `https://api.deepseek.com` | Да |
+| `groq` | OpenAI-compat | `https://api.groq.com/openai` | Да |
+| `openrouter` | OpenAI-compat | `https://openrouter.ai/api` | Да |
+| `mistral` | OpenAI-compat | `https://api.mistral.ai` | Да |
+| `together` | OpenAI-compat | `https://api.together.xyz` | Да |
+| `fireworks` | OpenAI-compat | `https://api.fireworks.ai/inference` | Да |
+| `perplexity` | OpenAI-compat | `https://api.perplexity.ai` | Да |
+| `cohere` | OpenAI-compat | `https://api.cohere.ai` | Да |
+| `ai21` | OpenAI-compat | `https://api.ai21.com` | Да |
+| `cerebras` | OpenAI-compat | `https://api.cerebras.ai` | Да |
+| `sambanova` | OpenAI-compat | `https://api.sambanova.ai` | Да |
+| `huggingface` | OpenAI-compat | `https://api-inference.huggingface.co` | Да |
+| `xai` | OpenAI-compat | `https://api.x.ai` | Да |
+| `replicate` | OpenAI-compat | `https://api.replicate.com` | Да |
+| `ollama` | OpenAI-compat | `http://localhost:11434` | Нет |
+| `vllm` | OpenAI-compat | `http://localhost:8000` | Нет |
+| `lmstudio` | OpenAI-compat | `http://localhost:1234` | Нет |
 
-### Per-Agent Driver Resolution
+### Разрешение драйвера для каждого агента
 
-Each agent can override the kernel's default provider:
+Каждый агент может переопределить провайдера ядра по умолчанию:
 
 ```toml
 [model]
-provider = "openai"                   # Different from kernel default
+provider = "openai"                   # Отличается от дефолта ядра
 model = "gpt-4o"
-api_key_env = "OPENAI_API_KEY"        # Custom key env var
-base_url = "https://custom.api.com"   # Optional custom endpoint
+api_key_env = "OPENAI_API_KEY"        # Кастомная переменная ключа
+base_url = "https://custom.api.com"   # Опциональный кастомный эндпоинт
 ```
 
-When resolving the driver for an agent:
-1. If the agent uses the same provider as the kernel default (and no custom key/URL), reuse the kernel's shared driver instance.
-2. Otherwise, create a dedicated driver for that agent.
+При разрешении драйвера для агента:
+1. Если агент использует того же провайдера, что и ядро по умолчанию (и нет кастомного ключа/URL), повторно используется общий экземпляр драйвера ядра.
+2. В противном случае создается выделенный драйвер для этого агента.
 
-### Retry and Rate Limiting
+### Повторные попытки и ограничение скорости
 
-LLM calls use exponential backoff for rate-limited (429) and overloaded (529) responses. The retry logic is built into the driver layer. All API key fields use `Zeroizing<String>` for automatic memory wipe on drop.
-
----
-
-## Model Catalog
-
-The `ModelCatalog` (`openfang-runtime/src/model_catalog.rs`) provides a registry of all known models, providers, and aliases.
-
-### Registry Contents
-
-- **51 builtin models** across 20+ model families (Claude, GPT, Gemini, DeepSeek, Llama, Mixtral, Command, Jamba, Grok, etc.)
-- **20+ aliases** for convenience (e.g., `claude` -> `claude-sonnet-4-20250514`, `grok` -> `grok-2`)
-- **20 providers** with authentication status detection
-
-### Types
-
-- `ModelCatalogEntry`: Model ID, display name, provider, tier, context window, cost rates.
-- `ProviderInfo`: Provider name, driver type, base URL, key env var, auth status.
-- `ModelTier`: Frontier, Smart, Balanced, Fast (maps to cost and capability tiers).
-- `AuthStatus`: Detected, NotDetected (based on env var presence without reading secrets).
-
-### Integration Points
-
-- **Metering**: `estimate_cost_with_catalog()` uses catalog entries as the pricing source.
-- **Router**: `ModelRouter.validate_models()` and `resolve_aliases()` reference the catalog.
-- **API**: 4 endpoints (`/api/models`, `/api/models/{id}`, `/api/models/aliases`, `/api/providers`).
-- **Channels**: `/models` and `/providers` chat commands via `ChannelBridgeHandle`.
+Вызовы LLM используют экспоненциальную задержку для ответов с ограничением скорости (429) и перегрузкой (529). Логика повторных попыток встроена в слой драйвера. Все поля API-ключей используют `Zeroizing<String>` для автоматической очистки памяти при удалении.
 
 ---
 
-## Capability-Based Security Model
+## Каталог моделей
 
-Every agent operation is subject to capability checks. Capabilities are declared in the agent manifest and enforced at runtime.
+`ModelCatalog` (`openfang-runtime/src/model_catalog.rs`) предоставляет реестр всех известных моделей, провайдеров и алиасов.
 
-### Capability Types
+### Содержимое реестра
+
+- **51 встроенная модель** из более чем 20 семейств (Claude, GPT, Gemini, DeepSeek, Llama, Mixtral, Command, Jamba, Grok и т. д.)
+- **20+ алиасов** для удобства (например, `claude` -> `claude-sonnet-4-20250514`, `grok` -> `grok-2`)
+- **20 провайдеров** с определением статуса аутентификации
+
+### Типы
+
+- `ModelCatalogEntry`: ID модели, отображаемое имя, провайдер, уровень, окно контекста, тарифы стоимости.
+- `ProviderInfo`: имя провайдера, тип драйвера, базовый URL, переменная окружения ключа, статус аутентификации.
+- `ModelTier`: Frontier, Smart, Balanced, Fast (сопоставляется с уровнями стоимости и возможностей).
+- `AuthStatus`: Detected, NotDetected (на основе наличия переменной окружения без чтения секретов).
+
+### Точки интеграции
+
+- **Учет (Metering)**: `estimate_cost_with_catalog()` использует записи каталога как источник цен.
+- **Роутер**: `ModelRouter.validate_models()` и `resolve_aliases()` ссылаются на каталог.
+- **API**: 4 эндпоинта (`/api/models`, `/api/models/{id}`, `/api/models/aliases`, `/api/providers`).
+- **Каналы**: команды чата `/models` и `/providers` через `ChannelBridgeHandle`.
+
+---
+
+## Модель безопасности на основе возможностей (Capability-Based)
+
+Каждая операция агента подлежит проверке возможностей. Возможности объявляются в манифесте агента и применяются во время выполнения.
+
+### Типы возможностей
 
 ```rust
 pub enum Capability {
-    // Tool access
-    ToolInvoke(String),       // Access to a specific tool (e.g., "file_read")
-    ToolAll,                  // Access to all tools
+    // Доступ к инструментам
+    ToolInvoke(String),       // Доступ к конкретному инструменту (например, "file_read")
+    ToolAll,                  // Доступ ко всем инструментам
 
-    // Memory access
-    MemoryRead(String),       // Read scope (e.g., "*", "self.*")
-    MemoryWrite(String),      // Write scope
+    // Доступ к памяти
+    MemoryRead(String),       // Область чтения (например, "*", "self.*")
+    MemoryWrite(String),      // Область записи
 
-    // Network access
-    NetConnect(String),       // Connect to host (e.g., "api.example.com", "*")
+    // Сетевой доступ
+    NetConnect(String),       // Подключение к хосту (например, "api.example.com", "*")
 
-    // Agent operations
-    AgentSpawn,               // Can spawn new agents
-    AgentMessage(String),     // Can message agents matching pattern
-    AgentKill(String),        // Can kill agents matching pattern
+    // Операции с агентами
+    AgentSpawn,               // Может запускать новых агентов
+    AgentMessage(String),     // Может отправлять сообщения агентам по шаблону
+    AgentKill(String),        // Может убивать агентов по шаблону
 
-    // Shell access
-    ShellExec(String),        // Can execute shell commands matching pattern
+    // Доступ к шеллу
+    ShellExec(String),        // Может выполнять команды шелла по шаблону
 
-    // OFP networking
-    OfpDiscover,              // Can discover remote peers
-    OfpConnect(String),       // Can connect to specific peers
-    OfpAdvertise,             // Can advertise to peers
+    // OFP сеть
+    OfpDiscover,              // Может обнаруживать удаленные пиры
+    OfpConnect(String),       // Может подключаться к конкретным пирам
+    OfpAdvertise,             // Может анонсировать себя пирам
 }
 ```
 
-### Capability Inheritance Validation
+### Валидация наследования возможностей
 
-`validate_capability_inheritance()` prevents privilege escalation when agents spawn child agents. A child agent can never receive capabilities that its parent does not hold. This is enforced at spawn time before any capabilities are granted.
+`validate_capability_inheritance()` предотвращает повышение привилегий, когда агенты запускают дочерних агентов. Дочерний агент никогда не может получить возможности, которыми не обладает его родитель. Это проверяется во время запуска до предоставления каких-либо возможностей.
 
-### Manifest Declaration
+### Объявление в манифесте
 
 ```toml
 [capabilities]
@@ -467,212 +467,212 @@ ofp_discover = false
 ofp_connect = []
 ```
 
-### Enforcement Flow
+### Поток применения
 
 ```
-Tool invocation request
+Запрос на вызов инструмента
     |
     v
 CapabilityManager.check(agent_id, ToolInvoke("file_read"))
     |
-    +-- Granted --> Validate path (traversal check) --> Execute tool
+    +-- Разрешено --> Валидация пути (проверка обхода) --> Выполнение инструмента
     |
-    +-- Denied --> Return "Permission denied" error to LLM
+    +-- Отклонено --> Возврат ошибки "Permission denied" в LLM
 ```
 
-The `CapabilityManager` uses a `DashMap<AgentId, Vec<Capability>>` for lock-free concurrent access. Capabilities are granted at spawn time (after inheritance validation) and revoked at kill time.
+`CapabilityManager` использует `DashMap<AgentId, Vec<Capability>>` для неблокирующего конкурентного доступа. Возможности предоставляются при запуске (после валидации наследования) и отзываются при завершении работы агента.
 
-The tool runner also enforces capabilities by filtering the tool list before passing it to the LLM. If the LLM hallucinates a tool name outside the agent's granted list, the tool runner rejects it with a permission error.
+Исполнитель инструментов также применяет возможности, фильтруя список инструментов перед передачей его в LLM. Если LLM галлюцинирует имя инструмента, не входящее в разрешенный список агента, исполнитель отклоняет его с ошибкой прав доступа.
 
 ---
 
-## Security Hardening
+## Усиление безопасности
 
-OpenFang implements 16 security systems organized into critical fixes and state-of-the-art defenses:
+OpenFang реализует 16 систем безопасности, организованных в критические исправления и современные методы защиты:
 
-### Path Traversal Prevention
+### Предотвращение обхода путей (Path Traversal)
 
-`safe_resolve_path()` and `safe_resolve_parent()` in WASM host functions prevent directory traversal attacks. Path validation in `tool_runner.rs` (`validate_path`) protects file tools. Capability check runs BEFORE path resolution (deny first, then validate).
+`safe_resolve_path()` и `safe_resolve_parent()` в хост-функциях WASM предотвращают атаки обхода директорий. Валидация путей в `tool_runner.rs` (`validate_path`) защищает файловые инструменты. Проверка возможностей выполняется ДО разрешения пути (сначала отказ, потом валидация).
 
-### Subprocess Isolation
+### Изоляция подпроцессов
 
-`subprocess_sandbox.rs` provides a secure execution environment for Python/Node skill runtimes. All subprocess invocations use `cmd.env_clear()` followed by selective environment variable injection, preventing secret leakage.
+`subprocess_sandbox.rs` обеспечивает безопасную среду выполнения для рантаймов навыков Python/Node. Все вызовы подпроцессов используют `cmd.env_clear()` с последующей выборочной инъекцией переменных окружения, что предотвращает утечку секретов.
 
-### SSRF Protection
+### Защита от SSRF
 
-`is_ssrf_target()` and `is_private_ip()` block requests to private IPs and cloud metadata endpoints (169.254.169.254, etc.). DNS resolution is checked to prevent DNS rebinding attacks. Applied in `host_net_fetch` and `web_fetch.rs`.
+`is_ssrf_target()` и `is_private_ip()` блокируют запросы к частным IP-адресам и эндпоинтам облачных метаданных (169.254.169.254 и т. д.). Проверяется разрешение DNS для предотвращения атак DNS-rebinding. Применяется в `host_net_fetch` и `web_fetch.rs`.
 
-### WASM Dual Metering
+### Двойной учет WASM
 
-WASM sandbox uses both Wasmtime fuel metering (instruction count) and epoch interruption (wall-clock timeout via watchdog thread). This prevents both CPU-bound and time-bound runaway modules.
+Песочница WASM использует как учет fuel в Wasmtime (количество инструкций), так и прерывание эпохи (тайм-аут по реальному времени через поток-сторож). Это предотвращает зависание модулей как по CPU, так и по времени.
 
-### Merkle Audit Trail
+### Журнал аудита Меркла
 
-`audit.rs` implements a Merkle hash chain where each audit entry includes a hash of the previous entry. This provides tamper-evident logging of all agent actions.
+`audit.rs` реализует цепочку хешей Меркла, где каждая запись аудита включает хеш предыдущей записи. Это обеспечивает защищенное от подделок логирование всех действий агентов.
 
-### Information Flow Taint Tracking
+### Отслеживание загрязнения потоков данных (Taint Tracking)
 
-`taint.rs` in `openfang-types` implements taint labels and taint sets. Data from external sources carries taint labels that propagate through operations, enabling information flow analysis.
+`taint.rs` в `openfang-types` реализует метки загрязнения и наборы загрязнений. Данные из внешних источников несут метки загрязнения, которые распространяются через операции, что позволяет проводить анализ потоков данных.
 
-### Ed25519 Manifest Signing
+### Подпись манифестов Ed25519
 
-`manifest_signing.rs` provides Ed25519 digital signatures for agent manifests. Ensures manifest integrity and authenticity.
+`manifest_signing.rs` обеспечивает цифровые подписи Ed25519 для манифестов агентов. Гарантирует целостность и подлинность манифеста.
 
-### OFP HMAC-SHA256 Mutual Auth
+### Взаимная аутентификация OFP HMAC-SHA256
 
-Wire protocol authentication uses `hmac_sign(secret, nonce + node_id)` on both handshake sides. Nonce prevents replay attacks. Constant-time verification via the `subtle` crate prevents timing attacks.
+Аутентификация сетевого протокола использует `hmac_sign(secret, nonce + node_id)` с обеих сторон рукопожатия. Nonce предотвращает атаки воспроизведения. Проверка за константное время через крейт `subtle` предотвращает атаки по времени.
 
-### Security Headers Middleware
+### Middleware заголовков безопасности
 
-CSP, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, and Permissions-Policy headers on all API responses.
+Заголовки CSP, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy и Permissions-Policy во всех ответах API.
 
-### GCRA Rate Limiter
+### Ограничитель скорости GCRA
 
-Generic Cell Rate Algorithm with cost-aware token buckets. Per-IP tracking with stale entry cleanup. Configurable burst and sustained rates.
+Алгоритм Generic Cell Rate Algorithm с корзинами токенов, учитывающими стоимость. Отслеживание по IP с очисткой устаревших записей. Настраиваемые пиковые и устойчивые скорости.
 
-### Health Endpoint Redaction
+### Редактирование эндпоинта здоровья
 
-Public health endpoint (`/api/health`) returns minimal status. Detailed health (`/api/health/detail`) requires authentication and shows database stats, agent counts, and subsystem status.
+Публичный эндпоинт здоровья (`/api/health`) возвращает минимальный статус. Подробный статус (`/api/health/detail`) требует аутентификации и показывает статистику БД, количество агентов и статус подсистем.
 
-### Prompt Injection Scanner
+### Сканер промпт-инъекций
 
-`scan_prompt_content()` in the skills crate detects override attempts, data exfiltration patterns, and shell references in skill content. Applied to all bundled and installed skills and to SKILL.md auto-conversion.
+`scan_prompt_content()` в крейте навыков обнаруживает попытки переопределения, паттерны эксфильтрации данных и ссылки на шелл в контенте навыков. Применяется ко всем встроенным и установленным навыкам, а также к автоконвертации SKILL.md.
 
-### Secret Zeroization
+### Обнуление секретов (Zeroization)
 
-All LLM driver API key fields use `Zeroizing<String>` from the `zeroize` crate. Keys are automatically wiped from memory when the driver is dropped. `Debug` impls on config structs redact secret fields.
+Все поля API-ключей драйверов LLM используют `Zeroizing<String>` из крейта `zeroize`. Ключи автоматически стираются из памяти при удалении драйвера. Реализации `Debug` для структур конфигурации скрывают секретные поля.
 
-### Localhost-Only Fallback
+### Фоллбэк только на localhost
 
-When no API key is configured, the system falls back to localhost-only mode, preventing accidental exposure of unauthenticated endpoints.
+Если API-ключ не настроен, система переходит в режим "только localhost", предотвращая случайное открытие неаутентифицированных эндпоинтов.
 
-### Loop Guard and Session Repair
+### Защита цикла и исправление сессии
 
-See [Agent Loop Stability](#agent-loop-stability) above.
+См. раздел [Стабильность цикла агента](#стабильность-цикла-агента) выше.
 
-### Security Dependencies
+### Зависимости безопасности
 
 `sha2`, `hmac`, `hex`, `subtle`, `ed25519-dalek`, `rand`, `zeroize`, `governor`
 
 ---
 
-## Channel System
+## Система каналов
 
-The channel system (`openfang-channels`) provides 40 adapters for messaging platform integration.
+Система каналов (`openfang-channels`) предоставляет 40 адаптеров для интеграции с платформами обмена сообщениями.
 
-### Adapter List
+### Список адаптеров
 
-| Wave | Channels |
+| Волна | Каналы |
 |------|----------|
-| **Original (15)** | Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Email, SMS, Webhook, Teams, Mattermost, IRC, Google Chat, Twitch, Rocket.Chat |
-| **Wave 2 (8)** | Zulip, XMPP, LINE, Viber, Messenger, Reddit, Mastodon, Bluesky |
-| **Wave 3 (8)** | Feishu, Revolt, Nextcloud, Guilded, Keybase, Threema, Nostr, Webex |
-| **Wave 4 (9)** | Pumble, Flock, Twist, Mumble, DingTalk, Discourse, Gitter, Ntfy, Gotify, LinkedIn |
+| **Оригинальные (15)** | Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Email, SMS, Webhook, Teams, Mattermost, IRC, Google Chat, Twitch, Rocket.Chat |
+| **Волна 2 (8)** | Zulip, XMPP, LINE, Viber, Messenger, Reddit, Mastodon, Bluesky |
+| **Волна 3 (8)** | Feishu, Revolt, Nextcloud, Guilded, Keybase, Threema, Nostr, Webex |
+| **Волна 4 (9)** | Pumble, Flock, Twist, Mumble, DingTalk, Discourse, Gitter, Ntfy, Gotify, LinkedIn |
 
-### Channel Features
+### Функции каналов
 
-- **Channel Overrides**: Per-channel configuration of model, system prompt, DM policy, group policy, rate limit, threading, and output format.
-- **DM/Group Policy**: `DmPolicy` and `GroupPolicy` enums enforce who can interact with agents in direct messages vs. group chats.
-- **Formatter**: `formatter.rs` converts Markdown to platform-specific formats (TelegramHTML, SlackMrkdwn, PlainText).
-- **Rate Limiter**: `ChannelRateLimiter` with per-user DashMap tracking prevents message flooding.
-- **Threading**: `send_in_thread()` trait method for platforms that support threaded conversations.
-- **Chat Commands**: `/models`, `/providers`, `/new`, `/compact`, `/model`, `/stop`, `/usage`, `/think` handled by `ChannelBridgeHandle`.
-
----
-
-## Skill System
-
-The skill system (`openfang-skills`) provides 60 bundled skills and supports external skill installation.
-
-### Skill Types
-
-- **Python**: Python scripts executed in subprocess sandbox.
-- **Node.js**: Node.js scripts (OpenClaw compatibility).
-- **WASM**: WebAssembly modules executed in the WASM sandbox.
-- **PromptOnly**: Skills that inject context into the LLM system prompt without code execution.
-
-### Bundled Skills (60)
-
-Compiled into the binary via `include_str!()` in `bundled.rs`. Three tiers:
-
-- **Tier 1 (8)**: github, docker, web-search, code-reviewer, sql-analyst, git-expert, sysadmin, writing-coach
-- **Tier 2 (6)**: kubernetes, terraform, aws, jira, data-analyst, api-tester
-- **Tier 3 (6)**: pdf-reader, slack-tools, notion, sentry, mongodb, regex-expert
-- **Plus 40 additional skills** added in the expansion phase
-
-### Security Pipeline
-
-All skills pass through a security pipeline before activation:
-
-1. **SHA256 verification** (`SkillVerifier`): Ensures skill content matches its declared hash.
-2. **Prompt injection scan** (`scan_prompt_content()`): Detects malicious patterns in skill prompts and descriptions.
-3. **Trust boundary markers**: Skill-injected context in system prompts is wrapped with trust boundary markers.
-4. **Subprocess env_clear()**: Skill code execution uses environment isolation.
-
-### Ecosystem Bridges
-
-- **FangHub**: Native OpenFang marketplace (`FangHubClient`).
-- **ClawHub**: Cross-ecosystem compatibility (`ClawHubClient` connects to clawhub.ai).
-- **SKILL.md Parser**: Auto-converts OpenClaw SKILL.md format (YAML frontmatter + Markdown body) to `skill.toml`.
-- **Tool Compat**: 21 OpenClaw-to-OpenFang tool name mappings in `tool_compat.rs`.
+- **Переопределения каналов**: конфигурация модели, системного промпта, политики ЛС, политики групп, лимита скорости, трединга и формата вывода для каждого канала.
+- **Политики ЛС/Групп**: енумы `DmPolicy` и `GroupPolicy` определяют, кто может взаимодействовать с агентами в личных сообщениях и групповых чатах.
+- **Форматировщик**: `formatter.rs` конвертирует Markdown в специфичные для платформ форматы (TelegramHTML, SlackMrkdwn, PlainText).
+- **Лимитер скорости**: `ChannelRateLimiter` с отслеживанием по пользователям через DashMap предотвращает флуд сообщениями.
+- **Трединг**: метод трейта `send_in_thread()` для платформ, поддерживающих ветки обсуждений (threads).
+- **Команды чата**: `/models`, `/providers`, `/new`, `/compact`, `/model`, `/stop`, `/usage`, `/think` обрабатываются через `ChannelBridgeHandle`.
 
 ---
 
-## MCP and A2A Protocols
+## Система навыков
+
+Система навыков (`openfang-skills`) предоставляет 60 встроенных навыков и поддерживает установку внешних навыков.
+
+### Типы навыков
+
+- **Python**: скрипты Python, выполняемые в песочнице подпроцессов.
+- **Node.js**: скрипты Node.js (совместимость с OpenClaw).
+- **WASM**: модули WebAssembly, выполняемые в песочнице WASM.
+- **PromptOnly**: навыки, которые вставляют контекст в системный промпт LLM без выполнения кода.
+
+### Встроенные навыки (60)
+
+Скомпилированы в бинарный файл через `include_str!()` в `bundled.rs`. Три уровня:
+
+- **Уровень 1 (8)**: github, docker, web-search, code-reviewer, sql-analyst, git-expert, sysadmin, writing-coach
+- **Уровень 2 (6)**: kubernetes, terraform, aws, jira, data-analyst, api-tester
+- **Уровень 3 (6)**: pdf-reader, slack-tools, notion, sentry, mongodb, regex-expert
+- **Плюс 40 дополнительных навыков**, добавленных на этапе расширения.
+
+### Конвейер безопасности
+
+Все навыки проходят через конвейер безопасности перед активацией:
+
+1. **Проверка SHA256** (`SkillVerifier`): гарантирует соответствие контента навыка его заявленному хешу.
+2. **Сканирование на промпт-инъекции** (`scan_prompt_content()`): обнаруживает вредоносные паттерны в промптах и описаниях навыков.
+3. **Маркеры границ доверия**: вставленный навыком контекст в системных промптах оборачивается маркерами границ доверия.
+4. **Subprocess env_clear()**: выполнение кода навыка использует изоляцию окружения.
+
+### Мосты экосистемы
+
+- **FangHub**: нативный маркетплейс OpenFang (`FangHubClient`).
+- **ClawHub**: совместимость между экосистемами (`ClawHubClient` подключается к clawhub.ai).
+- **Парсер SKILL.md**: автоконвертация формата OpenClaw SKILL.md (YAML frontmatter + тело Markdown) в `skill.toml`.
+- **Совместимость инструментов**: 21 сопоставление имен инструментов OpenClaw и OpenFang в `tool_compat.rs`.
+
+---
+
+## Протоколы MCP и A2A
 
 ### Model Context Protocol (MCP)
 
-OpenFang implements both MCP client and server:
+OpenFang реализует как клиент, так и сервер MCP:
 
-- **MCP Client** (`mcp.rs`): JSON-RPC 2.0 over stdio or SSE transports. Connects to external MCP servers. Tools are namespaced as `mcp_{server}_{tool}` to prevent collisions. Background connection in `start_background_agents()`.
-- **MCP Server** (`mcp_server.rs`): Exposes OpenFang's 23 built-in tools via the MCP protocol. Enables external tools to use OpenFang as a tool provider.
-- **Configuration**: `KernelConfig.mcp_servers` (Vec of `McpServerConfigEntry` with name, command, args, env, transport).
-- **API**: `/api/mcp/servers` returns configured and connected servers with their tool lists.
+- **Клиент MCP** (`mcp.rs`): JSON-RPC 2.0 через транспорт stdio или SSE. Подключается к внешним MCP-серверам. Инструменты получают пространство имен `mcp_{server}_{tool}` для предотвращения коллизий. Фоновое подключение в `start_background_agents()`.
+- **Сервер MCP** (`mcp_server.rs`): предоставляет 23 встроенных инструмента OpenFang через протокол MCP. Позволяет внешним инструментам использовать OpenFang как провайдер инструментов.
+- **Конфигурация**: `KernelConfig.mcp_servers` (Vec из `McpServerConfigEntry` с именем, командой, аргументами, окружением, транспортом).
+- **API**: `/api/mcp/servers` возвращает настроенные и подключенные серверы со списками их инструментов.
 
-### Agent-to-Agent Protocol (A2A)
+### Протокол Agent-to-Agent (A2A)
 
-Google's A2A protocol for inter-system agent communication:
+Протокол Google A2A для взаимодействия агентов между системами:
 
-- **A2A Server** (`a2a.rs`): Publishes `AgentCard` at `/.well-known/agent.json`. Handles task lifecycle (send, get, cancel).
-- **A2A Client** (`a2a.rs`): Discovers and communicates with remote A2A-compatible agents.
-- **Endpoints**: `/.well-known/agent.json`, `/a2a/agents`, `/a2a/tasks/send`, `/a2a/tasks/{id}`, `/a2a/tasks/{id}/cancel`.
-- **Configuration**: `KernelConfig.a2a` (optional `A2aConfig`).
+- **Сервер A2A** (`a2a.rs`): публикует `AgentCard` по пути `/.well-known/agent.json`. Обрабатывает жизненный цикл задач (отправка, получение, отмена).
+- **Клиент A2A** (`a2a.rs`): обнаруживает удаленных A2A-совместимых агентов и взаимодействует с ними.
+- **Эндпоинты**: `/.well-known/agent.json`, `/a2a/agents`, `/a2a/tasks/send`, `/a2a/tasks/{id}`, `/a2a/tasks/{id}/cancel`.
+- **Конфигурация**: `KernelConfig.a2a` (опционально `A2aConfig`).
 
 ---
 
-## Wire Protocol (OFP)
+## Сетевой протокол (OFP)
 
-The OpenFang Protocol (OFP) enables peer-to-peer agent communication across machines.
+OpenFang Protocol (OFP) обеспечивает пиринговое взаимодействие агентов между машинами.
 
-### Architecture
+### Архитектура
 
 ```
-Machine A                          Machine B
+Машина A                           Машина B
 +-----------+                      +-----------+
 | PeerNode  | ---TCP (JSON)------> | PeerNode  |
-| port 4200 | <---TCP (JSON)------ | port 4200 |
+| порт 4200 | <---TCP (JSON)------ | порт 4200 |
 +-----------+                      +-----------+
 | PeerRegistry |                   | PeerRegistry |
-| - Known peers |                  | - Known peers |
-| - Remote agents |                | - Remote agents |
+| - Известные пиры |               | - Известные пиры |
+| - Удаленные агенты |             | - Удаленные агенты |
 +---------------+                  +---------------+
 ```
 
-### HMAC-SHA256 Mutual Authentication
+### Взаимная аутентификация HMAC-SHA256
 
-Before any protocol messages are exchanged, both peers authenticate:
+Перед обменом любыми протокольными сообщениями оба пира проходят аутентификацию:
 
-1. Initiator sends `{nonce, node_id, hmac_sign(shared_secret, nonce + node_id)}`.
-2. Responder verifies HMAC using constant-time comparison (`subtle` crate).
-3. Responder sends its own `{nonce, node_id, hmac}` challenge.
-4. Initiator verifies.
-5. On mutual success, the connection is established.
+1. Инициатор отправляет `{nonce, node_id, hmac_sign(shared_secret, nonce + node_id)}`.
+2. Ответчик проверяет HMAC, используя сравнение за константное время (крейт `subtle`).
+3. Ответчик отправляет свой вызов `{nonce, node_id, hmac}`.
+4. Инициатор проверяет его.
+5. При взаимном успехе соединение устанавливается.
 
-Configured via `PeerConfig.shared_secret` (required) and `NetworkConfig.shared_secret` in `config.toml`.
+Настраивается через `PeerConfig.shared_secret` (обязательно) и `NetworkConfig.shared_secret` в `config.toml`.
 
-### Protocol Messages
+### Протокольные сообщения
 
-All messages are JSON-framed (newline-delimited JSON over TCP):
+Все сообщения обрамлены JSON (JSON с разделителем новой строки через TCP):
 
 ```
 WireMessage {
@@ -682,20 +682,20 @@ WireMessage {
 }
 ```
 
-**Request types:**
-- `Discover` -- Request peer information and agent list
-- `Advertise` -- Announce local agents to a peer
-- `RouteMessage` -- Send a message to a remote agent
-- `Ping` -- Keepalive
+**Типы запросов:**
+- `Discover` — запрос информации о пире и списке агентов.
+- `Advertise` — объявление локальных агентов пиру.
+- `RouteMessage` — отправка сообщения удаленному агенту.
+- `Ping` — проверка связи.
 
-**Response types:**
-- `DiscoverResponse` -- Peer info and agent list
-- `RouteResponse` -- Agent's response to a routed message
-- `Pong` -- Keepalive response
+**Типы ответов:**
+- `DiscoverResponse` — информация о пире и список агентов.
+- `RouteResponse` — ответ агента на маршрутизированное сообщение.
+- `Pong` — ответ на проверку связи.
 
 ### PeerRegistry
 
-Tracks all known peers and their advertised agents:
+Отслеживает всех известных пиров и их анонсированных агентов:
 
 ```rust
 pub struct PeerEntry {
@@ -713,55 +713,55 @@ pub struct RemoteAgent {
 }
 ```
 
-### Capability Gating
+### Контроль через возможности
 
-OFP operations require capabilities:
-- `OfpDiscover` -- Required to send discover requests
-- `OfpConnect(addr)` -- Required to connect to a specific peer
-- `OfpAdvertise` -- Required to advertise agents to peers
+Операции OFP требуют наличия возможностей:
+- `OfpDiscover` — требуется для отправки запросов обнаружения.
+- `OfpConnect(addr)` — требуется для подключения к конкретному пиру.
+- `OfpAdvertise` — требуется для анонсирования агентов пирам.
 
 ---
 
-## Desktop Application
+## Десктопное приложение
 
-The desktop app (`openfang-desktop`) wraps the full OpenFang stack in a native Tauri 2.0 application.
+Десктопное приложение (`openfang-desktop`) оборачивает полный стек OpenFang в нативное приложение Tauri 2.0.
 
-### Architecture
+### Архитектура
 
 ```
 +-------------------------------------------+
-| Tauri 2.0 Shell                           |
+| Оболочка Tauri 2.0                        |
 | +---------------------------------------+ |
 | | WebView (WebKit/WebView2)             | |
 | | -> http://127.0.0.1:{random_port}     | |
 | +---------------------------------------+ |
 | +---------------------------------------+ |
-| | System Tray                           | |
-| | Show | Browser | Status | Quit        | |
+| | Системный трей                        | |
+| | Показать | Браузер | Статус | Выход   | |
 | +---------------------------------------+ |
 | +---------------------------------------+ |
-| | Background Thread                     | |
-| | +- Own Tokio Runtime                  | |
-| |    +- OpenFangKernel (in-process)     | |
+| | Фоновый поток                         | |
+| | +- Собственный рантайм Tokio          | |
+| |    +- OpenFangKernel (внутри процесса)| |
 | |    +- Axum Server (build_router())    | |
 | |    +- ServerHandle { port, shutdown } | |
 | +---------------------------------------+ |
 +-------------------------------------------+
 ```
 
-### Features
+### Функции
 
-- **In-process kernel**: No separate daemon needed. The kernel boots inside the app process.
-- **Random port**: Avoids port conflicts. Port communicated via IPC command `get_port`.
-- **System tray**: Show Window, Open in Browser, Status indicator, Quit. Double-click to show.
-- **Single instance**: `tauri-plugin-single-instance` prevents multiple app instances.
-- **Notifications**: `tauri-plugin-notification` for desktop alerts.
-- **Hide to tray**: Window close hides to tray instead of quitting (desktop platforms).
-- **Mobile ready**: `#[cfg(desktop)]` guards on tray and single-instance; `#[cfg_attr(mobile, tauri::mobile_entry_point)]`.
+- **Ядро внутри процесса**: отдельный демон не требуется. Ядро запускается внутри процесса приложения.
+- **Случайный порт**: предотвращает конфликты портов. Порт передается через IPC-команду `get_port`.
+- **Системный трей**: Показать окно, Открыть в браузере, Индикатор статуса, Выход. Двойной клик для показа.
+- **Один экземпляр**: `tauri-plugin-single-instance` предотвращает запуск нескольких копий приложения.
+- **Уведомления**: `tauri-plugin-notification` для системных оповещений.
+- **Сворачивание в трей**: закрытие окна скрывает его в трей вместо выхода из приложения (на десктопных платформах).
+- **Готовность к мобильным устройствам**: гварды `#[cfg(desktop)]` для трея и единственного экземпляра; `#[cfg_attr(mobile, tauri::mobile_entry_point)]`.
 
 ---
 
-## Subsystem Diagram
+## Диаграмма подсистем
 
 ```
 +-------------------------------------------------------------------+
@@ -770,18 +770,18 @@ The desktop app (`openfang-desktop`) wraps the full OpenFang stack in a native T
 |  [migrate] [config] [chat] [status] [doctor] [mcp]                 |
 +-------------------------------------------------------------------+
          |                    |
-         | (HTTP/daemon)      | (in-process)
+         | (HTTP/демон)       | (внутри процесса)
          v                    v
 +-------------------------------------------------------------------+
 |                         openfang-api                                |
 |  +-------------+  +----------+  +--------+  +------------------+   |
-|  | REST Routes |  | WS Chat  |  | SSE    |  | OpenAI /v1/      |   |
-|  | (76 endpts) |  +----------+  +--------+  +------------------+   |
+|  | REST Маршр. |  | WS Чат   |  | SSE    |  | OpenAI /v1/      |   |
+|  | (76 эндп.)  |  +----------+  +--------+  +------------------+   |
 |  +-------------+  +------------------+  +-----------------------+   |
-|  | Auth+RBAC   |  | Security Headers |  | GCRA Rate Limiter    |   |
+|  | Auth+RBAC   |  | Заг. безоп.      |  | GCRA Rate Limiter    |   |
 |  +-------------+  +------------------+  +-----------------------+   |
 |  +---------------------+  +------------------------------------+   |
-|  | A2A Endpoints       |  | Health Redaction                   |   |
+|  | A2A Эндпоинты       |  | Редактирование Health              |   |
 |  +---------------------+  +------------------------------------+   |
 +-------------------------------------------------------------------+
          |
@@ -790,27 +790,27 @@ The desktop app (`openfang-desktop`) wraps the full OpenFang stack in a native T
 |                       openfang-kernel                               |
 |  +----------------+  +------------------+  +-------------------+   |
 |  | AgentRegistry  |  | AgentScheduler   |  | CapabilityManager |   |
-|  | (DashMap)      |  | (quota+metering) |  | (DashMap+inherit) |   |
+|  | (DashMap)      |  | (квоты+учет)     |  | (DashMap+наслед.) |   |
 |  +----------------+  +------------------+  +-------------------+   |
 |  +----------------+  +------------------+  +-------------------+   |
 |  | EventBus       |  | Supervisor       |  | AuthManager       |   |
-|  | (broadcast)    |  | (health monitor) |  | (RBAC multi-user) |   |
+|  | (вещание)      |  | (монитор здор.)  |  | (RBAC многопольз) |   |
 |  +----------------+  +------------------+  +-------------------+   |
 |  +----------------+  +------------------+  +-------------------+   |
 |  | WorkflowEngine |  | TriggerEngine    |  | BackgroundExec    |   |
-|  | (pipelines)    |  | (event patterns) |  | (continuous/cron) |   |
+|  | (конвейеры)    |  | (шаблоны событ)  |  | (непр./cron)      |   |
 |  +----------------+  +------------------+  +-------------------+   |
 |  +----------------+  +------------------+  +-------------------+   |
 |  | ModelCatalog   |  | MeteringEngine   |  | ModelRouter       |   |
-|  | (51 models)    |  | (cost tracking)  |  | (auto-select)     |   |
+|  | (51 модель)    |  | (трекинг затр.)  |  | (авто-выбор)      |   |
 |  +----------------+  +------------------+  +-------------------+   |
 |  +----------------+  +------------------+  +-------------------+   |
 |  | HeartbeatMon   |  | SetupWizard      |  | SkillRegistry     |   |
-|  | (agent health) |  | (NL agent setup) |  | (60 bundled)      |   |
+|  | (здор. агентов)|  | (настр. агентов) |  | (60 встр.)        |   |
 |  +----------------+  +------------------+  +-------------------+   |
 |  +----------------+  +------------------+                          |
-|  | MCP Connections|  | WebToolsContext  |                          |
-|  | (stdio/SSE)   |  | (search+fetch)   |                          |
+|  | MCP Соединения |  | WebToolsContext  |                          |
+|  | (stdio/SSE)    |  | (поиск+fetch)    |                          |
 |  +----------------+  +------------------+                          |
 +-------------------------------------------------------------------+
          |
@@ -821,39 +821,39 @@ The desktop app (`openfang-desktop`) wraps the full OpenFang stack in a native T
 | openfang-runtime |  | openfang-    |  | open-  |  | openfang- |
 |                  |  | channels     |  | fang-  |  | skills    |
 | +------------+   |  |              |  | wire   |  |           |
-| | Agent Loop |   |  | +----------+|  |        |  | +-------+ |
-| | +LoopGuard |   |  | | 40 Chan  ||  | +----+ |  | |60 Bun| |
-| | +SessRepair|   |  | | Adapters ||  | |OFP | |  | |Skills | |
+| | Цикл агента|   |  | +----------+|  |        |  | +-------+ |
+| | +LoopGuard |   |  | | 40 Адапт.||  | +----+ |  | |60 Встр| |
+| | +SessRepair|   |  | | каналов  ||  | |OFP | |  | |навыков| |
 | +------------+   |  | +----------+|  | |HMAC| |  | +-------+ |
 | +------------+   |  | +----------+|  | +----+ |  | +-------+ |
-| | 3 LLM Drv |   |  | |Formatter ||  | +----+ |  | |FangHub| |
-| | (20 provs) |   |  | |Rate Lim ||  | |Peer| |  | |ClawHub| |
-| +------------+   |  | |DM/Group ||  | |Reg | |  | +-------+ |
+| | 3 LLM Дрв. |   |  | |Форм-тор  ||  | +----+ |  | |FangHub| |
+| | (20 пров.) |   |  | |Rate Lim  ||  | |Peer| |  | |ClawHub| |
+| +------------+   |  | |ЛС/Группы ||  | |Reg | |  | +-------+ |
 | +------------+   |  | +----------+|  | +----+ |  | +-------+ |
-| | 23 Tools   |   |  | +----------+|  +--------+  | |Verify | |
-| +------------+   |  | |AgentRouter|               | |Inject | |
+| | 23 Инструм.|   |  | +----------+|  +--------+  | |Verify | |
+| +------------+   |  | |AgentRoute|               | |Inject | |
 | +------------+   |  | +----------+|               | |Scan   | |
-| | WASM Sand  |   |  +--------------+              | +-------+ |
-| | (dual meter)|  |                                +-----------+
+| | WASM Песоч.|   |  +--------------+              | +-------+ |
+| | (двой. учет)|  |                                +-----------+
 | +------------+   |
 | +------------+   |
-| | MCP Client |   |
-| | MCP Server |   |
+| | Клиент MCP |   |
+| | Сервер MCP |   |
 | +------------+   |
 | +------------+   |
-| | A2A Proto  |   |
+| | Прткл A2A  |   |
 | +------------+   |
 | +------------+   |
-| | Web Search |   |  4 engines: Tavily/Brave/Perplexity/DDG
-| | Web Fetch  |   |  SSRF protection + TTL cache
+| | Веб-поиск  |   |  4 движка: Tavily/Brave/Perplexity/DDG
+| | Web Fetch  |   |  SSRF защита + TTL кэш
 | +------------+   |
 | +------------+   |
-| | Audit Trail|   |  Merkle hash chain
-| | Compactor  |   |  Block-aware session compaction
+| | Ауд. след  |   |  Цепочка хешей Меркла
+| | Compactor  |   |  Сжатие сессии с учетом блоков
 | +------------+   |
 | +------------+   |
-| | KernelHandl|   |  (trait defined here,
-| | (trait)    |   |   implemented in kernel)
+| | KernelHandl|   |  (трейт определен здесь,
+| | (трейт)    |   |   реализован в ядре)
 | +------------+   |
 +------------------+
          |
@@ -861,27 +861,28 @@ The desktop app (`openfang-desktop`) wraps the full OpenFang stack in a native T
 +------------------+
 | openfang-memory  |
 | +------------+   |
-| | KV Store   |   |  Per-agent + shared namespace
+| | KV Хран.   |   |  Для каждого агента + общ. простр. имен
 | +------------+   |
 | +------------+   |
-| | Semantic   |   |  Vector embeddings + cosine similarity
+| | Семант.    |   |  Векторные эмбеддинги + косинусное сходство
+| | поиск      |   |
 | +------------+   |
 | +------------+   |
-| | Knowledge  |   |  Entity-relation graph
-| | Graph      |   |
+| | Граф       |   |  Граф сущностей и связей
+| | знаний     |   |
 | +------------+   |
 | +------------+   |
-| | Sessions   |   |  Conversation history + token tracking
+| | Сессии     |   |  История переписки + отслеживание токенов
 | +------------+   |
 | +------------+   |
-| | Task Board |   |  Shared task queue for collaboration
+| | Доска задач|   |  Общая очередь задач для совм. работы
 | +------------+   |
 | +------------+   |
-| | Usage Store|   |  Token counts, costs, model usage
+| | Хран. исп. |   |  Кол-во токенов, затр., исп. моделей
 | +------------+   |
 | +------------+   |
-| | Canonical  |   |  Cross-channel session memory
-| | Sessions   |   |
+| | Канонич.   |   |  Межканальная память сессий
+| | сессии     |   |
 | +------------+   |
 | +------------+   |
 | | SQLite v5  |   |  Arc<Mutex<Connection>> + spawn_blocking

@@ -1,17 +1,17 @@
-# OpenFang Configuration Reference
+# Справочник по конфигурации OpenFang
 
-Complete reference for `config.toml`, covering every configurable field in the OpenFang Agent OS.
+Полное руководство по файлу `config.toml`, охватывающее все настраиваемые поля OpenFang Agent OS.
 
 ---
 
-## Table of Contents
+## Содержание
 
-- [Overview](#overview)
-- [Minimal Configuration](#minimal-configuration)
-- [Full Example](#full-example)
-- [Section Reference](#section-reference)
-  - [Top-Level Fields](#top-level-fields)
-  - [Exposing the Dashboard](#exposing-the-dashboard)
+- [Обзор](#overview)
+- [Минимальная конфигурация](#minimal-configuration)
+- [Полный пример](#full-example)
+- [Справочник по разделам](#section-reference)
+  - [Поля верхнего уровня](#top-level-fields)
+  - [Открытие доступа к панели управления](#exposing-the-dashboard)
   - [\[default\_model\]](#default_model)
   - [\[memory\]](#memory)
   - [\[network\]](#network)
@@ -21,46 +21,48 @@ Complete reference for `config.toml`, covering every configurable field in the O
   - [\[a2a\]](#a2a)
   - [\[\[fallback\_providers\]\]](#fallback_providers)
   - [\[\[users\]\]](#users)
-  - [Channel Overrides](#channel-overrides)
-- [Environment Variables](#environment-variables)
-- [Validation](#validation)
+  - [Переопределения для каналов](#channel-overrides)
+- [Переменные окружения](#environment-variables)
+- [Валидация](#validation)
 
 ---
 
-## Overview
+<a name="overview"></a>
+## Обзор
 
-OpenFang reads its configuration from a single TOML file:
+OpenFang считывает свою конфигурацию из одного TOML-файла:
 
 ```
 ~/.openfang/config.toml
 ```
 
-On Windows, `~` resolves to `C:\Users\<username>`. If the home directory cannot be determined, the system temp directory is used as a fallback.
+В Windows `~` разрешается в `C:\Users\<username>`. Если домашнюю директорию определить не удается, в качестве резервного варианта используется системная временная директория.
 
-The home directory is resolved with the following priority:
+Домашняя директория определяется со следующим приоритетом:
 
-1. `OPENFANG_HOME` environment variable (e.g. `OPENFANG_HOME=/data` in the official Docker image).
-2. `~/.openfang` (default).
+1. Переменная окружения `OPENFANG_HOME` (например, `OPENFANG_HOME=/data` в официальном Docker-образе).
+2. `~/.openfang` (по умолчанию).
 
-So inside the Docker container the config file must live at `/data/config.toml` (because the image sets `ENV OPENFANG_HOME=/data`). Placing it anywhere else (for example `/opt/openfang/config.toml`) will be silently ignored.
+Таким образом, внутри Docker-контейнера файл конфигурации должен находиться по пути `/data/config.toml` (так как в образе установлено `ENV OPENFANG_HOME=/data`). Размещение его в любом другом месте (например, `/opt/openfang/config.toml`) будет проигнорировано.
 
-**Key behaviors:**
+**Ключевые особенности:**
 
-- Every struct in the configuration uses `#[serde(default)]`, which means **all fields are optional**. Omitted fields receive their documented default values.
-- Channel sections (`[channels.telegram]`, `[channels.discord]`, etc.) are `Option<T>` -- when absent, the channel adapter is **disabled**. Including the section header (even empty) enables the adapter with defaults.
-- Secrets are **never stored in config.toml** directly. Instead, fields like `api_key_env` and `bot_token_env` hold the **name** of an environment variable that contains the actual secret. This prevents accidental exposure in version control.
-- Sensitive fields (`api_key`, `shared_secret`) are automatically redacted in debug output and logs.
+- Каждая структура в конфигурации использует `#[serde(default)]`, что означает, что **все поля являются необязательными**. Пропущенные поля получают значения по умолчанию.
+- Разделы каналов (`[channels.telegram]`, `[channels.discord]` и т. д.) являются типами `Option<T>` — при их отсутствии адаптер канала **выключен**. Наличие заголовка раздела (даже пустого) включает адаптер с настройками по умолчанию.
+- Секреты **никогда не хранятся в config.toml** напрямую. Вместо этого такие поля, как `api_key_env` и `bot_token_env`, содержат **имя** переменной окружения, в которой находится фактический секрет. Это предотвращает случайную утечку данных при использовании систем контроля версий.
+- Конфиденциальные поля (`api_key`, `shared_secret`) автоматически скрываются в отладочном выводе и логах.
 
 ---
 
-## Minimal Configuration
+<a name="minimal-configuration"></a>
+## Минимальная конфигурация
 
-The simplest working configuration only needs an LLM provider API key set as an environment variable. With no config file at all, OpenFang boots with Anthropic as the default provider:
+Для простейшей работающей конфигурации достаточно установить API-ключ провайдера LLM в переменной окружения. Если файл конфигурации отсутствует, OpenFang запускается с Anthropic в качестве провайдера по умолчанию:
 
 ```toml
 # ~/.openfang/config.toml
-# Minimal: just override the model if you want something other than defaults.
-# Set ANTHROPIC_API_KEY in your environment.
+# Минимальный вариант: просто переопределите модель, если хотите использовать не те, что по умолчанию.
+# Установите ANTHROPIC_API_KEY в вашем окружении.
 
 [default_model]
 provider = "anthropic"
@@ -68,7 +70,7 @@ model = "claude-sonnet-4-20250514"
 api_key_env = "ANTHROPIC_API_KEY"
 ```
 
-Or to use a local Ollama instance with no API key:
+Или для использования локального экземпляра Ollama без API-ключа:
 
 ```toml
 [default_model]
@@ -80,59 +82,60 @@ api_key_env = ""
 
 ---
 
-## Full Example
+<a name="full-example"></a>
+## Полный пример
 
 ```toml
 # ============================================================
-# OpenFang Agent OS -- Complete Configuration Reference
+# OpenFang Agent OS -- Полный справочник по конфигурации
 # ============================================================
 
-# --- Top-level fields ---
-home_dir = "~/.openfang"             # OpenFang home directory
-data_dir = "~/.openfang/data"        # SQLite databases and data files
+# --- Поля верхнего уровня ---
+home_dir = "~/.openfang"             # Домашняя директория OpenFang
+data_dir = "~/.openfang/data"        # Базы данных SQLite и файлы данных
 log_level = "info"                   # trace | debug | info | warn | error
-api_listen = "127.0.0.1:50051"      # HTTP/WS API bind address
-network_enabled = false              # Enable OFP peer-to-peer network
-api_key = ""                         # API Bearer token (empty = unauthenticated)
+api_listen = "127.0.0.1:50051"      # Адрес для привязки HTTP/WS API
+network_enabled = false              # Включить P2P сеть OFP
+api_key = ""                         # API Bearer токен (пусто = без аутентификации)
 mode = "default"                     # stable | default | dev
-language = "en"                      # Locale for CLI/messages
+language = "ru"                      # Локаль для CLI/сообщений
 usage_footer = "full"                # off | tokens | cost | full
 
-# --- Default LLM Provider ---
+# --- Провайдер LLM по умолчанию ---
 [default_model]
 provider = "anthropic"
 model = "claude-sonnet-4-20250514"
 api_key_env = "ANTHROPIC_API_KEY"
-# base_url = "https://api.anthropic.com"  # Optional override
+# base_url = "https://api.anthropic.com"  # Опциональное переопределение
 
-# --- Fallback Providers ---
+# --- Резервные провайдеры (Fallback) ---
 [[fallback_providers]]
 provider = "ollama"
 model = "llama3.2:latest"
 api_key_env = ""
-# base_url = "http://localhost:11434"  # Uses catalog default if omitted
+# base_url = "http://localhost:11434"  # Использует значение по умолчанию из каталога, если опущено
 
 [[fallback_providers]]
 provider = "groq"
 model = "llama-3.3-70b-versatile"
 api_key_env = "GROQ_API_KEY"
 
-# --- Memory ---
+# --- Память ---
 [memory]
-# sqlite_path = "~/.openfang/data/openfang.db"  # Auto-resolved if omitted
+# sqlite_path = "~/.openfang/data/openfang.db"  # Автоматически определяется, если опущено
 embedding_model = "all-MiniLM-L6-v2"
 consolidation_threshold = 10000
 decay_rate = 0.1
 
-# --- Network (OFP Wire Protocol) ---
+# --- Сеть (Протокол OFP) ---
 [network]
 listen_addresses = ["/ip4/0.0.0.0/tcp/0"]
 bootstrap_peers = []
 mdns_enabled = true
 max_peers = 50
-shared_secret = ""                   # Required when network_enabled = true
+shared_secret = ""                   # Обязательно, если network_enabled = true
 
-# --- Web Tools ---
+# --- Веб-инструменты ---
 [web]
 search_provider = "auto"             # auto | brave | tavily | perplexity | duck_duck_go
 cache_ttl_minutes = 15
@@ -160,7 +163,7 @@ max_response_bytes = 10485760        # 10 MB
 timeout_secs = 30
 readability = true
 
-# --- MCP Servers ---
+# --- MCP серверы ---
 [[mcp_servers]]
 name = "filesystem"
 timeout_secs = 30
@@ -178,7 +181,7 @@ env = ["REMOTE_API_KEY"]
 type = "sse"
 url = "https://mcp.example.com/events"
 
-# --- A2A Protocol ---
+# --- Протокол A2A ---
 [a2a]
 enabled = false
 listen_path = "/a2a"
@@ -187,7 +190,7 @@ listen_path = "/a2a"
 name = "research-agent"
 url = "https://agent.example.com/.well-known/agent.json"
 
-# --- RBAC Users ---
+# --- Пользователи RBAC ---
 [[users]]
 name = "Alice"
 role = "owner"                       # owner | admin | user | viewer
@@ -202,8 +205,8 @@ role = "user"
 [users.channel_bindings]
 slack = "U0123ABCDEF"
 
-# --- Channel Adapters ---
-# (See "Channels" section below for all 40 adapters)
+# --- Адаптеры каналов ---
+# (См. раздел "Каналы" ниже для всех 40 адаптеров)
 
 [channels.telegram]
 bot_token_env = "TELEGRAM_BOT_TOKEN"
@@ -224,64 +227,67 @@ allowed_channels = []
 
 ---
 
-## Section Reference
+<a name="section-reference"></a>
+## Справочник по разделам
 
-### Top-Level Fields
+<a name="top-level-fields"></a>
+### Поля верхнего уровня
 
-These fields sit at the root of `config.toml` (not inside any `[section]`).
+Эти поля находятся в корне `config.toml` (не внутри какой-либо секции `[section]`).
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `home_dir` | path | `~/.openfang` | OpenFang home directory. Stores config, agents, skills. |
-| `data_dir` | path | `~/.openfang/data` | Directory for SQLite databases and persistent data. |
-| `log_level` | string | `"info"` | Log verbosity. One of: `trace`, `debug`, `info`, `warn`, `error`. |
-| `api_listen` | string | `"127.0.0.1:50051"` | Bind address for the HTTP/WebSocket/SSE API server. Use `0.0.0.0:<port>` to accept connections from outside the host (LAN, Docker, remote clients). See [Exposing the Dashboard](#exposing-the-dashboard) below before doing so. Can be overridden at runtime with the `OPENFANG_LISTEN` environment variable. |
-| `network_enabled` | bool | `false` | Enable the OFP peer-to-peer network layer. |
-| `api_key` | string | `""` (empty) | API authentication key. When set, all endpoints except `/api/health` require `Authorization: Bearer <key>`. Empty means unauthenticated (local development only). |
-| `mode` | string | `"default"` | Kernel operating mode. See below. |
-| `language` | string | `"en"` | Language/locale code for CLI output and system messages. |
-| `usage_footer` | string | `"full"` | Controls usage info appended to responses. See below. |
+| `home_dir` | путь | `~/.openfang` | Домашняя директория OpenFang. Хранит конфигурацию, агентов, навыки. |
+| `data_dir` | путь | `~/.openfang/data` | Директория для баз данных SQLite и постоянных данных. |
+| `log_level` | строка | `"info"` | Детализация логов. Одно из: `trace`, `debug`, `info`, `warn`, `error`. |
+| `api_listen` | строка | `"127.0.0.1:50051"` | Адрес привязки для сервера API (HTTP/WebSocket/SSE). Используйте `0.0.0.0:<порт>`, чтобы принимать подключения извне (LAN, Docker, удаленные клиенты). См. раздел [Открытие доступа к панели управления](#exposing-the-dashboard) ниже. Может быть переопределено переменной окружения `OPENFANG_LISTEN`. |
+| `network_enabled` | bool | `false` | Включить уровень P2P сети OFP. |
+| `api_key` | строка | `""` (пусто) | Ключ аутентификации API. Если установлен, все эндпоинты, кроме `/api/health`, требуют заголовок `Authorization: Bearer <key>`. Пустое значение означает отсутствие аутентификации (только для локальной разработки). |
+| `mode` | строка | `"default"` | Режим работы ядра. См. ниже. |
+| `language` | строка | `"en"` | Код языка/локали для вывода CLI и системных сообщений. |
+| `usage_footer` | строка | `"full"` | Управляет информацией об использовании, добавляемой к ответам. См. ниже. |
 
-**`mode` values:**
+**Значения `mode`:**
 
-| Value | Behavior |
+| Значение | Поведение |
 |-------|----------|
-| `stable` | Conservative: no auto-updates, pinned models, frozen skill registry. Uses `FallbackDriver`. |
-| `default` | Balanced: standard operation. |
-| `dev` | Developer: experimental features enabled. |
+| `stable` | Консервативный: без автообновлений, зафиксированные модели, замороженный реестр навыков. Использует `FallbackDriver`. |
+| `default` | Сбалансированный: стандартная работа. |
+| `dev` | Разработчик: включены экспериментальные функции. |
 
-**`usage_footer` values:**
+**Значения `usage_footer`:**
 
-| Value | Behavior |
+| Значение | Поведение |
 |-------|----------|
-| `off` | No usage information shown. |
-| `tokens` | Show token counts only. |
-| `cost` | Show estimated cost only. |
-| `full` | Show both token counts and estimated cost (default). |
+| `off` | Информация об использовании не отображается. |
+| `tokens` | Показывать только количество токенов. |
+| `cost` | Показывать только оценочную стоимость. |
+| `full` | Показывать и токены, и стоимость (по умолчанию). |
 
 ---
 
-### Exposing the Dashboard
+<a name="exposing-the-dashboard"></a>
+### Открытие доступа к панели управления
 
-By default OpenFang binds the API and dashboard to `127.0.0.1` (loopback only) so the daemon is unreachable from anywhere except the local machine. To accept connections from your LAN, Docker host, or a remote client you must explicitly opt in to non-loopback binding.
+По умолчанию OpenFang привязывает API и панель управления к `127.0.0.1` (только loopback), поэтому демон недоступен ниоткуда, кроме локальной машины. Чтобы принимать подключения из вашей локальной сети, хоста Docker или от удаленного клиента, вы должны явно разрешить привязку к внешним интерфейсам.
 
-**Two ways to change the bind address:**
+**Два способа изменить адрес привязки:**
 
-1. Edit `config.toml`:
+1. Отредактируйте `config.toml`:
 
    ```toml
    api_listen = "0.0.0.0:4200"
    ```
 
-2. Or set the `OPENFANG_LISTEN` environment variable (overrides `config.toml`):
+2. Или установите переменную окружения `OPENFANG_LISTEN` (имеет приоритет над `config.toml`):
 
    ```bash
    export OPENFANG_LISTEN=0.0.0.0:4200
    ```
 
-   The env var route is the recommended path for Docker because it does not require mounting a config file.
+   Использование переменной окружения — рекомендуемый путь для Docker, так как это не требует монтирования файла конфигурации.
 
-**Docker example.** The official image sets `OPENFANG_HOME=/data` and exposes port `4200`. The simplest end-to-end setup is:
+**Пример для Docker.** Официальный образ устанавливает `OPENFANG_HOME=/data` и открывает порт `4200`. Простейшая полная настройка:
 
 ```yaml
 services:
@@ -292,32 +298,33 @@ services:
     volumes:
       - openfang-data:/data
     environment:
-      - OPENFANG_LISTEN=0.0.0.0:4200          # required: bind to all interfaces inside the container
-      - OPENFANG_API_KEY=${OPENFANG_API_KEY}  # strongly recommended when exposing
+      - OPENFANG_LISTEN=0.0.0.0:4200          # обязательно: привязка ко всем интерфейсам внутри контейнера
+      - OPENFANG_API_KEY=${OPENFANG_API_KEY}  # настоятельно рекомендуется при открытии доступа
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
 volumes:
   openfang-data:
 ```
 
-If you prefer mounting `config.toml`, the file must live at `/data/config.toml` inside the container (because of `OPENFANG_HOME=/data`). Placing it at `/opt/openfang/config.toml` or any other path will not be picked up. The port in `api_listen` must also match the port published in `ports:` — the example config in `openfang.toml.example` ships with port `50051` to be safe; change it to `4200` (or whatever port you publish) when running in Docker.
+Если вы предпочитаете монтировать `config.toml`, файл должен находиться по пути `/data/config.toml` внутри контейнера (из-за `OPENFANG_HOME=/data`). Файл по пути `/opt/openfang/config.toml` или любому другому не будет подхвачен. Порт в `api_listen` также должен соответствовать порту, указанному в `ports:` — в примере конфигурации `openfang.toml.example` указан порт `50051` для безопасности; измените его на `4200` (или любой другой, который вы пробрасываете) при запуске в Docker.
 
-**Security warning.** Once you bind to a non-loopback address, anyone reachable at that address can talk to the API. OpenFang's middleware enforces a fail-closed default on authenticated routes:
+**Предупреждение по безопасности.** Как только вы выполняете привязку к адресу, отличному от loopback, любой, кому доступен этот адрес, сможет взаимодействовать с API. Промежуточное ПО OpenFang применяет политику "закрыто по умолчанию" для защищенных маршрутов:
 
-- If `api_key` is empty AND dashboard auth is disabled AND the bind address is not loopback, authenticated routes reject non-loopback requests with `401 Unauthorized`.
-- A small set of public routes (health check, static assets, OAuth callback) remain reachable so the dashboard can render its login page. They do not expose agent data or accept commands.
-- To run with full open access anyway (not recommended), set `OPENFANG_ALLOW_NO_AUTH=1`. This will be loudly logged.
+- Если `api_key` пуст И аутентификация панели управления выключена И адрес привязки — не loopback, защищенные маршруты будут отклонять внешние запросы с ошибкой `401 Unauthorized`.
+- Небольшой набор публичных маршрутов (проверка здоровья, статические ресурсы, колбэк OAuth) остаются доступными, чтобы панель управления могла отобразить страницу входа. Они не раскрывают данные агентов и не принимают команды.
+- Чтобы запустить систему с полным открытым доступом (не рекомендуется), установите `OPENFANG_ALLOW_NO_AUTH=1`. Об этом будет выведено заметное предупреждение в логах.
 
-The supported ways to expose the dashboard safely:
+Поддерживаемые способы безопасного открытия доступа к панели:
 
-- Set `api_key = "..."` in `config.toml` (or `OPENFANG_API_KEY=...`) and send `Authorization: Bearer <key>` on every request.
-- Or enable the [`[auth]`](#auth) section to require username/password login on the dashboard UI.
-- Or keep `api_listen` on `127.0.0.1` and reach the dashboard through an SSH tunnel or reverse proxy that handles authentication for you.
+- Установите `api_key = "..."` в `config.toml` (или `OPENFANG_API_KEY=...`) и отправляйте заголовок `Authorization: Bearer <key>` в каждом запросе.
+- Или включите раздел [`[auth]`](#auth), чтобы требовать логин и пароль в интерфейсе панели управления.
+- Или оставьте `api_listen` на `127.0.0.1` и подключайтесь к панели через SSH-туннель или обратный прокси-сервер, который берет аутентификацию на себя.
 
 ---
 
+<a name="default_model"></a>
 ### `[default_model]`
 
-Configures the primary LLM provider used when agents do not specify their own model.
+Настраивает основного провайдера LLM, который используется, если агенты не указывают свою собственную модель.
 
 ```toml
 [default_model]
@@ -327,18 +334,19 @@ api_key_env = "ANTHROPIC_API_KEY"
 # base_url = "https://api.anthropic.com"
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `provider` | string | `"anthropic"` | Provider name. Supported: `anthropic`, `gemini`, `openai`, `groq`, `openrouter`, `deepseek`, `together`, `mistral`, `fireworks`, `ollama`, `vllm`, `lmstudio`, `perplexity`, `cohere`, `ai21`, `cerebras`, `sambanova`, `huggingface`, `xai`, `replicate`. |
-| `model` | string | `"claude-sonnet-4-20250514"` | Model identifier. Aliases like `sonnet`, `haiku`, `gpt-4o`, `gemini-flash` are resolved by the model catalog. |
-| `api_key_env` | string | `"ANTHROPIC_API_KEY"` | Name of the environment variable holding the API key. The actual key is read from this env var at runtime, never stored in config. |
-| `base_url` | string or null | `null` | Override the API base URL. Useful for proxies or self-hosted endpoints. When `null`, the provider's default URL from the model catalog is used. |
+| `provider` | строка | `"anthropic"` | Имя провайдера. Поддерживаются: `anthropic`, `gemini`, `openai`, `groq`, `openrouter`, `deepseek`, `together`, `mistral`, `fireworks`, `ollama`, `vllm`, `lmstudio`, `perplexity`, `cohere`, `ai21`, `cerebras`, `sambanova`, `huggingface`, `xai`, `replicate`. |
+| `model` | строка | `"claude-sonnet-4-20250514"` | Идентификатор модели. Алиасы, такие как `sonnet`, `haiku`, `gpt-4o`, `gemini-flash`, разрешаются через каталог моделей. |
+| `api_key_env` | строка | `"ANTHROPIC_API_KEY"` | Имя переменной окружения, содержащей API-ключ. Сам ключ считывается из этой переменной во время работы и никогда не хранится в конфиге. |
+| `base_url` | строка или null | `null` | Переопределение базового URL API. Полезно для прокси или self-hosted эндпоинтов. Если `null`, используется URL провайдера по умолчанию. |
 
 ---
 
+<a name="memory"></a>
 ### `[memory]`
 
-Configures the SQLite-backed memory substrate, including vector embeddings and memory decay.
+Настраивает подсистему памяти на базе SQLite, включая векторные эмбеддинги и затухание памяти.
 
 ```toml
 [memory]
@@ -348,18 +356,19 @@ consolidation_threshold = 10000
 decay_rate = 0.1
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `sqlite_path` | path or null | `null` | Explicit path to the SQLite database file. When `null`, defaults to `{data_dir}/openfang.db`. |
-| `embedding_model` | string | `"all-MiniLM-L6-v2"` | Model name used for generating vector embeddings for semantic memory search. |
-| `consolidation_threshold` | u64 | `10000` | Number of stored memories before automatic consolidation is triggered to merge and prune old entries. |
-| `decay_rate` | f32 | `0.1` | Memory confidence decay rate. `0.0` = no decay (memories never fade), `1.0` = aggressive decay. Values between 0.0 and 1.0. |
+| `sqlite_path` | путь или null | `null` | Явный путь к файлу базы данных SQLite. Если `null`, используется `{data_dir}/openfang.db`. |
+| `embedding_model` | строка | `"all-MiniLM-L6-v2"` | Имя модели, используемой для генерации векторных эмбеддингов для семантического поиска по памяти. |
+| `consolidation_threshold` | u64 | `10000` | Количество сохраненных записей памяти, после которого запускается автоматическая консолидация для объединения и очистки старых записей. |
+| `decay_rate` | f32 | `0.1` | Скорость затухания уверенности в памяти. `0.0` = без затухания (память никогда не стирается), `1.0` = агрессивное затухание. Значения от 0.0 до 1.0. |
 
 ---
 
+<a name="network"></a>
 ### `[network]`
 
-Configures the OFP (OpenFang Protocol) peer-to-peer networking layer with HMAC-SHA256 mutual authentication.
+Настраивает уровень P2P сети OFP (OpenFang Protocol) с взаимной аутентификацией HMAC-SHA256.
 
 ```toml
 [network]
@@ -370,50 +379,52 @@ max_peers = 50
 shared_secret = "my-cluster-secret"
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `listen_addresses` | list of strings | `["/ip4/0.0.0.0/tcp/0"]` | libp2p multiaddresses to listen on. Port `0` means auto-assign. |
-| `bootstrap_peers` | list of strings | `[]` | Multiaddresses of bootstrap peers for DHT discovery. |
-| `mdns_enabled` | bool | `true` | Enable mDNS for automatic local network peer discovery. |
-| `max_peers` | u32 | `50` | Maximum number of simultaneously connected peers. |
-| `shared_secret` | string | `""` (empty) | Pre-shared secret for OFP HMAC-SHA256 mutual authentication. **Required** when `network_enabled = true`. Both sides must use the same secret. Redacted in logs. |
+| `listen_addresses` | список строк | `["/ip4/0.0.0.0/tcp/0"]` | Мультиадреса libp2p для прослушивания. Порт `0` означает автоматическое назначение. |
+| `bootstrap_peers` | список строк | `[]` | Мультиадреса бутстрап-узлов для поиска через DHT. |
+| `mdns_enabled` | bool | `true` | Включить mDNS для автоматического обнаружения узлов в локальной сети. |
+| `max_peers` | u32 | `50` | Максимальное количество одновременно подключенных узлов. |
+| `shared_secret` | строка | `""` (пусто) | Общий секрет для взаимной аутентификации OFP HMAC-SHA256. **Обязательно**, если `network_enabled = true`. Обе стороны должны использовать один и тот же секрет. Скрывается в логах. |
 
 ---
 
+<a name="auth"></a>
 ### `[auth]`
 
-Configures dashboard login with username/password authentication. Disabled by default.
+Настраивает вход в панель управления с аутентификацией по логину/паролю. По умолчанию выключено.
 
 ```toml
 [auth]
 enabled = true
 username = "admin"
-password_hash = "$argon2id$v=19$m=19456,t=2,p=1$..."  # generate with: openfang auth hash-password
+password_hash = "$argon2id$v=19$m=19456,t=2,p=1$..."  # сгенерируйте с помощью: openfang auth hash-password
 session_ttl_hours = 168
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `enabled` | bool | `false` | Enable username/password authentication for the dashboard. |
-| `username` | string | `"admin"` | Admin username. |
-| `password_hash` | string | `""` (empty) | Argon2id password hash in PHC string format. Generate with `openfang auth hash-password`. |
-| `session_ttl_hours` | u64 | `168` (7 days) | Session token lifetime in hours. |
+| `enabled` | bool | `false` | Включить аутентификацию по логину/паролю для панели управления. |
+| `username` | строка | `"admin"` | Имя пользователя администратора. |
+| `password_hash` | строка | `""` (пусто) | Хеш пароля Argon2id в формате PHC. Сгенерируйте с помощью `openfang auth hash-password`. |
+| `session_ttl_hours` | u64 | `168` (7 дней) | Время жизни токена сессии в часах. |
 
-**Generating a password hash:**
+**Генерация хеша пароля:**
 
 ```bash
 openfang auth hash-password
 ```
 
-This prompts for a password and outputs an Argon2id PHC string to paste into `config.toml`.
+Команда запросит пароль и выведет строку PHC Argon2id для вставки в `config.toml`.
 
-> **Breaking change (v0.5.0):** Password hashes must be in Argon2id format. Older SHA256 hex hashes from versions prior to v0.5.0 are no longer accepted. Re-run `openfang auth hash-password` to generate a new hash.
+> **Важное изменение (v0.5.0):** Хеши паролей должны быть в формате Argon2id. Старые шестнадцатеричные хеши SHA256 из версий до v0.5.0 больше не принимаются. Запустите `openfang auth hash-password` повторно, чтобы создать новый хеш.
 
 ---
 
+<a name="web"></a>
 ### `[web]`
 
-Configures web search and web fetch capabilities used by agent tools.
+Настраивает возможности веб-поиска и получения данных, используемые инструментами агентов.
 
 ```toml
 [web]
@@ -421,21 +432,21 @@ search_provider = "auto"
 cache_ttl_minutes = 15
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `search_provider` | string | `"auto"` | Which search engine to use. See values below. |
-| `cache_ttl_minutes` | u64 | `15` | Cache duration for search/fetch results in minutes. `0` = caching disabled. |
+| `search_provider` | строка | `"auto"` | Какую поисковую систему использовать. См. значения ниже. |
+| `cache_ttl_minutes` | u64 | `15` | Длительность кэширования результатов поиска/получения в минутах. `0` = кэширование отключено. |
 
-**`search_provider` values:**
+**Значения `search_provider`:**
 
-| Value | Description |
+| Значение | Описание |
 |-------|-------------|
-| `auto` | Cascading fallback: tries Tavily, then Brave, then Perplexity, then SearXNG, then DuckDuckGo, based on which API keys/configs are available. |
-| `brave` | Brave Search API. Requires `BRAVE_API_KEY`. |
-| `tavily` | Tavily AI-native search. Requires `TAVILY_API_KEY`. |
-| `perplexity` | Perplexity AI search. Requires `PERPLEXITY_API_KEY`. |
-| `searxng` | Self-hosted search engine aggregator. No API key required, just point to your SearXNG instance. |
-| `duck_duck_go` | DuckDuckGo HTML scraping. No API key needed. |
+| `auto` | Каскадный резерв: пробует Tavily, затем Brave, затем Perplexity, затем SearXNG, затем DuckDuckGo, в зависимости от доступных ключей API/конфигураций. |
+| `brave` | Brave Search API. Требуется `BRAVE_API_KEY`. |
+| `tavily` | Tavily AI-native search. Требуется `TAVILY_API_KEY`. |
+| `perplexity` | Perplexity AI search. Требуется `PERPLEXITY_API_KEY`. |
+| `searxng` | Агрегатор поисковых систем (self-hosted). Ключ API не требуется, просто укажите адрес вашего экземпляра SearXNG. |
+| `duck_duck_go` | Скрапинг HTML DuckDuckGo. Ключ API не требуется. |
 
 #### `[web.brave]`
 
@@ -448,13 +459,13 @@ search_lang = ""
 freshness = ""
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `api_key_env` | string | `"BRAVE_API_KEY"` | Environment variable name holding the Brave Search API key. |
-| `max_results` | usize | `5` | Maximum number of search results to return. |
-| `country` | string | `""` | Country code for localized results (e.g., `"US"`, `"GB"`). Empty = no filter. |
-| `search_lang` | string | `""` | Language code (e.g., `"en"`, `"fr"`). Empty = no filter. |
-| `freshness` | string | `""` | Freshness filter. `"pd"` = past day, `"pw"` = past week, `"pm"` = past month. Empty = no filter. |
+| `api_key_env` | строка | `"BRAVE_API_KEY"` | Имя переменной окружения с API-ключом Brave Search. |
+| `max_results` | usize | `5` | Максимальное количество результатов поиска. |
+| `country` | строка | `""` | Код страны для локализованных результатов (например, `"US"`, `"RU"`). Пусто = без фильтра. |
+| `search_lang` | строка | `""` | Код языка (например, `"en"`, `"ru"`). Пусто = без фильтра. |
+| `freshness` | строка | `""` | Фильтр свежести. `"pd"` = за последние сутки, `"pw"` = за неделю, `"pm"` = за месяц. Пусто = без фильтра. |
 
 #### `[web.tavily]`
 
@@ -466,12 +477,12 @@ max_results = 5
 include_answer = true
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `api_key_env` | string | `"TAVILY_API_KEY"` | Environment variable name holding the Tavily API key. |
-| `search_depth` | string | `"basic"` | Search depth: `"basic"` for fast results, `"advanced"` for deeper analysis. |
-| `max_results` | usize | `5` | Maximum number of search results to return. |
-| `include_answer` | bool | `true` | Whether to include Tavily's AI-generated answer summary in results. |
+| `api_key_env` | строка | `"TAVILY_API_KEY"` | Имя переменной окружения с API-ключом Tavily. |
+| `search_depth` | строка | `"basic"` | Глубина поиска: `"basic"` для быстрых результатов, `"advanced"` для глубокого анализа. |
+| `max_results` | usize | `5` | Максимальное количество результатов поиска. |
+| `include_answer` | bool | `true` | Включать ли в результаты краткий ответ, сгенерированный ИИ Tavily. |
 
 #### `[web.perplexity]`
 
@@ -481,23 +492,23 @@ api_key_env = "PERPLEXITY_API_KEY"
 model = "sonar"
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `api_key_env` | string | `"PERPLEXITY_API_KEY"` | Environment variable name holding the Perplexity API key. |
-| `model` | string | `"sonar"` | Perplexity model to use for search queries. |
+| `api_key_env` | строка | `"PERPLEXITY_API_KEY"` | Имя переменной окружения с API-ключом Perplexity. |
+| `model` | строка | `"sonar"` | Модель Perplexity для поисковых запросов. |
 
 #### `[web.searxng]`
 
-**SearXNG** — Self-hosted search engine aggregator. No API key required, just point to your SearXNG instance. Supports 30+ search categories (general, images, news, videos, etc.) and pagination.
+**SearXNG** — self-hosted агрегатор поисковых систем. Ключ API не требуется. Поддерживает более 30 категорий поиска и пагинацию.
 
 ```toml
 [web.searxng]
-url = "https://searxng.example.com"    # SearXNG instance URL (required)
+url = "https://searxng.example.com"    # URL экземпляра SearXNG (обязательно)
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `url` | string | (required) | Full URL of your SearXNG instance (e.g., `https://searxng.example.com`). Must be accessible. |
+| `url` | строка | (обязательно) | Полный URL вашего экземпляра SearXNG (например, `https://searxng.example.com`). Должен быть доступен. |
 
 #### `[web.fetch]`
 
@@ -509,20 +520,21 @@ timeout_secs = 30
 readability = true
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `max_chars` | usize | `50000` | Maximum characters returned in fetched content. Content exceeding this is truncated. |
-| `max_response_bytes` | usize | `10485760` (10 MB) | Maximum HTTP response body size in bytes. |
-| `timeout_secs` | u64 | `30` | HTTP request timeout in seconds. |
-| `readability` | bool | `true` | Enable HTML-to-Markdown readability extraction. When true, fetched HTML is converted to clean Markdown. |
+| `max_chars` | usize | `50000` | Максимальное количество символов в полученном контенте. Контент сверх этого лимита обрезается. |
+| `max_response_bytes` | usize | `10485760` (10 MB) | Максимальный размер тела HTTP-ответа в байтах. |
+| `timeout_secs` | u64 | `30` | Таймаут HTTP-запроса в секундах. |
+| `readability` | bool | `true` | Включить извлечение контента HTML-to-Markdown (режим чтения). Если `true`, полученный HTML преобразуется в чистый Markdown. |
 
 ---
 
+<a name="channels"></a>
 ### `[channels]`
 
-All 40 channel adapters are configured under `[channels.<name>]`. Each channel is `Option<T>` -- omitting the section disables the adapter entirely. Including the section header (even empty) enables it with default values.
+Все 40 адаптеров каналов настраиваются в разделе `[channels.<name>]`. Каждое поле канала имеет тип `Option<T>` — отсутствие раздела полностью отключает адаптер. Наличие заголовка (даже пустого) включает его со значениями по умолчанию.
 
-Every channel config includes a `default_agent` field (optional agent name to route messages to) and an `overrides` sub-table (see [Channel Overrides](#channel-overrides)).
+Конфигурация каждого канала включает поле `default_agent` (необязательное имя агента для маршрутизации сообщений) и подтаблицу `overrides` (см. [Переопределения для каналов](#channel-overrides)).
 
 #### `[channels.telegram]`
 
@@ -534,12 +546,12 @@ allowed_users = []
 poll_interval_secs = 1
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `bot_token_env` | string | `"TELEGRAM_BOT_TOKEN"` | Env var holding the Telegram Bot API token. |
-| `allowed_users` | list of i64 | `[]` | Telegram user IDs allowed to interact. Empty = allow all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-| `poll_interval_secs` | u64 | `1` | Long-polling interval in seconds. |
+| `bot_token_env` | строка | `"TELEGRAM_BOT_TOKEN"` | Переменная окружения с токеном Telegram Bot API. |
+| `allowed_users` | список i64 | `[]` | ID пользователей Telegram, которым разрешено взаимодействие. Пусто = разрешить всем. |
+| `default_agent` | строка или null | `null` | Имя агента для маршрутизации сообщений. |
+| `poll_interval_secs` | u64 | `1` | Интервал длинных опросов (long-polling) в секундах. |
 
 #### `[channels.discord]`
 
@@ -551,12 +563,12 @@ allowed_guilds = []
 intents = 33280
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `bot_token_env` | string | `"DISCORD_BOT_TOKEN"` | Env var holding the Discord bot token. |
-| `allowed_guilds` | list of u64 | `[]` | Guild (server) IDs allowed. Empty = allow all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-| `intents` | u64 | `33280` | Gateway intents bitmask. Default = `GUILD_MESSAGES \| MESSAGE_CONTENT`. |
+| `bot_token_env` | строка | `"DISCORD_BOT_TOKEN"` | Переменная окружения с токеном Discord бота. |
+| `allowed_guilds` | список u64 | `[]` | ID разрешенных гильдий (серверов). Пусто = разрешить все. |
+| `default_agent` | строка или null | `null` | Имя агента для маршрутизации сообщений. |
+| `intents` | u64 | `33280` | Битовая маска интентов шлюза. По умолчанию = `GUILD_MESSAGES \| MESSAGE_CONTENT`. |
 
 #### `[channels.slack]`
 
@@ -567,12 +579,12 @@ bot_token_env = "SLACK_BOT_TOKEN"
 allowed_channels = []
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `app_token_env` | string | `"SLACK_APP_TOKEN"` | Env var holding the Slack app-level token (`xapp-`) for Socket Mode. |
-| `bot_token_env` | string | `"SLACK_BOT_TOKEN"` | Env var holding the Slack bot token (`xoxb-`) for REST API. |
-| `allowed_channels` | list of strings | `[]` | Channel IDs allowed. Empty = allow all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
+| `app_token_env` | строка | `"SLACK_APP_TOKEN"` | Переменная окружения с токеном уровня приложения Slack (`xapp-`) для Socket Mode. |
+| `bot_token_env` | строка | `"SLACK_BOT_TOKEN"` | Переменная окружения с токеном бота Slack (`xoxb-`) для REST API. |
+| `allowed_channels` | список строк | `[]` | ID разрешенных каналов. Пусто = разрешить все. |
+| `default_agent` | строка или null | `null` | Имя агента для маршрутизации сообщений. |
 
 #### `[channels.whatsapp]`
 
@@ -585,14 +597,14 @@ webhook_port = 8443
 allowed_users = []
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `access_token_env` | string | `"WHATSAPP_ACCESS_TOKEN"` | Env var holding the WhatsApp Cloud API access token. |
-| `verify_token_env` | string | `"WHATSAPP_VERIFY_TOKEN"` | Env var holding the webhook verification token. |
-| `phone_number_id` | string | `""` | WhatsApp Business phone number ID. |
-| `webhook_port` | u16 | `8443` | Port to listen for incoming webhook callbacks. |
-| `allowed_users` | list of strings | `[]` | Phone numbers allowed. Empty = allow all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
+| `access_token_env` | строка | `"WHATSAPP_ACCESS_TOKEN"` | Переменная окружения с токеном доступа WhatsApp Cloud API. |
+| `verify_token_env` | строка | `"WHATSAPP_VERIFY_TOKEN"` | Переменная окружения с токеном верификации вебхука. |
+| `phone_number_id` | строка | `""` | ID номера телефона WhatsApp Business. |
+| `webhook_port` | u16 | `8443` | Порт для прослушивания входящих колбэков вебхука. |
+| `allowed_users` | список строк | `[]` | Разрешенные номера телефонов. Пусто = разрешить все. |
+| `default_agent` | строка или null | `null` | Имя агента для маршрутизации сообщений. |
 
 #### `[channels.signal]`
 
@@ -603,12 +615,12 @@ phone_number = ""
 allowed_users = []
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `api_url` | string | `"http://localhost:8080"` | URL of the signal-cli REST API. |
-| `phone_number` | string | `""` | Registered phone number for the bot. |
-| `allowed_users` | list of strings | `[]` | Allowed phone numbers. Empty = allow all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
+| `api_url` | строка | `"http://localhost:8080"` | URL для signal-cli REST API. |
+| `phone_number` | строка | `""` | Зарегистрированный номер телефона бота. |
+| `allowed_users` | список строк | `[]` | Разрешенные номера телефонов. Пусто = разрешить все. |
+| `default_agent` | строка или null | `null` | Имя агента для маршрутизации сообщений. |
 
 #### `[channels.matrix]`
 
@@ -620,13 +632,13 @@ access_token_env = "MATRIX_ACCESS_TOKEN"
 allowed_rooms = []
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `homeserver_url` | string | `"https://matrix.org"` | Matrix homeserver URL. |
-| `user_id` | string | `""` | Bot user ID (e.g., `"@openfang:matrix.org"`). |
-| `access_token_env` | string | `"MATRIX_ACCESS_TOKEN"` | Env var holding the Matrix access token. |
-| `allowed_rooms` | list of strings | `[]` | Room IDs to listen in. Empty = all joined rooms. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
+| `homeserver_url` | строка | `"https://matrix.org"` | URL домашнего сервера Matrix. |
+| `user_id` | строка | `""` | ID пользователя бота (например, `"@openfang:matrix.org"`). |
+| `access_token_env` | строка | `"MATRIX_ACCESS_TOKEN"` | Переменная окружения с токеном доступа Matrix. |
+| `allowed_rooms` | список строк | `[]` | ID комнат для прослушивания. Пусто = все комнаты, в которых состоит бот. |
+| `default_agent` | строка или null | `null` | Имя агента для маршрутизации сообщений. |
 
 #### `[channels.email]`
 
@@ -643,18 +655,18 @@ folders = ["INBOX"]
 allowed_senders = []
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `imap_host` | string | `""` | IMAP server hostname. |
-| `imap_port` | u16 | `993` | IMAP server port (993 for TLS). |
-| `smtp_host` | string | `""` | SMTP server hostname. |
-| `smtp_port` | u16 | `587` | SMTP server port (587 for STARTTLS). |
-| `username` | string | `""` | Email address for both IMAP and SMTP. |
-| `password_env` | string | `"EMAIL_PASSWORD"` | Env var holding the email password or app password. |
-| `poll_interval_secs` | u64 | `30` | IMAP polling interval in seconds. |
-| `folders` | list of strings | `["INBOX"]` | IMAP folders to monitor. |
-| `allowed_senders` | list of strings | `[]` | Only process emails from these senders. Empty = all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
+| `imap_host` | строка | `""` | Имя хоста IMAP-сервера. |
+| `imap_port` | u16 | `993` | Порт IMAP-сервера (993 для TLS). |
+| `smtp_host` | строка | `""` | Имя хоста SMTP-сервера. |
+| `smtp_port` | u16 | `587` | Порт SMTP-сервера (587 для STARTTLS). |
+| `username` | строка | `""` | Email адрес для IMAP и SMTP. |
+| `password_env` | строка | `"EMAIL_PASSWORD"` | Переменная окружения с паролем от почты или паролем приложения. |
+| `poll_interval_secs` | u64 | `30` | Интервал опроса IMAP в секундах. |
+| `folders` | список строк | `["INBOX"]` | Папки IMAP для мониторинга. |
+| `allowed_senders` | список строк | `[]` | Обрабатывать письма только от этих отправителей. Пусто = от всех. |
+| `default_agent` | строка или null | `null` | Имя агента для маршрутизации сообщений. |
 
 #### `[channels.teams]`
 
@@ -666,365 +678,18 @@ webhook_port = 3978
 allowed_tenants = []
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `app_id` | string | `""` | Azure Bot App ID. |
-| `app_password_env` | string | `"TEAMS_APP_PASSWORD"` | Env var holding the Azure Bot Framework app password. |
-| `webhook_port` | u16 | `3978` | Port for the Bot Framework incoming webhook. |
-# OpenFang Configuration Reference
-
-Полный справочник по `config.toml`, охватывающий основные настраиваемые поля OpenFang.
+| `app_id` | строка | `""` | Azure Bot App ID. |
+| `app_password_env` | строка | `"TEAMS_APP_PASSWORD"` | Переменная окружения с паролем приложения Azure Bot Framework. |
+| `webhook_port` | u16 | `3978` | Порт для входящего вебхука Bot Framework. |
 
 ---
 
-## Обзор
-
-OpenFang читает конфигурацию из одного TOML-файла:
-
-```
-~/.openfang/config.toml
-```
-
-Основные моменты:
-
-- `OPENFANG_HOME` (при наличии) имеет приоритет над `~/.openfang`.
-- Все структуры используют `#[serde(default)]` — большинство полей опциональны и получают значения по умолчанию при отсутствии.
-- Разделы каналов (`[channels.*]`) отсутствуют по умолчанию — адаптер считается выключенным, пока не появится секция.
-- Секреты не хранятся в файле: используйте поля `api_key_env` или `bot_token_env` для хранения имени переменной окружения с секретом.
-
----
-
-## Минимальная конфигурация
-
-Для старта достаточно установить API-ключ провайдера в окружении. По умолчанию используется Anthropic:
-
-```toml
-[default_model]
-provider = "anthropic"
-model = "claude-sonnet-4-20250514"
-api_key_env = "ANTHROPIC_API_KEY"
-```
-
-Или локальный Ollama без ключа:
-
-```toml
-[default_model]
-provider = "ollama"
-model = "llama3.2:latest"
-base_url = "http://localhost:11434"
-api_key_env = ""
-```
-
----
-
-## Пример (сокращённый)
-
-```toml
-home_dir = "~/.openfang"
-data_dir = "~/.openfang/data"
-log_level = "info"
-api_listen = "127.0.0.1:4200"
-
-[default_model]
-provider = "anthropic"
-model = "claude-sonnet-4-20250514"
-api_key_env = "ANTHROPIC_API_KEY"
-
-[memory]
-embedding_model = "all-MiniLM-L6-v2"
-consolidation_threshold = 10000
-decay_rate = 0.1
-
-[channels.telegram]
-bot_token_env = "TELEGRAM_BOT_TOKEN"
-default_agent = "assistant"
-```
-
-После изменения конфигурации перезапустите демон: `openfang restart`.
-
-#### `[channels.revolt]`
-
-```toml
-[channels.revolt]
-bot_token_env = "REVOLT_BOT_TOKEN"
-api_url = "https://api.revolt.chat"
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `bot_token_env` | string | `"REVOLT_BOT_TOKEN"` | Env var holding the Revolt bot token. |
-| `api_url` | string | `"https://api.revolt.chat"` | Revolt API base URL. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.nextcloud]`
-
-```toml
-[channels.nextcloud]
-server_url = "https://nextcloud.example.com"
-token_env = "NEXTCLOUD_TOKEN"
-allowed_rooms = []
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `server_url` | string | `""` | Nextcloud server URL. |
-| `token_env` | string | `"NEXTCLOUD_TOKEN"` | Env var holding the Nextcloud Talk auth token. |
-| `allowed_rooms` | list of strings | `[]` | Room tokens to listen in. Empty = all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.guilded]`
-
-```toml
-[channels.guilded]
-bot_token_env = "GUILDED_BOT_TOKEN"
-server_ids = []
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `bot_token_env` | string | `"GUILDED_BOT_TOKEN"` | Env var holding the Guilded bot token. |
-| `server_ids` | list of strings | `[]` | Server IDs to listen in. Empty = all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.keybase]`
-
-```toml
-[channels.keybase]
-username = ""
-paperkey_env = "KEYBASE_PAPERKEY"
-allowed_teams = []
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `username` | string | `""` | Keybase username. |
-| `paperkey_env` | string | `"KEYBASE_PAPERKEY"` | Env var holding the Keybase paper key. |
-| `allowed_teams` | list of strings | `[]` | Team names to listen in. Empty = all DMs. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.threema]`
-
-```toml
-[channels.threema]
-threema_id = ""
-secret_env = "THREEMA_SECRET"
-webhook_port = 8454
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `threema_id` | string | `""` | Threema Gateway ID. |
-| `secret_env` | string | `"THREEMA_SECRET"` | Env var holding the Threema API secret. |
-| `webhook_port` | u16 | `8454` | Port for the incoming webhook. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.nostr]`
-
-```toml
-[channels.nostr]
-private_key_env = "NOSTR_PRIVATE_KEY"
-relays = ["wss://relay.damus.io"]
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `private_key_env` | string | `"NOSTR_PRIVATE_KEY"` | Env var holding the Nostr private key (nsec or hex format). |
-| `relays` | list of strings | `["wss://relay.damus.io"]` | Nostr relay WebSocket URLs to connect to. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.webex]`
-
-```toml
-[channels.webex]
-bot_token_env = "WEBEX_BOT_TOKEN"
-allowed_rooms = []
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `bot_token_env` | string | `"WEBEX_BOT_TOKEN"` | Env var holding the Webex bot token. |
-| `allowed_rooms` | list of strings | `[]` | Room IDs to listen in. Empty = all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.pumble]`
-
-```toml
-[channels.pumble]
-bot_token_env = "PUMBLE_BOT_TOKEN"
-webhook_port = 8455
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `bot_token_env` | string | `"PUMBLE_BOT_TOKEN"` | Env var holding the Pumble bot token. |
-| `webhook_port` | u16 | `8455` | Port for the incoming webhook. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.flock]`
-
-```toml
-[channels.flock]
-bot_token_env = "FLOCK_BOT_TOKEN"
-webhook_port = 8456
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `bot_token_env` | string | `"FLOCK_BOT_TOKEN"` | Env var holding the Flock bot token. |
-| `webhook_port` | u16 | `8456` | Port for the incoming webhook. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.twist]`
-
-```toml
-[channels.twist]
-token_env = "TWIST_TOKEN"
-workspace_id = ""
-allowed_channels = []
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `token_env` | string | `"TWIST_TOKEN"` | Env var holding the Twist API token. |
-| `workspace_id` | string | `""` | Twist workspace ID. |
-| `allowed_channels` | list of strings | `[]` | Channel IDs to listen in. Empty = all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.mumble]`
-
-```toml
-[channels.mumble]
-host = "mumble.example.com"
-port = 64738
-username = "openfang"
-password_env = "MUMBLE_PASSWORD"
-channel = ""
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `host` | string | `""` | Mumble server hostname. |
-| `port` | u16 | `64738` | Mumble server port. |
-| `username` | string | `"openfang"` | Bot username in Mumble. |
-| `password_env` | string | `"MUMBLE_PASSWORD"` | Env var holding the Mumble server password. |
-| `channel` | string | `""` | Mumble channel to join. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.dingtalk]`
-
-```toml
-[channels.dingtalk]
-access_token_env = "DINGTALK_ACCESS_TOKEN"
-secret_env = "DINGTALK_SECRET"
-webhook_port = 8457
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `access_token_env` | string | `"DINGTALK_ACCESS_TOKEN"` | Env var holding the DingTalk webhook access token. |
-| `secret_env` | string | `"DINGTALK_SECRET"` | Env var holding the DingTalk signing secret. |
-| `webhook_port` | u16 | `8457` | Port for the incoming webhook. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.discourse]`
-
-```toml
-[channels.discourse]
-base_url = "https://forum.example.com"
-api_key_env = "DISCOURSE_API_KEY"
-api_username = "system"
-categories = []
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `base_url` | string | `""` | Discourse forum base URL. |
-| `api_key_env` | string | `"DISCOURSE_API_KEY"` | Env var holding the Discourse API key. |
-| `api_username` | string | `"system"` | Discourse API username. |
-| `categories` | list of strings | `[]` | Category slugs to monitor. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.gitter]`
-
-```toml
-[channels.gitter]
-token_env = "GITTER_TOKEN"
-room_id = ""
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `token_env` | string | `"GITTER_TOKEN"` | Env var holding the Gitter auth token. |
-| `room_id` | string | `""` | Gitter room ID to listen in. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.ntfy]`
-
-```toml
-[channels.ntfy]
-server_url = "https://ntfy.sh"
-topic = "my-agent-topic"
-token_env = "NTFY_TOKEN"
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `server_url` | string | `"https://ntfy.sh"` | ntfy server URL. Can be self-hosted. |
-| `topic` | string | `""` | Topic to subscribe/publish to. |
-| `token_env` | string | `"NTFY_TOKEN"` | Env var holding the auth token. Optional for public topics. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.gotify]`
-
-```toml
-[channels.gotify]
-server_url = "https://gotify.example.com"
-app_token_env = "GOTIFY_APP_TOKEN"
-client_token_env = "GOTIFY_CLIENT_TOKEN"
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `server_url` | string | `""` | Gotify server URL. |
-| `app_token_env` | string | `"GOTIFY_APP_TOKEN"` | Env var holding the Gotify app token (for sending messages). |
-| `client_token_env` | string | `"GOTIFY_CLIENT_TOKEN"` | Env var holding the Gotify client token (for receiving messages via WebSocket). |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.webhook]`
-
-```toml
-[channels.webhook]
-secret_env = "WEBHOOK_SECRET"
-listen_port = 8460
-# callback_url = "https://example.com/webhook"
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `secret_env` | string | `"WEBHOOK_SECRET"` | Env var holding the HMAC signing secret for verifying incoming webhooks. |
-| `listen_port` | u16 | `8460` | Port to listen for incoming webhook requests. |
-| `callback_url` | string or null | `null` | URL to POST outgoing messages to. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.linkedin]`
-
-```toml
-[channels.linkedin]
-access_token_env = "LINKEDIN_ACCESS_TOKEN"
-organization_id = ""
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `access_token_env` | string | `"LINKEDIN_ACCESS_TOKEN"` | Env var holding the LinkedIn OAuth2 access token. |
-| `organization_id` | string | `""` | LinkedIn organization ID for messaging. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
----
-
+<a name="mcp_servers"></a>
 ### `[[mcp_servers]]`
 
-MCP (Model Context Protocol) server connections provide external tool integration. Each entry is a separate `[[mcp_servers]]` array element.
+Подключения к серверам MCP (Model Context Protocol) обеспечивают интеграцию с внешними инструментами. Каждая запись является отдельным элементом массива `[[mcp_servers]]`.
 
 ```toml
 [[mcp_servers]]
@@ -1049,24 +714,25 @@ type = "sse"
 url = "https://mcp.example.com/sse"
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `name` | string | *required* | Display name for this MCP server. Tools are namespaced as `mcp_{name}_{tool}`. |
-| `timeout_secs` | u64 | `30` | Request timeout in seconds. |
-| `env` | list of strings | `[]` | Environment variable names to pass through to the subprocess (stdio transport only). |
+| `name` | строка | *обязательно* | Отображаемое имя MCP сервера. Инструменты будут доступны в пространстве имен `mcp_{name}_{tool}`. |
+| `timeout_secs` | u64 | `30` | Таймаут запроса в секундах. |
+| `env` | список строк | `[]` | Имена переменных окружения для передачи в подпроцесс (только для транспорта stdio). |
 
-**Transport variants** (tagged union on `type`):
+**Варианты транспорта** (размеченное объединение по полю `type`):
 
-| `type` | Fields | Description |
+| `type` | Поля | Описание |
 |--------|--------|-------------|
-| `stdio` | `command` (string), `args` (list of strings, default `[]`) | Spawn a subprocess, communicate via JSON-RPC over stdin/stdout. |
-| `sse` | `url` (string) | Connect to an HTTP Server-Sent Events endpoint. |
+| `stdio` | `command` (строка), `args` (список строк, по умолчанию `[]`) | Запускает подпроцесс, общение идет через JSON-RPC через stdin/stdout. |
+| `sse` | `url` (строка) | Подключается к HTTP эндпоинту Server-Sent Events. |
 
 ---
 
+<a name="a2a"></a>
 ### `[a2a]`
 
-Agent-to-Agent protocol configuration, enabling inter-agent communication across OpenFang instances.
+Конфигурация протокола Agent-to-Agent, позволяющая агентам взаимодействовать между различными экземплярами OpenFang.
 
 ```toml
 [a2a]
@@ -1082,24 +748,25 @@ name = "code-reviewer"
 url = "https://reviewer.example.com/.well-known/agent.json"
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `enabled` | bool | `false` | Whether A2A protocol is enabled. |
-| `listen_path` | string | `"/a2a"` | URL path prefix for A2A endpoints. |
-| `external_agents` | list of objects | `[]` | External A2A agents to discover and interact with. |
+| `enabled` | bool | `false` | Включен ли протокол A2A. |
+| `listen_path` | строка | `"/a2a"` | Префикс пути URL для эндпоинтов A2A. |
+| `external_agents` | список объектов | `[]` | Внешние A2A агенты для обнаружения и взаимодействия. |
 
-**`external_agents` entries:**
+**Записи в `external_agents`:**
 
-| Field | Type | Description |
+| Поле | Тип | Описание |
 |-------|------|-------------|
-| `name` | string | Display name for the external agent. |
-| `url` | string | Agent card endpoint URL (typically `/.well-known/agent.json`). |
+| `name` | строка | Отображаемое имя внешнего агента. |
+| `url` | строка | URL эндпоинта карточки агента (обычно `/.well-known/agent.json`). |
 
 ---
 
+<a name="fallback_providers"></a>
 ### `[[fallback_providers]]`
 
-Fallback provider chain. When the primary LLM provider (`[default_model]`) fails, these are tried in order.
+Цепочка резервных провайдеров. Если основной провайдер LLM (`[default_model]`) дает сбой, эти провайдеры пробуются по порядку.
 
 ```toml
 [[fallback_providers]]
@@ -1114,18 +781,19 @@ model = "llama-3.3-70b-versatile"
 api_key_env = "GROQ_API_KEY"
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `provider` | string | `""` | Provider name (e.g., `"ollama"`, `"groq"`, `"openai"`). |
-| `model` | string | `""` | Model identifier for this provider. |
-| `api_key_env` | string | `""` | Env var name for the API key. Empty for local providers (ollama, vllm, lmstudio). |
-| `base_url` | string or null | `null` | Base URL override. Uses catalog default if null. |
+| `provider` | строка | `""` | Имя провайдера (например, `"ollama"`, `"groq"`, `"openai"`). |
+| `model` | строка | `""` | Идентификатор модели для этого провайдера. |
+| `api_key_env` | строка | `""` | Имя переменной окружения для API-ключа. Пусто для локальных провайдеров (ollama, vllm, lmstudio). |
+| `base_url` | строка или null | `null` | Переопределение базового URL. Если null, используется значение по умолчанию из каталога. |
 
 ---
 
+<a name="users"></a>
 ### `[[users]]`
 
-RBAC multi-user configuration. Users can be assigned roles and bound to channel platform identities.
+Конфигурация многопользовательского доступа на основе ролей (RBAC). Пользователям можно назначать роли и привязывать их к идентификаторам на платформах каналов.
 
 ```toml
 [[users]]
@@ -1139,32 +807,33 @@ discord = "987654321"
 slack = "U0ABCDEFG"
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `name` | string | *required* | User display name. |
-| `role` | string | `"user"` | User role in the RBAC hierarchy. |
-| `channel_bindings` | map of string to string | `{}` | Maps channel platform names to platform-specific user IDs, binding this user identity across channels. |
-| `api_key_hash` | string or null | `null` | SHA256 hash of the user's personal API key for authenticated API access. |
+| `name` | строка | *обязательно* | Отображаемое имя пользователя. |
+| `role` | строка | `"user"` | Роль пользователя в иерархии RBAC. |
+| `channel_bindings` | карта строк | `{}` | Сопоставляет названия платформ каналов с идентификаторами пользователей на этих платформах. |
+| `api_key_hash` | строка или null | `null` | SHA256 хеш личного API-ключа пользователя для доступа к API. |
 
-**Role hierarchy** (highest to lowest privilege):
+**Иерархия ролей** (от высших привилегий к низшим):
 
-| Role | Description |
+| Роль | Описание |
 |------|-------------|
-| `owner` | Full administrative access. Can manage all agents, users, and configuration. |
-| `admin` | Can manage agents and most settings. Cannot modify owner accounts. |
-| `user` | Can interact with agents. Limited management capabilities. |
-| `viewer` | Read-only access. Can view agent responses but cannot send messages. |
+| `owner` | Полный административный доступ. Может управлять всеми агентами, пользователями и конфигурацией. |
+| `admin` | Может управлять агентами и большинством настроек. Не может изменять аккаунты владельцев. |
+| `user` | Может взаимодействовать с агентами. Ограниченные возможности управления. |
+| `viewer` | Доступ только для чтения. Может видеть ответы агентов, но не может отправлять сообщения. |
 
 ---
 
-### Channel Overrides
+<a name="channel-overrides"></a>
+### Переопределения для каналов
 
-Every channel adapter supports an `[channels.<name>.overrides]` sub-table that customizes agent behavior per-channel.
+Адаптер каждого канала поддерживает подтаблицу `[channels.<name>.overrides]`, которая настраивает поведение агента именно для этого канала.
 
 ```toml
 [channels.telegram.overrides]
 model = "claude-haiku-4-5-20251001"
-system_prompt = "You are a concise Telegram assistant."
+system_prompt = "Вы — лаконичный помощник в Telegram."
 dm_policy = "respond"
 group_policy = "mention_only"
 rate_limit_per_user = 10
@@ -1173,259 +842,129 @@ output_format = "telegram_html"
 usage_footer = "tokens"
 ```
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `model` | string or null | `null` | Model override for this channel. Uses the agent's default model when null. |
-| `system_prompt` | string or null | `null` | System prompt override for this channel. |
-| `dm_policy` | string | `"respond"` | How the bot handles direct messages. See below. |
-| `group_policy` | string | `"mention_only"` | How the bot handles group messages. See below. |
-| `rate_limit_per_user` | u32 | `0` | Maximum messages per user per minute. `0` = unlimited. |
-| `threading` | bool | `false` | Enable thread replies (where supported by the platform). |
-| `output_format` | string or null | `null` | Override output formatting. See below. |
-| `usage_footer` | string or null | `null` | Override usage footer mode for this channel. Values: `off`, `tokens`, `cost`, `full`. |
+| `model` | строка или null | `null` | Переопределение модели для этого канала. Если null, используется модель агента по умолчанию. |
+| `system_prompt` | строка или null | `null` | Переопределение системного промпта для этого канала. |
+| `dm_policy` | строка | `"respond"` | Как бот обрабатывает личные сообщения. См. ниже. |
+| `group_policy` | строка | `"mention_only"` | Как бот обрабатывает сообщения в группах. См. ниже. |
+| `rate_limit_per_user` | u32 | `0` | Макс. сообщений от пользователя в минуту. `0` = безлимитно. |
+| `threading` | bool | `false` | Включить ответы в тредах (где поддерживается платформой). |
+| `output_format` | строка или null | `null` | Переопределение форматирования вывода. См. ниже. |
+| `usage_footer` | строка или null | `null` | Переопределение режима подвала использования для этого канала. Значения: `off`, `tokens`, `cost`, `full`. |
 
-**`dm_policy` values:**
+**Значения `dm_policy`:**
 
-| Value | Description |
+| Значение | Описание |
 |-------|-------------|
-| `respond` | Respond to all direct messages (default). |
-| `allowed_only` | Only respond to DMs from users in the allowed list. |
-| `ignore` | Ignore all direct messages. |
+| `respond` | Отвечать на все личные сообщения (по умолчанию). |
+| `allowed_only` | Отвечать только пользователям из списка разрешенных. |
+| `ignore` | Игнорировать все личные сообщения. |
 
-**`group_policy` values:**
+**Значения `group_policy`:**
 
-| Value | Description |
+| Значение | Описание |
 |-------|-------------|
-| `all` | Respond to all messages in group chats. |
-| `mention_only` | Only respond when the bot is @mentioned (default). |
-| `commands_only` | Only respond to slash commands. |
-| `ignore` | Ignore all group messages. |
+| `all` | Отвечать на все сообщения в групповых чатах. |
+| `mention_only` | Отвечать только при @упоминании бота (по умолчанию). |
+| `commands_only` | Отвечать только на слеш-команды. |
+| `ignore` | Игнорировать все групповые сообщения. |
 
-**`output_format` values:**
+**Значения `output_format`:**
 
-| Value | Description |
+| Значение | Описание |
 |-------|-------------|
-| `markdown` | Standard Markdown (default). |
-| `telegram_html` | Telegram HTML subset (`<b>`, `<i>`, `<code>`, etc.). |
-| `slack_mrkdwn` | Slack mrkdwn format (`*bold*`, `_italic_`, `` `code` ``). |
-| `plain_text` | No formatting markup. |
+| `markdown` | Стандартный Markdown (по умолчанию). |
+| `telegram_html` | Подмножество HTML Telegram (`<b>`, `<i>`, `<code>` и т.д.). |
+| `slack_mrkdwn` | Формат mrkdwn Slack (`*bold*`, `_italic_`, `` `code` ``). |
+| `plain_text` | Без разметки форматирования. |
 
 ---
 
-## Environment Variables
+<a name="environment-variables"></a>
+## Переменные окружения
 
-Complete table of all environment variables referenced by the configuration. None of these are read by the config file itself -- they are read at runtime by the kernel and channel adapters.
+Полная таблица всех переменных окружения, на которые ссылается конфигурация. Сами по себе они не считываются файлом конфигурации — они считываются ядром и адаптерами каналов во время работы.
 
-### LLM Provider Keys
+### Ключи провайдеров LLM
 
-| Variable | Used By | Description |
+| Переменная | Используется в | Описание |
 |----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | `[default_model]` | Anthropic API key (Claude models). |
-| `GEMINI_API_KEY` | Gemini driver | Google Gemini API key. Alias: `GOOGLE_API_KEY`. |
-| `OPENAI_API_KEY` | OpenAI-compat driver | OpenAI API key. |
-| `GROQ_API_KEY` | Groq provider | Groq API key (fast Llama inference). |
-| `DEEPSEEK_API_KEY` | DeepSeek provider | DeepSeek API key. |
-| `PERPLEXITY_API_KEY` | Perplexity provider / web search | Perplexity API key. |
-| `OPENROUTER_API_KEY` | OpenRouter provider | OpenRouter API key. |
-| `TOGETHER_API_KEY` | Together AI provider | Together AI API key. |
-| `MISTRAL_API_KEY` | Mistral provider | Mistral AI API key. |
-| `FIREWORKS_API_KEY` | Fireworks provider | Fireworks AI API key. |
-| `COHERE_API_KEY` | Cohere provider | Cohere API key. |
-| `AI21_API_KEY` | AI21 provider | AI21 Labs API key. |
-| `CEREBRAS_API_KEY` | Cerebras provider | Cerebras API key. |
-| `SAMBANOVA_API_KEY` | SambaNova provider | SambaNova API key. |
-| `HUGGINGFACE_API_KEY` | Hugging Face provider | Hugging Face Inference API key. |
-| `XAI_API_KEY` | xAI provider | xAI (Grok) API key. |
-| `REPLICATE_API_KEY` | Replicate provider | Replicate API key. |
+| `ANTHROPIC_API_KEY` | `[default_model]` | API-ключ Anthropic (модели Claude). |
+| `GEMINI_API_KEY` | Драйвер Gemini | API-ключ Google Gemini. Псевдоним: `GOOGLE_API_KEY`. |
+| `OPENAI_API_KEY` | OpenAI-совм. драйвер | API-ключ OpenAI. |
+| `GROQ_API_KEY` | Провайдер Groq | API-ключ Groq (быстрый инференс Llama). |
+| `DEEPSEEK_API_KEY` | Провайдер DeepSeek | API-ключ DeepSeek. |
+| `PERPLEXITY_API_KEY` | Провайдер Perplexity | API-ключ Perplexity (LLM и веб-поиск). |
+| `OPENROUTER_API_KEY` | Провайдер OpenRouter | API-ключ OpenRouter. |
+| `TOGETHER_API_KEY` | Провайдер Together AI | API-ключ Together AI. |
+| `MISTRAL_API_KEY` | Провайдер Mistral | API-ключ Mistral AI. |
+| `FIREWORKS_API_KEY` | Провайдер Fireworks | API-ключ Fireworks AI. |
+| `COHERE_API_KEY` | Провайдер Cohere | API-ключ Cohere. |
+| `AI21_API_KEY` | Провайдер AI21 | API-ключ AI21 Labs. |
+| `CEREBRAS_API_KEY` | Провайдер Cerebras | API-ключ Cerebras. |
+| `SAMBANOVA_API_KEY` | Провайдер SambaNova | API-ключ SambaNova. |
+| `HUGGINGFACE_API_KEY` | Провайдер Hugging Face | API-ключ Hugging Face Inference. |
+| `XAI_API_KEY` | Провайдер xAI | API-ключ xAI (Grok). |
+| `REPLICATE_API_KEY` | Провайдер Replicate | API-ключ Replicate. |
 
-### Web Search Keys
+### Ключи веб-поиска
 
-| Variable | Used By | Description |
+| Переменная | Используется в | Описание |
 |----------|---------|-------------|
-| `BRAVE_API_KEY` | `[web.brave]` | Brave Search API key. |
-| `TAVILY_API_KEY` | `[web.tavily]` | Tavily Search API key. |
-| `PERPLEXITY_API_KEY` | `[web.perplexity]` | Perplexity Search API key (shared with LLM provider). |
-
-### Channel Tokens
-
-| Variable | Channel | Description |
-|----------|---------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Telegram | Bot API token from @BotFather. |
-| `DISCORD_BOT_TOKEN` | Discord | Discord bot token. |
-| `SLACK_APP_TOKEN` | Slack | Slack app-level token (`xapp-`) for Socket Mode. |
-| `SLACK_BOT_TOKEN` | Slack | Slack bot token (`xoxb-`) for REST API. |
-| `WHATSAPP_ACCESS_TOKEN` | WhatsApp | WhatsApp Cloud API access token. |
-| `WHATSAPP_VERIFY_TOKEN` | WhatsApp | Webhook verification token. |
-| `MATRIX_ACCESS_TOKEN` | Matrix | Matrix homeserver access token. |
-| `EMAIL_PASSWORD` | Email | Email account password or app password. |
-| `TEAMS_APP_PASSWORD` | Teams | Azure Bot Framework app password. |
-| `MATTERMOST_TOKEN` | Mattermost | Mattermost bot token. |
-| `TWITCH_OAUTH_TOKEN` | Twitch | Twitch OAuth token. |
-| `ROCKETCHAT_TOKEN` | Rocket.Chat | Rocket.Chat auth token. |
-| `ZULIP_API_KEY` | Zulip | Zulip bot API key. |
-| `XMPP_PASSWORD` | XMPP | XMPP account password. |
-| `GOOGLE_CHAT_SERVICE_ACCOUNT` | Google Chat | Service account JSON key. |
-| `LINE_CHANNEL_SECRET` | LINE | LINE channel secret. |
-| `LINE_CHANNEL_ACCESS_TOKEN` | LINE | LINE channel access token. |
-| `VIBER_AUTH_TOKEN` | Viber | Viber Bot auth token. |
-| `MESSENGER_PAGE_TOKEN` | Messenger | Facebook page access token. |
-| `MESSENGER_VERIFY_TOKEN` | Messenger | Webhook verification token. |
-| `REDDIT_CLIENT_SECRET` | Reddit | Reddit app client secret. |
-| `REDDIT_PASSWORD` | Reddit | Reddit bot account password. |
-| `MASTODON_ACCESS_TOKEN` | Mastodon | Mastodon access token. |
-| `BLUESKY_APP_PASSWORD` | Bluesky | Bluesky app password. |
-| `FEISHU_APP_SECRET` | Feishu | Feishu/Lark app secret. |
-| `REVOLT_BOT_TOKEN` | Revolt | Revolt bot token. |
-| `NEXTCLOUD_TOKEN` | Nextcloud | Nextcloud Talk auth token. |
-| `GUILDED_BOT_TOKEN` | Guilded | Guilded bot token. |
-| `KEYBASE_PAPERKEY` | Keybase | Keybase paper key. |
-| `THREEMA_SECRET` | Threema | Threema Gateway API secret. |
-| `NOSTR_PRIVATE_KEY` | Nostr | Nostr private key (nsec or hex). |
-| `WEBEX_BOT_TOKEN` | Webex | Webex bot token. |
-| `PUMBLE_BOT_TOKEN` | Pumble | Pumble bot token. |
-| `FLOCK_BOT_TOKEN` | Flock | Flock bot token. |
-| `TWIST_TOKEN` | Twist | Twist API token. |
-| `MUMBLE_PASSWORD` | Mumble | Mumble server password. |
-| `DINGTALK_ACCESS_TOKEN` | DingTalk | DingTalk webhook access token. |
-| `DINGTALK_SECRET` | DingTalk | DingTalk signing secret. |
-| `DISCOURSE_API_KEY` | Discourse | Discourse API key. |
-| `GITTER_TOKEN` | Gitter | Gitter auth token. |
-| `NTFY_TOKEN` | ntfy | ntfy auth token (optional for public topics). |
-| `GOTIFY_APP_TOKEN` | Gotify | Gotify app token (sending). |
-| `GOTIFY_CLIENT_TOKEN` | Gotify | Gotify client token (receiving). |
-| `WEBHOOK_SECRET` | Webhook | HMAC signing secret for webhook verification. |
-| `LINKEDIN_ACCESS_TOKEN` | LinkedIn | LinkedIn OAuth2 access token. |
+| `BRAVE_API_KEY` | `[web.brave]` | API-ключ Brave Search. |
+| `TAVILY_API_KEY` | `[web.tavily]` | API-ключ Tavily Search. |
+| `PERPLEXITY_API_KEY` | `[web.perplexity]` | API-ключ Perplexity Search (общий с LLM). |
 
 ---
 
-## Validation
+<a name="validation"></a>
+## Валидация
 
-`KernelConfig::validate()` runs at boot time and returns a list of **warnings** (non-fatal). The kernel still starts, but logs each warning.
+`KernelConfig::validate()` запускается при старте системы и возвращает список **предупреждений** (некритичных). Ядро все равно запускается, но записывает каждое предупреждение в лог.
 
-### What is validated
+### Что проверяется
 
-For every **enabled channel** (i.e., its config section is present in the TOML), the validator checks that the corresponding environment variable(s) are set and non-empty:
+Для каждого **включенного канала** (т.е. раздел конфигурации присутствует в TOML) валидатор проверяет, что соответствующие переменные окружения установлены и не пусты.
 
-| Channel | Env vars checked |
-|---------|-----------------|
-| Telegram | `bot_token_env` |
-| Discord | `bot_token_env` |
-| Slack | `app_token_env`, `bot_token_env` (both checked) |
-| WhatsApp | `access_token_env` |
-| Matrix | `access_token_env` |
-| Email | `password_env` |
-| Teams | `app_password_env` |
-| Mattermost | `token_env` |
-| Zulip | `api_key_env` |
-| Twitch | `oauth_token_env` |
-| Rocket.Chat | `token_env` |
-| Google Chat | `service_account_env` |
-| XMPP | `password_env` |
-| LINE | `access_token_env` |
-| Viber | `auth_token_env` |
-| Messenger | `page_token_env` |
-| Reddit | `client_secret_env` |
-| Mastodon | `access_token_env` |
-| Bluesky | `app_password_env` |
-| Feishu | `app_secret_env` |
-| Revolt | `bot_token_env` |
-| Nextcloud | `token_env` |
-| Guilded | `bot_token_env` |
-| Keybase | `paperkey_env` |
-| Threema | `secret_env` |
-| Nostr | `private_key_env` |
-| Webex | `bot_token_env` |
-| Pumble | `bot_token_env` |
-| Flock | `bot_token_env` |
-| Twist | `token_env` |
-| Mumble | `password_env` |
-| DingTalk | `access_token_env` |
-| Discourse | `api_key_env` |
-| Gitter | `token_env` |
-| ntfy | `token_env` (only if `token_env` is non-empty; public topics are OK without auth) |
-| Gotify | `app_token_env` |
-| Webhook | `secret_env` |
-| LinkedIn | `access_token_env` |
+Например, для Telegram проверяется `bot_token_env`, для Slack — оба токена (`app_token_env` и `bot_token_env`).
 
-For **web search providers**, the validator checks:
+Для **провайдеров веб-поиска** проверяются ключи для `brave`, `tavily` и `perplexity`.
 
-| Provider | Env var checked |
-|----------|----------------|
-| `brave` | `web.brave.api_key_env` |
-| `tavily` | `web.tavily.api_key_env` |
-| `perplexity` | `web.perplexity.api_key_env` |
-| `duck_duck_go` | (no check -- no API key needed) |
-| `auto` | (no check -- cascading fallback handles missing keys) |
+### Что НЕ проверяется
 
-### What is NOT validated
-
-- The `api_key_env` in `[default_model]` is not checked by `validate()`. Missing LLM keys cause errors at runtime when the driver is first used.
-- The `shared_secret` in `[network]` is not validated against `network_enabled`. If networking is enabled with an empty secret, authentication will fail at connection time.
-- MCP server configurations are not validated at config load time. Connection errors surface during the background MCP connect phase.
-- Agent manifests have their own separate validation.
+- `api_key_env` в `[default_model]` не проверяется функцией `validate()`. Отсутствие ключей LLM приведет к ошибкам во время работы, когда драйвер будет использован впервые.
+- `shared_secret` в `[network]` не проверяется на соответствие `network_enabled`. Если сеть включена с пустым секретом, аутентификация не удастся в момент подключения.
+- Конфигурации серверов MCP не проверяются при загрузке конфига. Ошибки подключения проявятся во время фоновой фазы подключения MCP.
+- Манифесты агентов имеют свою собственную отдельную валидацию.
 
 ---
 
-## Related Configuration
+## Связанная конфигурация
 
-Some subsystems have their own configuration that is not part of `config.toml` but is worth noting:
+Некоторые подсистемы имеют свою конфигурацию, которая не является частью `config.toml`, но о ней стоит знать:
 
-### Session Compaction (runtime)
+### Сжатие сессии (в рантайме)
 
-Configured internally via `CompactionConfig` (not currently exposed in `config.toml`):
+Настраивается внутренне через `CompactionConfig` (в данный момент не вынесено в `config.toml`):
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `threshold` | `80` | Compact when session message count exceeds this. |
-| `keep_recent` | `20` | Number of recent messages preserved verbatim after compaction. |
-| `max_summary_tokens` | `1024` | Maximum tokens for the LLM summary of compacted messages. |
+- `threshold` (по умолчанию `80`): Сжимать, когда количество сообщений в сессии превышает это значение.
+- `keep_recent` (по умолчанию `20`): Количество последних сообщений, сохраняемых дословно после сжатия.
+- `max_summary_tokens` (по умолчанию `1024`): Максимальное количество токенов для саммари сжатых сообщений.
 
-### WASM Sandbox (runtime)
+### Песочница WASM (в рантайме)
 
-Configured internally via `SandboxConfig` (not currently exposed in `config.toml`):
+Настраивается внутренне через `SandboxConfig`:
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `fuel_limit` | `1000000` | Maximum CPU instruction budget. `0` = unlimited. |
-| `max_memory_bytes` | `16777216` (16 MB) | Maximum WASM linear memory. |
-| `timeout_secs` | `null` (30s fallback) | Wall-clock timeout for epoch-based interruption. |
+- `fuel_limit` (по умолчанию `1000000`): Максимальный бюджет инструкций CPU. `0` = безлимитно.
+- `max_memory_bytes` (по умолчанию `16 MB`): Максимальная линейная память WASM.
+- `timeout_secs`: Таймаут реального времени (по умолчанию 30 с).
 
-### Model Routing (per-agent manifest)
+### Маршрутизация моделей (манифест агента)
 
-Configured in agent manifests via `ModelRoutingConfig`:
+Настраивается в манифестах агентов через `ModelRoutingConfig`: задаются модели для уровней `simple`, `medium` и `complex`, а также пороги токенов для классификации запроса.
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `simple_model` | `"claude-haiku-4-5-20251001"` | Model for simple queries. |
-| `medium_model` | `"claude-sonnet-4-20250514"` | Model for medium-complexity queries. |
-| `complex_model` | `"claude-sonnet-4-20250514"` | Model for complex queries. |
-| `simple_threshold` | `100` | Token count below which a query is classified as simple. |
-| `complex_threshold` | `500` | Token count above which a query is classified as complex. |
+### Монитор сердцебиения (Heartbeat)
 
-### Heartbeat Monitor
-
-Global heartbeat settings in `[heartbeat]`:
-
-```toml
-[heartbeat]
-# Seconds of inactivity before a reactive agent is marked as unresponsive.
-# Increase this if you have hands that sit idle between infrequent requests.
-# Default: 180
-default_timeout_secs = 300
-```
-
-| Field | Default | Description |
-|-------|---------|-------------|
-| `default_timeout_secs` | `180` | Seconds of inactivity before marking an agent as unresponsive. Per-agent `heartbeat_interval_secs` in autonomous config overrides this. |
-
-### Autonomous Guardrails (per-agent manifest)
-
-Configured in agent manifests via `AutonomousConfig`:
-
-| Field | Default | Description |
-|-------|---------|-------------|
-| `quiet_hours` | `null` | Cron expression for quiet hours (agent pauses during this window). |
-| `max_iterations` | `50` | Maximum tool-use iterations per invocation. |
-| `max_restarts` | `10` | Maximum automatic restarts before permanent stop. |
-| `heartbeat_interval_secs` | `30` | Seconds between heartbeat health checks. |
-| `heartbeat_channel` | `null` | Channel to send heartbeat status to (e.g., `"telegram"`). |
+Глобальные настройки сердцебиения в `[heartbeat]`:
+- `default_timeout_secs` (по умолчанию `180`): Секунды бездействия перед тем, как пометить агента как не отвечающего.

@@ -1,97 +1,97 @@
-# Migrating to OpenFang
+# Миграция на OpenFang
 
-This guide covers migrating from OpenClaw (and other frameworks) to OpenFang. The migration engine handles config conversion, agent import, memory transfer, channel re-configuration, and skill scanning.
+Это руководство описывает процесс миграции с OpenClaw (и других фреймворков) на OpenFang. Движок миграции обрабатывает конвертацию конфигурации, импорт агентов, перенос памяти, перенастройку каналов и сканирование навыков.
 
-## Table of Contents
+## Содержание
 
-- [Quick Migration](#quick-migration)
-- [What Gets Migrated](#what-gets-migrated)
-- [Manual Migration Steps](#manual-migration-steps)
-- [Config Format Differences](#config-format-differences)
-- [Tool Name Mapping](#tool-name-mapping)
-- [Provider Mapping](#provider-mapping)
-- [Feature Comparison](#feature-comparison)
+- [Быстрая миграция](#быстрая-миграция)
+- [Что переносится](#что-переносится)
+- [Шаги ручной миграции](#шаги-ручной-миграции)
+- [Различия в формате конфигурации](#различия-в-формате-конфигурации)
+- [Сопоставление имен инструментов](#сопоставление-имен-инструментов)
+- [Сопоставление провайдеров](#сопоставление-провайдеров)
+- [Сравнение функций](#сравнение-функций)
 
 ---
 
-## Quick Migration
+## Быстрая миграция
 
-Run a single command to migrate your entire OpenClaw workspace:
+Запустите одну команду, чтобы перенести весь ваш воркспейс OpenClaw:
 
 ```bash
 openfang migrate --from openclaw
 ```
 
-This auto-detects your OpenClaw workspace at `~/.openclaw/` and imports everything into `~/.openfang/`.
+Команда автоматически обнаружит ваш воркспейс OpenClaw в `~/.openclaw/` и импортирует все в `~/.openfang/`.
 
-### Options
+### Опции
 
 ```bash
-# Specify a custom source directory
+# Указать кастомную исходную директорию
 openfang migrate --from openclaw --source-dir /path/to/openclaw/workspace
 
-# Dry run -- see what would be imported without making changes
+# Пробный запуск — посмотреть, что будет импортировано, без внесения изменений
 openfang migrate --from openclaw --dry-run
 ```
 
-### Migration Report
+### Отчет о миграции
 
-After a successful migration, a `migration_report.md` file is saved to `~/.openfang/` with a summary of everything that was imported, skipped, or needs manual attention.
+После успешной миграции в `~/.openfang/` сохраняется файл `migration_report.md` с кратким изложением всего, что было импортировано, пропущено или требует ручного вмешательства.
 
-### Other Frameworks
+### Другие фреймворки
 
-LangChain and AutoGPT migration support is planned:
+Планируется поддержка миграции с LangChain и AutoGPT:
 
 ```bash
-openfang migrate --from langchain   # Coming soon
-openfang migrate --from autogpt     # Coming soon
+openfang migrate --from langchain   # Скоро
+openfang migrate --from autogpt     # Скоро
 ```
 
 ---
 
-## What Gets Migrated
+## Что переносится
 
-| Item | Source (OpenClaw) | Destination (OpenFang) | Status |
+| Элемент | Источник (OpenClaw) | Назначение (OpenFang) | Статус |
 |------|-------------------|------------------------|--------|
-| **Config** | `~/.openclaw/config.yaml` | `~/.openfang/config.toml` | Fully automated |
-| **Agents** | `~/.openclaw/agents/*/agent.yaml` | `~/.openfang/agents/*/agent.toml` | Fully automated |
-| **Memory** | `~/.openclaw/agents/*/MEMORY.md` | `~/.openfang/agents/*/imported_memory.md` | Fully automated |
-| **Channels** | `~/.openclaw/messaging/*.yaml` | `~/.openfang/channels_import.toml` | Automated (manual merge) |
-| **Skills** | `~/.openclaw/skills/` | Scanned and reported | Manual reinstall |
-| **Sessions** | `~/.openclaw/agents/*/sessions/` | Not migrated | Fresh start recommended |
-| **Workspace files** | `~/.openclaw/agents/*/workspace/` | Not migrated | Copy manually if needed |
+| **Конфиг** | `~/.openclaw/config.yaml` | `~/.openfang/config.toml` | Полностью автоматизировано |
+| **Агенты** | `~/.openclaw/agents/*/agent.yaml` | `~/.openfang/agents/*/agent.toml` | Полностью автоматизировано |
+| **Память** | `~/.openclaw/agents/*/MEMORY.md` | `~/.openfang/agents/*/imported_memory.md` | Полностью автоматизировано |
+| **Каналы** | `~/.openclaw/messaging/*.yaml` | `~/.openfang/channels_import.toml` | Автоматизировано (ручное слияние) |
+| **Навыки** | `~/.openclaw/skills/` | Просканировано и отражено в отчете | Ручная переустановка |
+| **Сессии** | `~/.openclaw/agents/*/sessions/` | Не переносится | Рекомендуется начать с чистого листа |
+| **Файлы воркспейса** | `~/.openclaw/agents/*/workspace/` | Не переносится | Скопируйте вручную при необходимости |
 
-### Channel Import Note
+### Примечание по импорту каналов
 
-Channel configurations (Telegram, Discord, Slack) are exported to a `channels_import.toml` file. You must manually merge the `[channels]` section into your `~/.openfang/config.toml`.
+Конфигурации каналов (Telegram, Discord, Slack) экспортируются в файл `channels_import.toml`. Вы должны вручную перенести раздел `[channels]` в ваш `~/.openfang/config.toml`.
 
-### Skills Note
+### Примечание по навыкам
 
-OpenClaw skills (Node.js) are detected and listed in the migration report but not automatically converted. After migration, reinstall skills using:
+Навыки OpenClaw (Node.js) обнаруживаются и перечисляются в отчете о миграции, но не конвертируются автоматически. После миграции переустановите навыки с помощью:
 
 ```bash
 openfang skill install <skill-name-or-path>
 ```
 
-OpenFang automatically detects OpenClaw-format skills and converts them during installation.
+OpenFang автоматически обнаруживает навыки в формате OpenClaw и конвертирует их во время установки.
 
 ---
 
-## Manual Migration Steps
+## Шаги ручной миграции
 
-If you prefer migrating by hand (or need to handle edge cases), follow these steps:
+Если вы предпочитаете переносить данные вручную (или вам нужно обработать особые случаи), выполните следующие шаги:
 
-### 1. Initialize OpenFang
+### 1. Инициализация OpenFang
 
 ```bash
 openfang init
 ```
 
-This creates `~/.openfang/` with a default `config.toml`.
+Это создаст директорию `~/.openfang/` с `config.toml` по умолчанию.
 
-### 2. Convert Your Config
+### 2. Конвертация конфигурации
 
-Translate your `config.yaml` to `config.toml`:
+Переведите ваш `config.yaml` в `config.toml`:
 
 **OpenClaw** (`~/.openclaw/config.yaml`):
 ```yaml
@@ -117,9 +117,9 @@ decay_rate = 0.05
 listen_addr = "127.0.0.1:4200"
 ```
 
-### 3. Convert Agent Manifests
+### 3. Конвертация манифестов агентов
 
-Translate each `agent.yaml` to `agent.toml`:
+Переведите каждый `agent.yaml` в `agent.toml`:
 
 **OpenClaw** (`~/.openclaw/agents/coder/agent.yaml`):
 ```yaml
@@ -155,7 +155,7 @@ memory_read = ["*"]
 memory_write = ["self.*"]
 ```
 
-### 4. Convert Channel Configs
+### 4. Конвертация конфигураций каналов
 
 **OpenClaw** (`~/.openclaw/messaging/telegram.yaml`):
 ```yaml
@@ -166,7 +166,7 @@ allowed_users:
   - "123456789"
 ```
 
-**OpenFang** (add to `~/.openfang/config.toml`):
+**OpenFang** (добавьте в `~/.openfang/config.toml`):
 ```toml
 [channels.telegram]
 bot_token_env = "TELEGRAM_BOT_TOKEN"
@@ -174,48 +174,48 @@ default_agent = "coder"
 allowed_users = ["123456789"]
 ```
 
-### 5. Import Memory
+### 5. Импорт памяти
 
-Copy any `MEMORY.md` files from OpenClaw agents to OpenFang agent directories:
+Скопируйте любые файлы `MEMORY.md` из агентов OpenClaw в директории агентов OpenFang:
 
 ```bash
 cp ~/.openclaw/agents/coder/MEMORY.md ~/.openfang/agents/coder/imported_memory.md
 ```
 
-The kernel will ingest these on first boot.
+Ядро поглотит их при первой загрузке.
 
 ---
 
-## Config Format Differences
+## Различия в формате конфигурации
 
-| Aspect | OpenClaw | OpenFang |
+| Аспект | OpenClaw | OpenFang |
 |--------|----------|----------|
-| Format | YAML | TOML |
-| Config location | `~/.openclaw/config.yaml` | `~/.openfang/config.toml` |
-| Agent definition | `agent.yaml` | `agent.toml` |
-| Channel config | Separate files per channel | Unified in `config.toml` |
-| Tool permissions | Implicit (tool list) | Capability-based (tools, memory, network, shell) |
-| Model config | Flat (top-level fields) | Nested (`[model]` section) |
-| Agent module | Implicit | Explicit (`module = "builtin:chat"` / `"wasm:..."` / `"python:..."`) |
-| Scheduling | Not supported | Built-in (`[schedule]` section: reactive, continuous, periodic, proactive) |
-| Resource quotas | Not supported | Built-in (`[resources]` section: tokens/hour, memory, CPU time) |
-| Networking | Not supported | OFP protocol (`[network]` section) |
+| Формат | YAML | TOML |
+| Расположение конфига | `~/.openclaw/config.yaml` | `~/.openfang/config.toml` |
+| Определение агента | `agent.yaml` | `agent.toml` |
+| Конфиг каналов | Отдельные файлы для каждого канала | Объединены в `config.toml` |
+| Разрешения инструментов | Неявные (список инструментов) | На основе возможностей (инструменты, память, сеть, шелл) |
+| Конфиг моделей | Плоский (поля верхнего уровня) | Вложенный (раздел `[model]`) |
+| Модуль агента | Неявный | Явный (`module = "builtin:chat"` / `"wasm:..."` / `"python:..."`) |
+| Планирование | Не поддерживается | Встроено (раздел `[schedule]`: реактивное, непрерывное, периодическое, проактивное) |
+| Ресурсные квоты | Не поддерживаются | Встроены (раздел `[resources]`: токены/час, память, процессорное время) |
+| Сеть | Не поддерживается | Протокол OFP (раздел `[network]`) |
 
 ---
 
-## Tool Name Mapping
+## Сопоставление имен инструментов
 
-Tools were renamed between OpenClaw and OpenFang for consistency. The migration engine handles this automatically.
+Имена инструментов были изменены между OpenClaw и OpenFang для единообразия. Движок миграции обрабатывает это автоматически.
 
-| OpenClaw Tool | OpenFang Tool | Notes |
+| Инструмент OpenClaw | Инструмент OpenFang | Примечания |
 |---------------|---------------|-------|
-| `read_file` | `file_read` | Noun-first naming |
+| `read_file` | `file_read` | Именование "существительное-первым" |
 | `write_file` | `file_write` | |
 | `list_files` | `file_list` | |
-| `execute_command` | `shell_exec` | Capability-gated |
-| `web_search` | `web_search` | Unchanged |
+| `execute_command` | `shell_exec` | Ограничено возможностями |
+| `web_search` | `web_search` | Без изменений |
 | `fetch_url` | `web_fetch` | |
-| `browser_navigate` | `browser_navigate` | Unchanged |
+| `browser_navigate` | `browser_navigate` | Без изменений |
 | `memory_search` | `memory_recall` | |
 | `memory_recall` | `memory_recall` | |
 | `memory_save` | `memory_store` | |
@@ -225,135 +225,135 @@ Tools were renamed between OpenClaw and OpenFang for consistency. The migration 
 | `agents_list` | `agent_list` | |
 | `agent_list` | `agent_list` | |
 
-### New Tools in OpenFang
+### Новые инструменты в OpenFang
 
-These tools have no OpenClaw equivalent:
+У этих инструментов нет эквивалента в OpenClaw:
 
-| Tool | Description |
+| Инструмент | Описание |
 |------|-------------|
-| `agent_spawn` | Spawn a new agent from within an agent |
-| `agent_kill` | Terminate another agent |
-| `agent_find` | Search for agents by name, tag, or description |
-| `memory_store` | Store key-value data in shared memory |
-| `memory_recall` | Recall key-value data from shared memory |
-| `task_post` | Post a task to the shared task board |
-| `task_claim` | Claim an available task |
-| `task_complete` | Mark a task as complete |
-| `task_list` | List tasks by status |
-| `event_publish` | Publish a custom event to the event bus |
-| `schedule_create` | Create a scheduled job |
-| `schedule_list` | List scheduled jobs |
-| `schedule_delete` | Delete a scheduled job |
-| `image_analyze` | Analyze an image |
-| `location_get` | Get location information |
+| `agent_spawn` | Запустить нового агента изнутри другого агента |
+| `agent_kill` | Завершить работу другого агента |
+| `agent_find` | Поиск агентов по имени, тегу или описанию |
+| `memory_store` | Сохранить данные "ключ-значение" в общей памяти |
+| `memory_recall` | Извлечь данные "ключ-значение" из общей памяти |
+| `task_post` | Разместить задачу на общей доске задач |
+| `task_claim` | Взять доступную задачу |
+| `task_complete` | Отметить задачу как выполненную |
+| `task_list` | Список задач по статусу |
+| `event_publish` | Опубликовать кастомное событие в шине событий |
+| `schedule_create` | Создать запланированную задачу |
+| `schedule_list` | Список запланированных задач |
+| `schedule_delete` | Удалить запланированную задачу |
+| `image_analyze` | Проанализировать изображение |
+| `location_get` | Получить информацию о местоположении |
 
-### Tool Profiles
+### Профили инструментов
 
-OpenClaw's tool profiles map to explicit tool lists:
+Профили инструментов OpenClaw сопоставляются с явными списками инструментов:
 
-| OpenClaw Profile | OpenFang Tools |
+| Профиль OpenClaw | Инструменты OpenFang |
 |------------------|----------------|
 | `minimal` | `file_read`, `file_list` |
 | `coding` | `file_read`, `file_write`, `file_list`, `shell_exec`, `web_fetch` |
 | `messaging` | `agent_send`, `agent_list`, `memory_store`, `memory_recall` |
 | `research` | `web_fetch`, `web_search`, `file_read`, `file_write` |
-| `full` | All 10 core tools |
+| `full` | Все 10 основных инструментов |
 
 ---
 
-## Provider Mapping
+## Сопоставление провайдеров
 
-| OpenClaw Name | OpenFang Name | API Key Env Var |
+| Имя OpenClaw | Имя OpenFang | Переменная окружения API-ключа |
 |---------------|---------------|-----------------|
 | `anthropic` | `anthropic` | `ANTHROPIC_API_KEY` |
 | `claude` | `anthropic` | `ANTHROPIC_API_KEY` |
 | `openai` | `openai` | `OPENAI_API_KEY` |
 | `gpt` | `openai` | `OPENAI_API_KEY` |
 | `groq` | `groq` | `GROQ_API_KEY` |
-| `ollama` | `ollama` | (none required) |
+| `ollama` | `ollama` | (не требуется) |
 | `openrouter` | `openrouter` | `OPENROUTER_API_KEY` |
 | `deepseek` | `deepseek` | `DEEPSEEK_API_KEY` |
 | `together` | `together` | `TOGETHER_API_KEY` |
 | `mistral` | `mistral` | `MISTRAL_API_KEY` |
 | `fireworks` | `fireworks` | `FIREWORKS_API_KEY` |
 
-### New Providers in OpenFang
+### Новые провайдеры в OpenFang
 
-| Provider | Description |
+| Провайдер | Описание |
 |----------|-------------|
-| `vllm` | Self-hosted vLLM inference server |
-| `lmstudio` | LM Studio local models |
+| `vllm` | Собственный сервер инференса vLLM |
+| `lmstudio` | Локальные модели LM Studio |
 
 ---
 
-## Feature Comparison
+## Сравнение функций
 
-| Feature | OpenClaw | OpenFang |
+| Функция | OpenClaw | OpenFang |
 |---------|----------|----------|
-| **Language** | Node.js / TypeScript | Rust |
-| **Config format** | YAML | TOML |
-| **Agent manifests** | YAML | TOML |
-| **Multi-agent** | Basic (message passing) | First-class (spawn, kill, find, workflows, triggers) |
-| **Agent scheduling** | Manual | Built-in (reactive, continuous, periodic, proactive) |
-| **Memory** | Markdown files | SQLite + KV store + semantic search + knowledge graph |
-| **Session management** | JSONL files | SQLite with context window tracking |
-| **LLM providers** | ~5 | 11 (Anthropic, OpenAI, Groq, OpenRouter, DeepSeek, Together, Mistral, Fireworks, Ollama, vLLM, LM Studio) |
-| **Per-agent models** | No | Yes (per-agent provider + model override) |
-| **Security** | None | Capability-based (tools, memory, network, shell, agent spawn) |
-| **Resource quotas** | None | Per-agent token/hour limits, memory limits, CPU time limits |
-| **Workflow engine** | None | Built-in (sequential, fan-out, collect, conditional, loop) |
-| **Event triggers** | None | Pattern-matching event triggers with templated prompts |
-| **WASM sandbox** | None | Wasmtime-based sandboxed execution |
-| **Python runtime** | None | Subprocess-based Python agent execution |
-| **Networking** | None | OFP (OpenFang Protocol) peer-to-peer |
-| **API server** | Basic REST | REST + WebSocket + SSE streaming |
-| **WebChat UI** | Separate | Embedded in daemon |
-| **Channel adapters** | Telegram, Discord | Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Email |
-| **Skills/Plugins** | npm packages | TOML + Python/WASM/Node.js, FangHub marketplace |
-| **CLI** | Basic | Full CLI with daemon auto-detect, MCP server |
-| **MCP support** | No | Built-in MCP server (stdio) |
-| **Process supervisor** | None | Health monitoring, panic/restart tracking |
-| **Persistence** | File-based | SQLite (agents survive restarts) |
+| **Язык** | Node.js / TypeScript | Rust |
+| **Формат конфига** | YAML | TOML |
+| **Манифесты агентов** | YAML | TOML |
+| **Многоагентность** | Базовая (передача сообщений) | Первоклассная (запуск, завершение, поиск, воркфлоу, триггеры) |
+| **Планирование агентов** | Вручную | Встроено (реактивное, непрерывное, периодическое, проактивное) |
+| **Память** | Markdown-файлы | SQLite + KV-хранилище + семантический поиск + граф знаний |
+| **Управление сессиями** | JSONL-файлы | SQLite с отслеживанием окна контекста |
+| **Провайдеры LLM** | ~5 | 11 (Anthropic, OpenAI, Groq, OpenRouter, DeepSeek, Together, Mistral, Fireworks, Ollama, vLLM, LM Studio) |
+| **Модели для каждого агента** | Нет | Да (переопределение провайдера и модели для агента) |
+| **Безопасность** | Отсутствует | На основе возможностей (инструменты, память, сеть, шелл, запуск агента) |
+| **Ресурсные квоты** | Отсутствуют | Лимиты токенов/час, памяти и процессорного времени для каждого агента |
+| **Движок воркфлоу** | Отсутствует | Встроенный (последовательный, fan-out, сбор, условный, цикличный) |
+| **Триггеры событий** | Отсутствуют | Триггеры событий с сопоставлением шаблонов и промптами на основе шаблонов |
+| **Песочница WASM** | Отсутствует | Исполнение в песочнице на базе Wasmtime |
+| **Python рантайм** | Отсутствует | Исполнение Python-агентов через подпроцессы |
+| **Сеть** | Отсутствует | Одноранговая сеть OFP (OpenFang Protocol) |
+| **Сервер API** | Базовый REST | REST + WebSocket + потоковая передача SSE |
+| **Интерфейс WebChat** | Отдельно | Встроен в демон |
+| **Адаптеры каналов** | Telegram, Discord | Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Email |
+| **Навыки/Плагины** | пакеты npm | TOML + Python/WASM/Node.js, маркетплейс FangHub |
+| **CLI** | Базовый | Полноценный CLI с автоопределением демона, сервер MCP |
+| **Поддержка MCP** | Нет | Встроенный сервер MCP (stdio) |
+| **Процесс-супервизор** | Отсутствует | Мониторинг здоровья, отслеживание паник/перезапусков |
+| **Постоянство данных** | Файловое | SQLite (агенты сохраняются после перезапуска) |
 
 ---
 
-## Troubleshooting
+## Устранение неполадок
 
-### Migration reports "Source directory not found"
+### Ошибка миграции "Source directory not found"
 
-The migration engine looks for `~/.openclaw/` by default. If your OpenClaw workspace is elsewhere:
+Движок миграции по умолчанию ищет `~/.openclaw/`. Если ваш воркспейс OpenClaw находится в другом месте:
 
 ```bash
 openfang migrate --from openclaw --source-dir /path/to/your/workspace
 ```
 
-### Agent fails to spawn after migration
+### Агент не запускается после миграции
 
-Check the converted `agent.toml` for:
-- Valid tool names (see the [Tool Name Mapping](#tool-name-mapping) table)
-- A valid provider name (see the [Provider Mapping](#provider-mapping) table)
-- Correct `module` field (should be `"builtin:chat"` for standard LLM agents)
+Проверьте конвертированный `agent.toml` на наличие:
+- Валидных имен инструментов (см. таблицу [Сопоставление имен инструментов](#сопоставление-имен-инструментов))
+- Валидного имени провайдера (см. таблицу [Сопоставление провайдеров](#сопоставление-провайдеров))
+- Правильного поля `module` (должно быть `"builtin:chat"` для стандартных LLM-агентов)
 
-### Skills not working
+### Навыки не работают
 
-OpenClaw Node.js skills must be reinstalled:
+Навыки OpenClaw Node.js должны быть переустановлены:
 
 ```bash
 openfang skill install /path/to/openclaw/skills/my-skill
 ```
 
-The installer auto-detects OpenClaw format and converts the skill manifest.
+Установщик автоматически определит формат OpenClaw и конвертирует манифест навыка.
 
-### Channel not connecting
+### Канал не подключается
 
-After migration, channels are exported to `channels_import.toml`. You must merge them into your `config.toml` manually:
+После миграции каналы экспортируются в `channels_import.toml`. Вы должны объединить их с вашим `config.toml` вручную:
 
 ```bash
 cat ~/.openfang/channels_import.toml
-# Copy the [channels.*] sections into ~/.openfang/config.toml
+# Скопируйте разделы [channels.*] в ~/.openfang/config.toml
 ```
 
-Then restart the daemon:
+Затем перезапустите демон:
 
 ```bash
 openfang start

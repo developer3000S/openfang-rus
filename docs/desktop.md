@@ -1,55 +1,31 @@
 # Десктоп-приложение
 
-Десктоп-приложение OpenFang реализовано на Tauri 2.0. Оно предоставляет нативное окно, системный трей, уведомления и встроенный Web UI. Приложение общается с демоном по локальному HTTP и содержит хранилище токенов и упрощённый vault для секретов.
-Приложение поддерживает автообновления, глобальные хоткеи и контрол в трее для запуска/остановки демона.
+Десктоп-приложение OpenFang реализовано на Tauri 2.0. Оно представляет собой нативную оболочку, которая упаковывает всю систему OpenFang Agent OS в единое устанавливаемое приложение. Вместо запуска демона через CLI и открытия браузера, пользователи получают нативное окно с интеграцией в системный трей, уведомлениями ОС и контролем единственного экземпляра — всё это работает на том же ядре и API-сервере, что и безголовая (headless) версия.
 
-## Разработка
-
-Запуск приложения в режиме разработки:
-
-```bash
- yarn && yarn tauri dev
-```
-```bash
-cargo tauri build
-```
-
-Собранные пакеты появятся в `src-tauri/target/release/bundle`.
-## Фичи
-
-- Системный трей с быстрыми действиями (start, stop, open dashboard)
-- Пересылка нотификаций
-- Хранение учётных данных (AES-256-GCM)
-- Автообновления через релизы GitHub
-
-# OpenFang Desktop App
-
-The OpenFang Desktop App is a native desktop wrapper built with [Tauri 2.0](https://v2.tauri.app/) that packages the entire OpenFang Agent OS into a single, installable application. Instead of running a CLI daemon and opening a browser, users get a native window with system tray integration, OS notifications, and single-instance enforcement -- all powered by the same kernel and API server that the headless deployment uses.
-
-**Crate:** `openfang-desktop`
-**Identifier:** `ai.openfang.desktop`
-**Product name:** OpenFang
+**Крейт:** `openfang-desktop`
+**Идентификатор:** `ai.openfang.desktop`
+**Название продукта:** OpenFang
 
 ---
 
-## Architecture
+## Архитектура
 
-The desktop app follows a straightforward embedded-server pattern:
+Десктопное приложение следует простой схеме со встроенным сервером:
 
 ```
 +-------------------------------------------+
-|  Tauri 2.0 Process                        |
+|  Процесс Tauri 2.0                        |
 |                                           |
 |  +-----------+    +--------------------+  |
-|  |  Main     |    | Background Thread  |  |
-|  |  Thread   |    | ("openfang-server")|  |
+|  |  Основной |    | Фоновый поток      |  |
+|  |  поток    |    | ("openfang-server")|  |
 |  |           |    |                    |  |
-|  | WebView   |    | tokio runtime      |  |
-|  | Window    |--->| axum API server    |  |
-|  | (main)    |    | channel bridges    |  |
-|  |           |    | background agents  |  |
-|  | System    |    |                    |  |
-|  | Tray      |    | OpenFang Kernel    |  |
+|  | Окно      |    | рантайм tokio      |  |
+|  | WebView   |--->| API-сервер axum    |  |
+|  | (main)    |    | мосты каналов      |  |
+|  |           |    | фоновые агенты     |  |
+|  | Системный |    |                    |  |
+|  | трей      |    | Ядро OpenFang      |  |
 |  +-----------+    +--------------------+  |
 |       |                    |              |
 |       |   http://127.0.0.1:{port}        |
@@ -57,20 +33,20 @@ The desktop app follows a straightforward embedded-server pattern:
 +-------------------------------------------+
 ```
 
-### Startup Sequence
+### Последовательность запуска
 
-1. **Tracing init** -- `tracing_subscriber` is configured with `RUST_LOG` env, defaulting to `openfang=info,tauri=info`.
-2. **Kernel boot** -- `OpenFangKernel::boot(None)` loads the default configuration (from `config.toml` or defaults), wrapped in `Arc`. `set_self_handle()` is called to enable self-referencing kernel operations.
-3. **Port binding** -- A `std::net::TcpListener` binds to `127.0.0.1:0` on the main thread, which lets the OS assign a random free port. This ensures the port number is known before any window is created.
-4. **Server thread** -- A dedicated OS thread named `"openfang-server"` is spawned. It creates its own `tokio::runtime::Builder::new_multi_thread()` runtime and runs:
-   - `kernel.start_background_agents()` -- heartbeat monitor, autonomous agents, etc.
-   - `run_embedded_server()` -- builds the axum router via `openfang_api::server::build_router()`, converts the `std::net::TcpListener` to a `tokio::net::TcpListener`, and serves with graceful shutdown.
-5. **Tauri app** -- The Tauri builder is assembled with plugins, managed state, IPC commands, system tray, and a WebView window pointing at `http://127.0.0.1:{port}`.
-6. **Event loop** -- Tauri runs its native event loop. On exit, `server_handle.shutdown()` is called to stop the embedded server and kernel.
+1. **Инициализация трассировки** — настраивается `tracing_subscriber` с использованием переменной `RUST_LOG` (по умолчанию `openfang=info,tauri=info`).
+2. **Загрузка ядра** — `OpenFangKernel::boot(None)` загружает конфигурацию (из `config.toml` или по умолчанию), обернутую в `Arc`. Вызывается `set_self_handle()` для включения самоссылающихся операций ядра.
+3. **Привязка порта** — `std::net::TcpListener` привязывается к `127.0.0.1:0` в основном потоке, что позволяет ОС назначить случайный свободный порт. Это гарантирует, что номер порта будет известен до создания окна.
+4. **Поток сервера** — запускается выделенный поток ОС с именем `"openfang-server"`. Он создает собственный рантайм `tokio::runtime::Builder::new_multi_thread()` и выполняет:
+   - `kernel.start_background_agents()` — монитор сердцебиения, автономные агенты и т. д.
+   - `run_embedded_server()` — строит роутер axum через `openfang_api::server::build_router()`, преобразует `std::net::TcpListener` в `tokio::net::TcpListener` и запускает сервер с поддержкой корректного завершения (graceful shutdown).
+5. **Приложение Tauri** — собирается конструктор Tauri с плагинами, управляемым состоянием, командами IPC, системным треем и окном WebView, указывающим на `http://127.0.0.1:{port}`.
+6. **Цикл событий** — Tauri запускает свой нативный цикл событий. При выходе вызывается `server_handle.shutdown()` для остановки встроенного сервера и ядра.
 
 ### ServerHandle
 
-The `ServerHandle` struct (defined in `src/server.rs`) manages the embedded server lifecycle:
+Структура `ServerHandle` (определенная в `src/server.rs`) управляет жизненным циклом встроенного сервера:
 
 ```rust
 pub struct ServerHandle {
@@ -81,16 +57,16 @@ pub struct ServerHandle {
 }
 ```
 
-- **`port`** -- The port the embedded server is listening on.
-- **`kernel`** -- Shared reference to the kernel, also used by the Tauri app for IPC commands and notifications.
-- **`shutdown_tx`** -- A `tokio::sync::watch` channel. Sending `true` triggers graceful shutdown of the axum server.
-- **`server_thread`** -- Join handle for the background thread. `shutdown()` joins it to ensure clean termination.
+- **`port`** — порт, на котором слушает встроенный сервер.
+- **`kernel`** — общая ссылка на ядро, также используемая приложением Tauri для IPC-команд и уведомлений.
+- **`shutdown_tx`** — канал `tokio::sync::watch`. Отправка `true` инициирует корректное завершение сервера axum.
+- **`server_thread`** — дескриптор (JoinHandle) фонового потока. `shutdown()` ожидает его завершения для чистой остановки.
 
-Calling `shutdown()` sends the shutdown signal, joins the background thread, and calls `kernel.shutdown()`. The `Drop` implementation sends the shutdown signal as a best-effort fallback but does not block on the thread join.
+Вызов `shutdown()` отправляет сигнал завершения, дожидается фонового потока и вызывает `kernel.shutdown()`. Реализация `Drop` отправляет сигнал завершения в качестве крайней меры, но не блокирует поток.
 
-### Graceful Shutdown
+### Корректное завершение (Graceful Shutdown)
 
-The axum server uses `with_graceful_shutdown()` wired to the watch channel:
+Сервер axum использует `with_graceful_shutdown()`, привязанный к каналу watch:
 
 ```rust
 let server = axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
@@ -99,53 +75,38 @@ let server = axum::serve(listener, app.into_make_service_with_connect_info::<Soc
     });
 ```
 
-After the server shuts down, channel bridges (Telegram, Slack, etc.) are stopped via `bridge.stop().await`.
+После остановки сервера мосты каналов (Telegram, Slack и др.) останавливаются через `bridge.stop().await`.
 
 ---
 
-## Features
+## Возможности
 
-### System Tray
+### Системный трей
 
-The system tray (defined in `src/tray.rs`) provides quick access without bringing up the main window:
+Системный трей (определенный в `src/tray.rs`) обеспечивает быстрый доступ без открытия основного окна:
 
-| Menu Item | Behavior |
+| Элемент меню | Поведение |
 |-----------|----------|
-| **Show Window** | Calls `show()`, `unminimize()`, and `set_focus()` on the main WebView window |
-| **Open in Browser** | Reads the port from managed `PortState` and opens `http://127.0.0.1:{port}` in the default browser |
-| **Agents: N running** | Disabled (info only) — shows current agent count |
-| **Status: Running (uptime)** | Disabled (info only) — shows uptime in human-readable format |
-| **Launch at Login** | Checkbox — toggles OS-level auto-start via `tauri-plugin-autostart` |
-| **Check for Updates...** | Checks for updates, downloads, installs, and restarts if available. Shows notifications for progress/success/failure |
-| **Open Config Directory** | Opens `~/.openfang/` in the OS file manager |
-| **Quit OpenFang** | Logs the quit event and calls `app.exit(0)` |
+| **Show Window** | Вызывает `show()`, `unminimize()` и `set_focus()` для основного окна WebView |
+| **Open in Browser** | Считывает порт из `PortState` и открывает `http://127.0.0.1:{port}` в браузере по умолчанию |
+| **Agents: N running** | Только для справки — показывает текущее количество запущенных агентов |
+| **Status: Running (uptime)** | Только для справки — показывает время работы в человекочитаемом формате |
+| **Launch at Login** | Чекбокс — переключает автозапуск при входе в ОС через `tauri-plugin-autostart` |
+| **Check for Updates...** | Проверяет наличие обновлений, загружает, устанавливает и перезапускает приложение. Показывает уведомления о прогрессе |
+| **Open Config Directory** | Открывает директорию `~/.openfang/` в файловом менеджере ОС |
+| **Quit OpenFang** | Логирует событие выхода и вызывает `app.exit(0)` |
 
-The tray tooltip reads **"OpenFang Agent OS"**.
+Всплывающая подсказка трея гласит **"OpenFang Agent OS"**.
 
-**Left-click on tray icon** shows the main window (same as "Show Window" menu item). This is implemented via `on_tray_icon_event` listening for `MouseButton::Left` with `MouseButtonState::Up`.
+**Левый клик по иконке трея** показывает основное окно (аналогично пункту меню "Show Window").
 
-### Single-Instance Enforcement
+### Контроль единственного экземпляра
 
-On desktop platforms, `tauri-plugin-single-instance` prevents multiple copies of OpenFang from running simultaneously. When a second instance attempts to launch, the existing instance's main window is shown, unminimized, and focused:
+На десктопных платформах `tauri-plugin-single-instance` предотвращает одновременный запуск нескольких копий OpenFang. При попытке запуска второй копии существующее окно показывается, разворачивается и получает фокус.
 
-```rust
-#[cfg(desktop)]
-{
-    builder = builder.plugin(tauri_plugin_single_instance::init(
-        |app, _args, _cwd| {
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-                let _ = w.unminimize();
-                let _ = w.set_focus();
-            }
-        },
-    ));
-}
-```
+### Сворачивание в трей при закрытии
 
-### Hide-to-Tray on Close
-
-Closing the window does not quit the application. Instead, the window is hidden and the close event is suppressed:
+Закрытие окна не завершает работу приложения. Вместо этого окно скрывается, а событие закрытия подавляется:
 
 ```rust
 .on_window_event(|window, event| {
@@ -157,38 +118,38 @@ Closing the window does not quit the application. Instead, the window is hidden 
 })
 ```
 
-To actually quit, use the **"Quit OpenFang"** option in the system tray menu.
+Чтобы действительно выйти из приложения, используйте пункт **"Quit OpenFang"** в меню системного трея.
 
-### Native OS Notifications
+### Нативные уведомления ОС
 
-The app subscribes to the kernel's event bus and forwards critical events as native desktop notifications using `tauri-plugin-notification`:
+Приложение подписывается на шину событий ядра и пересылает критические события в виде нативных уведомлений рабочего стола с помощью `tauri-plugin-notification`:
 
-| Event | Notification Title | Body |
+| Событие | Заголовок уведомления | Текст |
 |-------|-------------------|------|
 | `LifecycleEvent::Crashed` | "Agent Crashed" | `Agent {id} crashed: {error}` |
-| `LifecycleEvent::Spawned` | "Agent Started" | `Agent "{name}" is now running` |
-| `SystemEvent::HealthCheckFailed` | "Health Check Failed" | `Agent {id} unresponsive for {secs}s` |
+| `LifecycleEvent::Spawned` | "Agent Started" | `Агент "{name}" запущен` |
+| `SystemEvent::HealthCheckFailed` | "Health Check Failed" | `Агент {id} не отвечает {secs} сек.` |
 
-All other events are silently skipped. The notification listener runs as an async task spawned via `tauri::async_runtime::spawn` and handles broadcast lag gracefully (logs a warning and continues).
+Все остальные события игнорируются. Слушатель уведомлений работает как асинхронная задача, запущенная через `tauri::async_runtime::spawn`.
 
 ---
 
-## IPC Commands
+## Команды IPC
 
-Eleven Tauri IPC commands are registered, callable from the WebView frontend via `invoke()`:
+Зарегистрировано 11 команд Tauri IPC, которые можно вызывать из фронтенда WebView через `invoke()`:
 
 ### `get_port`
 
-Returns the port number (`u16`) the embedded server is listening on.
+Возвращает номер порта (`u16`), на котором слушает встроенный сервер.
 
 ```typescript
-// Frontend usage
+// Использование во фронтенде
 const port: number = await invoke("get_port");
 ```
 
 ### `get_status`
 
-Returns a JSON object with runtime status:
+Возвращает JSON-объект со статусом рантайма:
 
 ```json
 {
@@ -199,86 +160,74 @@ Returns a JSON object with runtime status:
 }
 ```
 
-- `agents` -- count of registered agents from `kernel.registry.list()`.
-- `uptime_secs` -- seconds since the kernel state was initialized (via `Instant::now()` at startup).
+- `agents` — количество зарегистрированных агентов из `kernel.registry.list()`.
+- `uptime_secs` — количество секунд с момента инициализации ядра.
 
 ### `get_agent_count`
 
-Returns the number of registered agents (`usize`) as a simple integer.
-
-```typescript
-const count: number = await invoke("get_agent_count");
-```
+Возвращает количество зарегистрированных агентов (`usize`) в виде целого числа.
 
 ### `import_agent_toml`
 
-Opens a native file picker for `.toml` files. Validates the selected file as an `AgentManifest`, copies it to `~/.openfang/agents/{name}/agent.toml`, and spawns the agent. Returns the agent name on success.
+Открывает нативный диалог выбора файлов для `.toml`. Проверяет выбранный файл как `AgentManifest`, копирует его в `~/.openfang/agents/{name}/agent.toml` и запускает агента.
 
 ### `import_skill_file`
 
-Opens a native file picker for skill files (`.md`, `.toml`, `.py`, `.js`, `.wasm`). Copies the file to `~/.openfang/skills/` and triggers a hot-reload of the skill registry.
+Открывает нативный диалог выбора файлов для файлов навыков (`.md`, `.toml`, `.py`, `.js`, `.wasm`). Копирует файл в `~/.openfang/skills/` и инициирует горячую перезагрузку реестра навыков.
 
 ### `get_autostart` / `set_autostart`
 
-Check or toggle whether OpenFang launches at OS login. Uses `tauri-plugin-autostart` (launchd on macOS, registry on Windows, systemd on Linux).
+Проверяет или переключает состояние автозапуска OpenFang при входе в ОС. Использует `tauri-plugin-autostart`.
 
 ### `check_for_updates`
 
-Checks for available updates without installing. Returns an `UpdateInfo` object:
-
-```json
-{ "available": true, "version": "0.2.0", "body": "Release notes..." }
-```
+Проверяет наличие обновлений без их установки. Возвращает объект `UpdateInfo`.
 
 ### `install_update`
 
-Downloads and installs the latest update, then restarts the app. The command does not return on success (the app restarts). Returns an error string on failure.
-
-```typescript
-await invoke("install_update"); // App restarts if update succeeds
-```
+Загружает и устанавливает последнее обновление, после чего перезапускает приложение.
 
 ### `open_config_dir` / `open_logs_dir`
 
-Opens `~/.openfang/` or `~/.openfang/logs/` in the OS file manager.
+Открывает `~/.openfang/` или `~/.openfang/logs/` в файловом менеджере ОС.
 
 ---
 
-## Window Configuration
+## Конфигурация окна
 
-The main window is created programmatically in the `setup` closure (not via `tauri.conf.json`, which declares an empty `windows: []` array):
+Основное окно создается программно в замыкании `setup` (а не через `tauri.conf.json`):
 
-| Property | Value |
+| Свойство | Значение |
 |----------|-------|
-| Window label | `"main"` |
-| Title | `"OpenFang"` |
-| URL | `http://127.0.0.1:{port}` (external) |
-| Inner size | 1280 x 800 |
-| Minimum inner size | 800 x 600 |
-| Position | Centered |
+| Метка окна | `"main"` |
+| Заголовок | `"OpenFang"` |
+| URL | `http://127.0.0.1:{port}` (внешний) |
+| Внутренний размер | 1280 x 800 |
+| Мин. внутр. размер | 800 x 600 |
+| Позиция | По центру |
 
-The window uses `WebviewUrl::External(...)` rather than a bundled frontend, because the WebView renders the axum-served UI.
+Окно использует `WebviewUrl::External(...)`, так как WebView отрисовывает интерфейс, предоставляемый axum.
 
-### Auto-Updater
+### Автообновление
 
-The app checks for updates 10 seconds after startup. If an update is available, it is downloaded, installed, and the app restarts automatically. Users can also trigger a manual check via the system tray.
+Приложение проверяет наличие обновлений через 10 секунд после запуска. Если обновление доступно, оно загружается и устанавливается автоматически с последующим перезапуском. Также можно запустить проверку вручную через трей.
 
-**Flow:**
-1. Startup check (10s delay) → `check_for_update()` → if available → notify user → `download_and_install_update()` → app restarts
-2. Tray "Check for Updates" → same flow, with failure notification if install fails
+**Поток:**
+1. Проверка при запуске (задержка 10с) → `check_for_update()` → если доступно → уведомление пользователя → `download_and_install_update()` → перезапуск приложения.
+2. Трей "Check for Updates" → тот же поток.
 
-**Configuration** (in `tauri.conf.json`):
-- `plugins.updater.pubkey` — Ed25519 public key (must match the signing private key)
-- `plugins.updater.endpoints` — URL to `latest.json` (hosted on GitHub Releases)
-- `plugins.updater.windows.installMode` — `"passive"` (install without full UI)
+**Конфигурация** (в `tauri.conf.json`):
+- `plugins.updater.pubkey` — публичный ключ Ed25519 (должен соответствовать приватному ключу подписи).
+- `plugins.updater.endpoints` — URL к `latest.json` (хостится на GitHub Releases).
+- `plugins.updater.windows.installMode` — `"passive"` (установка без полного GUI).
 
-**Signing:** Every release bundle is signed with `TAURI_SIGNING_PRIVATE_KEY` (GitHub Secret). The `tauri-action` generates `latest.json` containing download URLs and signatures for each platform.
+**Подпись:** Каждый релиз подписывается с помощью `TAURI_SIGNING_PRIVATE_KEY`.
 
-See [Production Checklist](production-checklist.md) for key generation and setup instructions.
+См. [Production Checklist](production-checklist.md) для инструкций по генерации ключей.
 
 ### CSP
 
-The `tauri.conf.json` configures a Content Security Policy that allows connections to the local embedded server:
+В `tauri.conf.json` настроена политика безопасности контента (CSP), разрешающая подключения к локальному встроенному серверу:
 
 ```
 default-src 'self' http://127.0.0.1:* ws://127.0.0.1:*;
@@ -287,150 +236,90 @@ style-src 'self' 'unsafe-inline';
 script-src 'self' 'unsafe-inline'
 ```
 
-This permits the WebView to load content from the localhost API server while blocking external resource loading. The axum API server provides additional security headers middleware.
+Это позволяет WebView загружать контент с API-сервера на localhost, блокируя при этом загрузку внешних ресурсов.
 
 ---
 
-## Building
+## Сборка
 
-### Prerequisites
+### Разработка
 
-- **Rust** (stable toolchain)
-- **Tauri CLI v2**: `cargo install tauri-cli --version "^2"`
-- **Platform-specific dependencies**:
-  - **Windows**: WebView2 (included in Windows 10/11), Visual Studio Build Tools
-  - **macOS**: Xcode Command Line Tools
-  - **Linux**: `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `libssl-dev`, `build-essential`
-
-### Development
+Запуск приложения в режиме разработки:
 
 ```bash
 cd crates/openfang-desktop
+yarn && yarn tauri dev
+# или
 cargo tauri dev
 ```
 
-This launches the app with hot-reload support. The console window is visible in debug builds for tracing output.
-
-### Production Build
+### Сборка для продакшена
 
 ```bash
 cd crates/openfang-desktop
 cargo tauri build
 ```
 
-This produces platform-specific installers:
-- **Windows**: `.msi` and `.exe` (NSIS) installers
-- **macOS**: `.dmg` and `.app` bundle
-- **Linux**: `.deb`, `.rpm`, and `.AppImage`
+Собранные пакеты появятся в `src-tauri/target/release/bundle`.
+Будут созданы установщики для конкретных платформ:
+- **Windows**: `.msi` и `.exe` (NSIS)
+- **macOS**: `.dmg` и `.app`
+- **Linux**: `.deb`, `.rpm` и `.AppImage`
 
-The release binary suppresses the console window on Windows via:
-
-```rust
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-```
-
-### Bundle Configuration
-
-From `tauri.conf.json`:
-
-```json
-{
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "icon": [
-      "icons/icon.png",
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png"
-    ]
-  }
-}
-```
-
-The `"targets": "all"` setting generates every available package format for the current platform. Icons are provided at multiple resolutions, plus an `icon.ico` for Windows.
+Релизный бинарный файл подавляет окно консоли в Windows.
 
 ---
 
-## Plugins
+## Плагины
 
-| Plugin | Version | Purpose |
+| Плагин | Версия | Назначение |
 |--------|---------|---------|
-| `tauri-plugin-notification` | 2 | Native OS notifications for kernel events and update progress |
-| `tauri-plugin-shell` | 2 | Shell/process access from the WebView |
-| `tauri-plugin-dialog` | 2 | Native file picker for agent/skill import |
-| `tauri-plugin-single-instance` | 2 | Prevents multiple instances (desktop only) |
-| `tauri-plugin-autostart` | 2 | Launch at OS login (desktop only) |
-| `tauri-plugin-updater` | 2 | Signed auto-updates from GitHub Releases (desktop only) |
-| `tauri-plugin-global-shortcut` | 2 | Ctrl+Shift+O/N/C shortcuts (desktop only) |
-
-### Capabilities
-
-The default capability set (defined in `capabilities/default.json`) grants:
-
-```json
-{
-  "identifier": "default",
-  "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "notification:default",
-    "shell:default",
-    "dialog:default",
-    "global-shortcut:allow-register",
-    "global-shortcut:allow-unregister",
-    "global-shortcut:allow-is-registered",
-    "autostart:default",
-    "updater:default"
-  ]
-}
-```
-
-Only the `"main"` window receives these permissions.
+| `tauri-plugin-notification` | 2 | Нативные уведомления ОС о событиях ядра и прогрессе обновления |
+| `tauri-plugin-shell` | 2 | Доступ к оболочке/процессам из WebView |
+| `tauri-plugin-dialog` | 2 | Нативный выбор файлов для импорта агентов/навыков |
+| `tauri-plugin-single-instance` | 2 | Предотвращение запуска нескольких копий (только десктоп) |
+| `tauri-plugin-autostart` | 2 | Запуск при входе в ОС (только десктоп) |
+| `tauri-plugin-updater` | 2 | Подписанные автообновления из GitHub Releases (только десктоп) |
+| `tauri-plugin-global-shortcut` | 2 | Глобальные горячие клавиши (только десктоп) |
 
 ---
 
-## Mobile Ready
+## Готовность к мобильным платформам
 
-The codebase includes conditional compilation guards for mobile platform support:
+Кодовая база включает стражи условной компиляции для поддержки мобильных платформ:
 
-- **Entry point**: The `run()` function is annotated with `#[cfg_attr(mobile, tauri::mobile_entry_point)]`, allowing Tauri to use it as the mobile entry point.
-- **Desktop-only features**: System tray setup, single-instance enforcement, and hide-to-tray on close are all gated behind `#[cfg(desktop)]` so they compile out on mobile targets.
-- **Mobile targets**: iOS and Android builds are structurally supported by the Tauri 2.0 framework, though the kernel and API server would still boot in-process on the device.
+- **Точка входа**: Функция `run()` помечена `#[cfg_attr(mobile, tauri::mobile_entry_point)]`.
+- **Функции только для десктопа**: Настройка системного трея, контроль единственного экземпляра и сворачивание в трей при закрытии закрыты за `#[cfg(desktop)]`, поэтому они не компилируются для мобильных целей.
+- **Мобильные цели**: Сборки для iOS и Android структурно поддерживаются фреймворком Tauri 2.0.
 
 ---
 
-## File Structure
+## Структура файлов
 
 ```
 crates/openfang-desktop/
   build.rs                 # tauri_build::build()
-  Cargo.toml               # Crate dependencies and metadata
-  tauri.conf.json           # Tauri app configuration
+  Cargo.toml               # Зависимости и метаданные крейта
+  tauri.conf.json           # Конфигурация приложения Tauri
   capabilities/
-    default.json            # Permission grants for the main window
+    default.json            # Разрешения для основного окна
   gen/
-    schemas/                # Auto-generated Tauri schemas
-  icons/
-    icon.png                # Source icon (327 KB)
-    icon.ico                # Windows icon
-    32x32.png               # Small icon
-    128x128.png             # Standard icon
-    128x128@2x.png          # HiDPI icon
+    schemas/                # Автогенерируемые схемы Tauri
+  icons/                    # Иконки приложения
   src/
-    main.rs                 # Binary entry point (calls lib::run())
-    lib.rs                  # Tauri app builder, state types, event listener
-    commands.rs             # IPC command handlers (get_port, get_status, get_agent_count)
-    server.rs               # ServerHandle, kernel boot, embedded axum server
-    tray.rs                 # System tray menu and event handlers
+    main.rs                 # Точка входа бинарного файла (вызывает lib::run())
+    lib.rs                  # Построитель приложения Tauri, типы состояния
+    commands.rs             # Обработчики команд IPC
+    server.rs               # ServerHandle, загрузка ядра, встроенный сервер axum
+    tray.rs                 # Меню системного трея и обработчики событий
 ```
 
 ---
 
-## Environment Variables
+## Переменные окружения
 
-| Variable | Effect |
+| Переменная | Эффект |
 |----------|--------|
-| `RUST_LOG` | Controls tracing verbosity. Defaults to `openfang=info,tauri=info` if unset. |
+| `RUST_LOG` | Управляет детализацией трассировки. По умолчанию `openfang=info,tauri=info`. |
 
-All other OpenFang environment variables (API keys, configuration) apply as normal since the desktop app boots the same kernel as the headless daemon.
+Все остальные переменные окружения OpenFang (API-ключи, конфигурация) применяются в обычном режиме.

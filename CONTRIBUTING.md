@@ -1,31 +1,31 @@
-# Contributing to OpenFang
+# Участие в разработке OpenFang
 
-Thank you for your interest in contributing to OpenFang. This guide covers everything you need to get started, from setting up your development environment to submitting pull requests.
+Благодарим вас за интерес к участию в разработке OpenFang. Это руководство охватывает все, что вам нужно для начала работы: от настройки среды разработки до отправки пул-реквестов.
 
-## Table of Contents
+## Содержание
 
-- [Development Environment](#development-environment)
-- [Building and Testing](#building-and-testing)
-- [Code Style](#code-style)
-- [Architecture Overview](#architecture-overview)
-- [How to Add a New Agent Template](#how-to-add-a-new-agent-template)
-- [How to Add a New Channel Adapter](#how-to-add-a-new-channel-adapter)
-- [How to Add a New Tool](#how-to-add-a-new-tool)
-- [Pull Request Process](#pull-request-process)
-- [Code of Conduct](#code-of-conduct)
+- [Среда разработки](#среда-разработки)
+- [Сборка и тестирование](#сборка-и-тестирование)
+- [Стиль кода](#стиль-кода)
+- [Обзор архитектуры](#обзор-архитектуры)
+- [Как добавить новый шаблон агента](#как-добавить-новый-шаблон-агента)
+- [Как добавить новый адаптер канала](#как-добавить-новый-адаптер-канала)
+- [Как добавить новый инструмент](#как-добавить-новый-инструмент)
+- [Процесс пул-реквеста](#процесс-пул-реквеста)
+- [Кодекс поведения](#кодекс-поведения)
 
 ---
 
-## Development Environment
+## Среда разработки
 
-### Prerequisites
+### Предварительные требования
 
-- **Rust 1.75+** (install via [rustup](https://rustup.rs/))
+- **Rust 1.75+** (установите через [rustup](https://rustup.rs/))
 - **Git**
-- **Python 3.8+** (optional, for Python runtime and skills)
-- A supported LLM API key (Anthropic, OpenAI, Groq, etc.) for end-to-end testing
+- **Python 3.8+** (опционально, для Python runtime и навыков)
+- Ключ API поддерживаемого LLM (Anthropic, OpenAI, Groq и т. д.) для сквозного тестирования
 
-### Clone and Build
+### Клонирование и сборка
 
 ```bash
 git clone https://github.com/RightNow-AI/openfang.git
@@ -33,48 +33,48 @@ cd openfang
 cargo build
 ```
 
-The first build takes a few minutes because it compiles SQLite (bundled) and Wasmtime. Subsequent builds are incremental.
+Первая сборка занимает несколько минут, так как она компилирует SQLite (встроенный) и Wasmtime. Последующие сборки выполняются инкрементально.
 
-### Environment Variables
+### Переменные окружения
 
-For running integration tests that hit a real LLM, set at least one provider key:
+Для запуска интеграционных тестов, использующих реальные LLM, установите хотя бы один ключ провайдера:
 
 ```bash
-export GROQ_API_KEY=gsk_...          # Recommended for fast, free-tier testing
-export ANTHROPIC_API_KEY=sk-ant-...  # For Anthropic-specific tests
+export GROQ_API_KEY=gsk_...          # Рекомендуется для быстрого тестирования на бесплатном уровне
+export ANTHROPIC_API_KEY=sk-ant-...  # Для тестов, специфичных для Anthropic
 ```
 
-Tests that require a real LLM key will skip gracefully if the env var is absent.
+Тесты, требующие реальный ключ LLM, будут пропущены, если переменная окружения отсутствует.
 
 ---
 
-## Building and Testing
+## Сборка и тестирование
 
-### Build the Entire Workspace
+### Сборка всего воркспейса
 
 ```bash
 cargo build --workspace
 ```
 
-### Fast Release Build (for development)
+### Быстрая релизная сборка (для разработки)
 
-The default `--release` profile uses full LTO and single-codegen-unit, which produces the smallest/fastest binary but is slow to compile. For iterating locally, use the `release-fast` profile instead:
+Профиль `--release` по умолчанию использует полный LTO и single-codegen-unit, что создает самый маленький/быстрый бинарный файл, но компилируется медленно. Для итераций на локальной машине используйте вместо него профиль `release-fast`:
 
 ```bash
 cargo build --profile release-fast -p openfang-cli
 ```
 
-This cuts link time significantly (thin LTO, 8 codegen units, `opt-level=2`) while still producing a binary fast enough to run integration tests against. Use `--release` only for final binaries or CI.
+ это значительно сокращает время линковки (thin LTO, 8 codegen units, `opt-level=2`), при этом создавая бинарный файл, достаточно быстрый для запуска интеграционных тестов. Используйте `--release` только для финальных бинарных файлов или CI.
 
-### Run All Tests
+### Запуск всех тестов
 
 ```bash
 cargo test --workspace
 ```
 
-The test suite is currently 1,744+ tests. All must pass before merging.
+На данный момент тестовый набор содержит более 1744 тестов. Все они должны быть пройдены перед слиянием (merge).
 
-### Run Tests for a Single Crate
+### Запуск тестов для отдельного крейта
 
 ```bash
 cargo test -p openfang-kernel
@@ -82,25 +82,25 @@ cargo test -p openfang-runtime
 cargo test -p openfang-memory
 ```
 
-### Check for Clippy Warnings
+### Проверка предупреждений Clippy
 
 ```bash
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-The CI pipeline enforces zero clippy warnings.
+CI-пайплайн требует отсутствия предупреждений clippy.
 
-### Format Code
+### Форматирование кода
 
 ```bash
 cargo fmt --all
 ```
 
-Always run `cargo fmt` before committing. CI will reject unformatted code.
+Всегда запускайте `cargo fmt` перед коммитом. CI отклонит неформатированный код.
 
-### Run the Doctor Check
+### Запуск проверки Doctor
 
-After building, verify your local setup:
+После сборки проверьте вашу локальную настройку:
 
 ```bash
 cargo run -- doctor
@@ -108,71 +108,71 @@ cargo run -- doctor
 
 ---
 
-## Code Style
+## Стиль кода
 
-- **Formatting**: Use `rustfmt` with default settings. Run `cargo fmt --all` before every commit.
-- **Linting**: `cargo clippy --workspace -- -D warnings` must pass with zero warnings.
-- **Documentation**: All public types and functions must have doc comments (`///`).
-- **Error Handling**: Use `thiserror` for error types. Avoid `unwrap()` in library code; prefer `?` propagation.
-- **Naming**:
-  - Types: `PascalCase` (e.g., `OpenFangKernel`, `AgentManifest`)
-  - Functions/methods: `snake_case`
-  - Constants: `SCREAMING_SNAKE_CASE`
-  - Crate names: `openfang-{name}` (kebab-case)
-- **Dependencies**: Workspace dependencies are declared in the root `Cargo.toml`. Prefer reusing workspace deps over adding new ones. If you need a new dependency, justify it in the PR.
-- **Testing**: Every new feature must include tests. Use `tempfile::TempDir` for filesystem isolation and random port binding for network tests.
-- **Serde**: All config structs use `#[serde(default)]` for forward compatibility with partial TOML.
+- **Форматирование**: Используйте `rustfmt` с настройками по умолчанию. Запускайте `cargo fmt --all` перед каждым коммитом.
+- **Линтинг**: `cargo clippy --workspace -- -D warnings` должен проходить без предупреждений.
+- **Документация**: Все публичные типы и функции должны иметь комментарии документации (`///`).
+- **Обработка ошибок**: Используйте `thiserror` для типов ошибок. Избегайте `unwrap()` в коде библиотек; предпочитайте распространение ошибок через `?`.
+- **Именование**:
+  - Типы: `PascalCase` (например, `OpenFangKernel`, `AgentManifest`)
+  - Функции/методы: `snake_case`
+  - Константы: `SCREAMING_SNAKE_CASE`
+  - Имена крейтов: `openfang-{name}` (kebab-case)
+- **Зависимости**: Зависимости воркспейса объявляются в корневом `Cargo.toml`. Предпочитайте повторное использование зависимостей воркспейса добавлению новых. Если вам нужна новая зависимость, обоснуйте это в PR.
+- **Тестирование**: Каждая новая функция должна включать тесты. Используйте `tempfile::TempDir` для изоляции файловой системы и привязку к случайным портам для сетевых тестов.
+- **Serde**: Все структуры конфигурации используют `#[serde(default)]` для прямой совместимости с частичным TOML.
 
 ---
 
-## Architecture Overview
+## Обзор архитектуры
 
-OpenFang is organized as a Cargo workspace with 14 crates:
+OpenFang организован как Cargo workspace с 14 крейтами:
 
-| Crate | Role |
+| Крейт | Роль |
 |-------|------|
-| `openfang-types` | Shared type definitions, taint tracking, manifest signing (Ed25519), model catalog, MCP/A2A config types |
-| `openfang-memory` | SQLite-backed memory substrate with vector embeddings, usage tracking, canonical sessions, JSONL mirroring |
-| `openfang-runtime` | Agent loop, 3 LLM drivers (Anthropic/Gemini/OpenAI-compat), 38 built-in tools, WASM sandbox, MCP client/server, A2A protocol |
-| `openfang-hands` | Hands system (curated autonomous capability packages), 7 bundled hands |
-| `openfang-extensions` | Integration registry (25 bundled MCP templates), AES-256-GCM credential vault, OAuth2 PKCE |
-| `openfang-kernel` | Assembles all subsystems: workflow engine, RBAC auth, heartbeat monitor, cron scheduler, config hot-reload |
-| `openfang-api` | REST/WS/SSE API (Axum 0.8), 76 endpoints, 14-page SPA dashboard, OpenAI-compatible `/v1/chat/completions` |
-| `openfang-channels` | 40 channel adapters (Telegram, Discord, Slack, WhatsApp, and 36 more), formatter, rate limiter |
-| `openfang-wire` | OFP (OpenFang Protocol): TCP P2P networking with HMAC-SHA256 mutual authentication |
-| `openfang-cli` | Clap CLI with daemon auto-detect (HTTP mode vs. in-process fallback), MCP server |
-| `openfang-migrate` | Migration engine for importing from OpenClaw (and future frameworks) |
-| `openfang-skills` | Skill system: 60 bundled skills, FangHub marketplace, OpenClaw compatibility, prompt injection scanning |
-| `openfang-desktop` | Tauri 2.0 native desktop app (WebView + system tray + single-instance + notifications) |
-| `xtask` | Build automation tasks |
+| `openfang-types` | Общие определения типов, отслеживание загрязнения (taint tracking), подпись манифеста (Ed25519), каталог моделей, типы конфигурации MCP/A2A |
+| `openfang-memory` | Субстрат памяти на базе SQLite с векторными эмбеддингами, отслеживанием использования, каноническими сессиями, зеркалированием JSONL |
+| `openfang-runtime` | Цикл агента, 3 драйвера LLM (Anthropic/Gemini/OpenAI-совместимый), 38 встроенных инструментов, песочница WASM, клиент/сервер MCP, протокол A2A |
+| `openfang-hands` | Система "Рук" (Hands) (кураторские пакеты автономных возможностей), 7 встроенных "рук" |
+| `openfang-extensions` | Реестр интеграций (25 встроенных шаблонов MCP), хранилище учетных данных AES-256-GCM, OAuth2 PKCE |
+| `openfang-kernel` | Собирает все подсистемы: движок воркфлоу, аутентификация RBAC, монитор сердцебиения (heartbeat), планировщик cron, горячая перезагрузка конфигурации |
+| `openfang-api` | REST/WS/SSE API (Axum 0.8), 76 эндпоинтов, 14-страничный SPA-дашборд, OpenAI-совместимый `/v1/chat/completions` |
+| `openfang-channels` | 40 адаптеров каналов (Telegram, Discord, Slack, WhatsApp и еще 36), форматировщик, ограничитель скорости (rate limiter) |
+| `openfang-wire` | OFP (OpenFang Protocol): сетевое взаимодействие TCP P2P с взаимной аутентификацией HMAC-SHA256 |
+| `openfang-cli` | Clap CLI с автоопределением демона (режим HTTP против встроенного фоллбэка), сервер MCP |
+| `openfang-migrate` | Движок миграции для импорта из OpenClaw (и будущих фреймворков) |
+| `openfang-skills` | Система навыков: 60 встроенных навыков, маркетплейс FangHub, совместимость с OpenClaw, сканирование на наличие промпт-инъекций |
+| `openfang-desktop` | Нативное десктопное приложение Tauri 2.0 (WebView + системный трей + запуск в одном экземпляре + уведомления) |
+| `xtask` | Задачи автоматизации сборки |
 
-### Key Architectural Patterns
+### Ключевые архитектурные паттерны
 
-- **`KernelHandle` trait**: Defined in `openfang-runtime`, implemented on `OpenFangKernel` in `openfang-kernel`. This avoids circular crate dependencies while enabling inter-agent tools.
-- **Shared memory**: A fixed UUID (`AgentId(Uuid::from_bytes([0..0, 0x01]))`) provides a cross-agent KV namespace.
-- **Daemon detection**: The CLI checks `~/.openfang/daemon.json` and pings the health endpoint. If a daemon is running, commands use HTTP; otherwise, they boot an in-process kernel.
-- **Capability-based security**: Every agent operation is checked against the agent's granted capabilities before execution.
+- **Трейт `KernelHandle`**: Определен в `openfang-runtime`, реализован в `OpenFangKernel` в `openfang-kernel`. Это позволяет избежать циклических зависимостей между крейтами и при этом использовать межагентные инструменты.
+- **Общая память**: Фиксированный UUID (`AgentId(Uuid::from_bytes([0..0, 0x01]))`) предоставляет пространство имен KV для разных агентов.
+- **Определение демона**: CLI проверяет `~/.openfang/daemon.json` и опрашивает эндпоинт здоровья. Если демон запущен, команды используют HTTP; в противном случае они запускают встроенное ядро (in-process kernel).
+- **Безопасность на основе возможностей (Capability-based security)**: Каждая операция агента проверяется на соответствие предоставленным агенту возможностям перед выполнением.
 
 ---
 
-## How to Add a New Agent Template
+## Как добавить новый шаблон агента
 
-Agent templates live in the `agents/` directory. Each template is a folder containing an `agent.toml` manifest.
+Шаблоны агентов находятся в директории `agents/`. Каждый шаблон представляет собой папку, содержащую манифест `agent.toml`.
 
-### Steps
+### Шаги
 
-1. Create a new directory under `agents/`:
+1. Создайте новую директорию в `agents/`:
 
 ```
 agents/my-agent/agent.toml
 ```
 
-2. Write the manifest:
+2. Напишите манифест:
 
 ```toml
 name = "my-agent"
 version = "0.1.0"
-description = "A brief description of what this agent does."
+description = "Краткое описание того, что делает этот агент."
 author = "openfang"
 module = "builtin:chat"
 tags = ["category"]
@@ -191,43 +191,43 @@ memory_write = ["self.*"]
 agent_spawn = false
 ```
 
-3. Include a system prompt if needed by adding it to the `[model]` section:
+3. Если нужен системный промпт, добавьте его в раздел `[model]`:
 
 ```toml
 [model]
 provider = "anthropic"
 model = "claude-sonnet-4-20250514"
 system_prompt = """
-You are a specialized agent that...
+Вы — специализированный агент, который...
 """
 ```
 
-4. Test by spawning:
+4. Протестируйте запуск:
 
 ```bash
 openfang agent spawn agents/my-agent/agent.toml
 ```
 
-5. Submit a PR with the new template.
+5. Отправьте PR с новым шаблоном.
 
 ---
 
-## How to Add a New Channel Adapter
+## Как добавить новый адаптер канала
 
-Channel adapters live in `crates/openfang-channels/src/`. Each adapter implements the `ChannelAdapter` trait.
+Адаптеры каналов находятся в `crates/openfang-channels/src/`. Каждый адаптер реализует трейт `ChannelAdapter`.
 
-### Steps
+### Шаги
 
-1. Create a new file: `crates/openfang-channels/src/myplatform.rs`
+1. Создайте новый файл: `crates/openfang-channels/src/myplatform.rs`
 
-2. Implement the `ChannelAdapter` trait (defined in `types.rs`):
+2. Реализуйте трейт `ChannelAdapter` (определен в `types.rs`):
 
 ```rust
 use crate::types::{ChannelAdapter, ChannelMessage, ChannelType};
 use async_trait::async_trait;
 
 pub struct MyPlatformAdapter {
-    // token, client, config fields
+    // поля token, client, config
 }
 
 #[async_trait]
@@ -237,74 +237,74 @@ impl ChannelAdapter for MyPlatformAdapter {
     }
 
     async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // Start polling/listening for messages
+        // Начать опрос/прослушивание сообщений
         Ok(())
     }
 
     async fn send(&self, channel_id: &str, content: &str) -> Result<(), Box<dyn std::error::Error>> {
-        // Send a message back to the platform
+        // Отправить сообщение обратно на платформу
         Ok(())
     }
 
     async fn stop(&mut self) {
-        // Clean shutdown
+        // Чистое завершение работы
     }
 }
 ```
 
-3. Register the module in `crates/openfang-channels/src/lib.rs`:
+3. Зарегистрируйте модуль в `crates/openfang-channels/src/lib.rs`:
 
 ```rust
 pub mod myplatform;
 ```
 
-4. Wire it up in the channel bridge (`crates/openfang-api/src/channel_bridge.rs`) so the daemon starts it alongside other adapters.
+4. Подключите его в мост каналов (`crates/openfang-api/src/channel_bridge.rs`), чтобы демон запускал его вместе с другими адаптерами.
 
-5. Add configuration support in `openfang-types` config structs (add a `[channels.myplatform]` section).
+5. Добавьте поддержку конфигурации в структуры конфига `openfang-types` (добавьте раздел `[channels.myplatform]`).
 
-6. Add CLI setup wizard instructions in `crates/openfang-cli/src/main.rs` under `cmd_channel_setup`.
+6. Добавьте инструкции для мастера настройки CLI в `crates/openfang-cli/src/main.rs` в функции `cmd_channel_setup`.
 
-7. Write tests and submit a PR.
+7. Напишите тесты и отправьте PR.
 
 ---
 
-## How to Add a New Tool
+## Как добавить новый инструмент
 
-Built-in tools are defined in `crates/openfang-runtime/src/tool_runner.rs`.
+Встроенные инструменты определены в `crates/openfang-runtime/src/tool_runner.rs`.
 
-### Steps
+### Шаги
 
-1. Add the tool implementation function:
+1. Добавьте функцию реализации инструмента:
 
 ```rust
 async fn tool_my_tool(input: &serde_json::Value) -> Result<String, String> {
     let param = input["param"]
         .as_str()
-        .ok_or("Missing 'param' field")?;
+        .ok_or("Отсутствует поле 'param'")?;
 
-    // Tool logic here
-    Ok(format!("Result: {param}"))
+    // Логика инструмента здесь
+    Ok(format!("Результат: {param}"))
 }
 ```
 
-2. Register it in the `execute_tool` match block:
+2. Зарегистрируйте его в блоке match функции `execute_tool`:
 
 ```rust
 "my_tool" => tool_my_tool(input).await,
 ```
 
-3. Add the tool definition to `builtin_tool_definitions()`:
+3. Добавьте определение инструмента в `builtin_tool_definitions()`:
 
 ```rust
 ToolDefinition {
     name: "my_tool".to_string(),
-    description: "Description shown to the LLM.".to_string(),
+    description: "Описание, отображаемое для LLM.".to_string(),
     input_schema: serde_json::json!({
         "type": "object",
         "properties": {
             "param": {
                 "type": "string",
-                "description": "The parameter description"
+                "description": "Описание параметра"
             }
         },
         "required": ["param"]
@@ -312,41 +312,41 @@ ToolDefinition {
 },
 ```
 
-4. Agents that need the tool must list it in their manifest:
+4. Агенты, которым нужен этот инструмент, должны указать его в своем манифесте:
 
 ```toml
 [capabilities]
 tools = ["my_tool"]
 ```
 
-5. Write tests for the tool function.
+5. Напишите тесты для функции инструмента.
 
-6. If the tool requires kernel access (e.g., inter-agent communication), accept `Option<&Arc<dyn KernelHandle>>` and handle the `None` case gracefully.
+6. Если инструменту требуется доступ к ядру (например, для межагентного взаимодействия), принимайте `Option<&Arc<dyn KernelHandle>>` и корректно обрабатывайте случай `None`.
 
 ---
 
-## Pull Request Process
+## Процесс пул-реквеста
 
-1. **Fork and branch**: Create a feature branch from `main`. Use descriptive names like `feat/add-matrix-adapter` or `fix/session-restore-crash`.
+1. **Форк и ветка**: Создайте ветку функции из `main`. Используйте описательные имена, такие как `feat/add-matrix-adapter` или `fix/session-restore-crash`.
 
-2. **Make your changes**: Follow the code style guidelines above.
+2. **Внесите изменения**: Следуйте рекомендациям по стилю кода, приведенным выше.
 
-3. **Test thoroughly**:
-   - `cargo test --workspace` must pass (all 1,744+ tests).
-   - `cargo clippy --workspace --all-targets -- -D warnings` must produce zero warnings.
-   - `cargo fmt --all --check` must produce no diff.
+3. **Тщательно протестируйте**:
+   - `cargo test --workspace` должен проходить (все 1744+ тестов).
+   - `cargo clippy --workspace --all-targets -- -D warnings` должен не выдавать предупреждений.
+   - `cargo fmt --all --check` не должен показывать различий.
 
-4. **Write a clear PR description**: Explain what changed and why. Include before/after examples if applicable.
+4. **Напишите четкое описание PR**: Объясните, что изменилось и почему. Включите примеры "до" и "после", если это применимо.
 
-5. **One concern per PR**: Keep PRs focused. A single PR should address one feature, one bug fix, or one refactor -- not all three.
+5. **Одна задача на PR**: Старайтесь делать PR сфокусированными. Один PR должен решать одну функцию, одно исправление ошибки или один рефакторинг — но не все три сразу.
 
-6. **Review process**: At least one maintainer must approve before merge. Address review feedback promptly.
+6. **Процесс обзора**: По крайней мере один мейнтейнер должен одобрить PR перед слиянием. Своевременно реагируйте на отзывы при обзоре.
 
-7. **CI must pass**: All automated checks must be green before merge.
+7. **CI должен проходить**: Все автоматические проверки должны быть успешными перед слиянием.
 
-### Commit Messages
+### Сообщения коммитов
 
-Use clear, imperative-mood messages:
+Используйте четкие сообщения в повелительном наклонении:
 
 ```
 Add Matrix channel adapter with E2EE support
@@ -356,16 +356,16 @@ Refactor capability manager to use DashMap
 
 ---
 
-## Code of Conduct
+## Кодекс поведения
 
-This project follows the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/). By participating, you agree to uphold a welcoming, inclusive, and harassment-free environment for everyone.
+Этот проект следует [Кодексу поведения Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/). Участвуя в нем, вы соглашаетесь поддерживать доброжелательную, инклюзивную среду, свободную от преследований, для всех участников.
 
-Please report unacceptable behavior to the maintainers.
+Пожалуйста, сообщайте о неприемлемом поведении мейнтейнерам.
 
 ---
 
-## Questions?
+## Вопросы?
 
-- Open a [GitHub Discussion](https://github.com/RightNow-AI/openfang/discussions) for questions.
-- Open a [GitHub Issue](https://github.com/RightNow-AI/openfang/issues) for bugs or feature requests.
-- Check the [docs/](docs/) directory for detailed guides on specific topics.
+- Откройте [GitHub Discussion](https://github.com/RightNow-AI/openfang/discussions) для вопросов.
+- Откройте [GitHub Issue](https://github.com/RightNow-AI/openfang/issues) для сообщений об ошибках или запросов новых функций.
+- Обратитесь к директории [docs/](docs/) для получения подробных руководств по конкретным темам.

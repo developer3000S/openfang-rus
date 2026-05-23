@@ -1,172 +1,220 @@
-# Workflow Engine Guide
+# Воркфлоу (Workflows)
 
-## Overview
+Воркфлоу позволяют связывать несколько агентов в конвейеры (pipelines) с ветвлениями, параллельным выполнением (fan-out) и триггерами.
 
-The OpenFang workflow engine enables multi-step agent pipelines -- orchestrated sequences of tasks where each step routes work to a specific agent, and output from one step flows as input to the next. Workflows let you compose complex behaviors from simple, single-purpose agents without writing any Rust code.
+Создавайте и запускайте воркфлоу через CLI или REST API.
 
-Use workflows when you need to:
+Пример (упрощённый):
 
-- Chain multiple agents together in a processing pipeline (e.g., research then write then review).
-- Fan work out to several agents in parallel and collect their results.
-- Conditionally branch execution based on an earlier step's output.
-- Iterate a step in a loop until a quality gate is met.
-- Build reproducible, auditable multi-agent processes that can be triggered via API or CLI.
-
-The implementation lives in `openfang-kernel/src/workflow.rs`. The workflow engine is decoupled from the kernel through closures -- it never directly owns or references the kernel, making it testable in isolation.
+```json
+{
+  "name": "competitor-monitor",
+  "steps": [
+    {"agent": "collector", "out": "reports"},
+    {"agent": "researcher", "in": "reports", "out": "analysis"},
+    {"agent": "notifier", "in": "analysis"}
+  ]
+}
+```
 
 ---
 
-## Core Types
+## Основные типы
 
-| Rust type | Description |
+| Тип Rust | Описание |
 |---|---|
-| `WorkflowId(Uuid)` | Unique identifier for a workflow definition. |
-| `WorkflowRunId(Uuid)` | Unique identifier for a running workflow instance. |
-| `Workflow` | A named definition containing a list of `WorkflowStep` entries. |
-| `WorkflowStep` | A single step: agent reference, prompt template, mode, timeout, error handling. |
-| `WorkflowRun` | A running instance: tracks state, step results, final output, timestamps. |
-| `WorkflowRunState` | Enum: `Pending`, `Running`, `Completed`, `Failed`. |
-| `StepResult` | Result from one step: agent info, output text, token counts, duration. |
-| `WorkflowEngine` | The engine itself: stores definitions and runs in `Arc<RwLock<HashMap>>`. |
+| `WorkflowId(Uuid)` | Уникальный идентификатор определения воркфлоу. |
+| `WorkflowRunId(Uuid)` | Уникальный идентификатор запущенного экземпляра воркфлоу. |
+| `Workflow` | Именованное определение, содержащее список шагов `WorkflowStep`. |
+| `WorkflowStep` | Один шаг: ссылка на агента, шаблон промпта, режим, тайм-аут, обработка ошибок. |
+| `WorkflowRun` | Запущенный экземпляр: отслеживает состояние, результаты шагов, финальный вывод, временные метки. |
+| `WorkflowRunState` | Перечисление (Enum): `Pending`, `Running`, `Completed`, `Failed`. |
+| `StepResult` | Результат одного шага: информация об агенте, текст вывода, количество токенов, длительность. |
+| `WorkflowEngine` | Сам движок: хранит определения и запускает их в `Arc<RwLock<HashMap>>`. |
 
 ---
 
-## Workflow Definition
+## Определение воркфлоу
 
-Workflows are registered via the REST API as JSON. The top-level structure is:
+Воркфлоу регистрируются через REST API в формате JSON. Структура верхнего уровня:
 
 ```json
 {
   "name": "my-pipeline",
-  "description": "Describe what the workflow does",
+  "description": "Опишите, что делает воркфлоу",
   "steps": [ ... ]
 }
 ```
 
-The corresponding Rust struct is:
+# Руководство по движку воркфлоу
+
+## Обзор
+
+Движок воркфлоу OpenFang позволяет создавать многошаговые конвейеры агентов — оркестрованные последовательности задач, где каждый шаг направляет работу конкретному агенту, а вывод одного шага становится входом для следующего. Воркфлоу позволяют составлять сложные модели поведения из простых узкоспециализированных агентов без написания кода на Rust.
+
+Используйте воркфлоу, когда вам нужно:
+
+- Соединить нескольких агентов в конвейер обработки (например: исследование -> написание -> рецензирование).
+- Распараллелить работу между несколькими агентами и собрать их результаты (fan-out).
+- Условно разветвлять выполнение на основе вывода предыдущего шага.
+- Итерировать шаг в цикле до достижения определенного порога качества.
+- Создавать воспроизводимые, проверяемые процессы с участием нескольких агентов, которые можно запускать через API или CLI.
+
+Реализация находится в `openfang-kernel/src/workflow.rs`. Движок воркфлоу отделен от ядра через замыкания (closures) — он никогда напрямую не владеет ядром и не ссылается на него, что делает его тестируемым в изоляции.
+
+---
+
+## Основные типы
+
+| Тип Rust | Описание |
+|---|---|
+| `WorkflowId(Uuid)` | Уникальный идентификатор определения воркфлоу. |
+| `WorkflowRunId(Uuid)` | Уникальный идентификатор запущенного экземпляра воркфлоу. |
+| `Workflow` | Именованное определение, содержащее список записей `WorkflowStep`. |
+| `WorkflowStep` | Один шаг: ссылка на агента, шаблон промпта, режим, тайм-аут, обработка ошибок. |
+| `WorkflowRun` | Запущенный экземпляр: отслеживает состояние, результаты шагов, финальный вывод, временные метки. |
+| `WorkflowRunState` | Enum: `Pending`, `Running`, `Completed`, `Failed`. |
+| `StepResult` | Результат одного шага: информация об агенте, текст вывода, количество токенов, длительность. |
+| `WorkflowEngine` | Сам движок: хранит определения и запускается в `Arc<RwLock<HashMap>>`. |
+
+---
+
+## Определение воркфлоу
+
+Воркфлоу регистрируются через REST API в формате JSON. Структура верхнего уровня:
+
+```json
+{
+  "name": "my-pipeline",
+  "description": "Описание того, что делает воркфлоу",
+  "steps": [ ... ]
+}
+```
+
+Соответствующая структура Rust:
 
 ```rust
 pub struct Workflow {
-    pub id: WorkflowId,            // Auto-assigned on creation
-    pub name: String,              // Human-readable name
-    pub description: String,       // What this workflow does
-    pub steps: Vec<WorkflowStep>,  // Ordered list of steps
-    pub created_at: DateTime<Utc>, // Auto-assigned on creation
+    pub id: WorkflowId,            // Автоматически назначается при создании
+    pub name: String,              // Человекочитаемое имя
+    pub description: String,       // Что делает этот воркфлоу
+    pub steps: Vec<WorkflowStep>,  // Упорядоченный список шагов
+    pub created_at: DateTime<Utc>, // Автоматически назначается при создании
 }
 ```
 
 ---
 
-## Step Configuration
+## Конфигурация шага
 
-Each step in the `steps` array has the following fields:
+Каждый шаг в массиве `steps` имеет следующие поля:
 
-| JSON field | Rust field | Type | Default | Description |
+| Поле JSON | Поле Rust | Тип | По умолчанию | Описание |
 |---|---|---|---|---|
-| `name` | `name` | `String` | `"step"` | Step name for logging and display. |
-| `agent_name` | `agent` | `StepAgent::ByName` | -- | Reference an agent by its name (first match). Mutually exclusive with `agent_id`. |
-| `agent_id` | `agent` | `StepAgent::ById` | -- | Reference an agent by its UUID. Mutually exclusive with `agent_name`. |
-| `prompt` | `prompt_template` | `String` | `"{{input}}"` | Prompt template with variable placeholders. |
-| `mode` | `mode` | `StepMode` | `"sequential"` | Execution mode (see below). |
-| `timeout_secs` | `timeout_secs` | `u64` | `120` | Maximum time in seconds before the step times out. |
-| `error_mode` | `error_mode` | `ErrorMode` | `"fail"` | How to handle errors (see below). |
-| `max_retries` | (inside `ErrorMode::Retry`) | `u32` | `3` | Number of retries when `error_mode` is `"retry"`. |
-| `output_var` | `output_var` | `Option<String>` | `null` | If set, stores this step's output in a named variable for later reference. |
-| `condition` | (inside `StepMode::Conditional`) | `String` | `""` | Substring to match in previous output (case-insensitive). |
-| `max_iterations` | (inside `StepMode::Loop`) | `u32` | `5` | Maximum loop iterations before forced termination. |
-| `until` | (inside `StepMode::Loop`) | `String` | `""` | Substring to match in output to terminate the loop (case-insensitive). |
+| `name` | `name` | `String` | `"step"` | Имя шага для логирования и отображения. |
+| `agent_name` | `agent` | `StepAgent::ByName` | -- | Ссылка на агента по имени (первое совпадение). Взаимоисключающее с `agent_id`. |
+| `agent_id` | `agent` | `StepAgent::ById` | -- | Ссылка на агента по UUID. Взаимоисключающее с `agent_name`. |
+| `prompt` | `prompt_template` | `String` | `"{{input}}"` | Шаблон промпта с заполнителями переменных. |
+| `mode` | `mode` | `StepMode` | `"sequential"` | Режим выполнения (см. ниже). |
+| `timeout_secs` | `timeout_secs` | `u64` | `120` | Максимальное время в секундах до истечения времени ожидания шага. |
+| `error_mode` | `error_mode` | `ErrorMode` | `"fail"` | Как обрабатывать ошибки (см. ниже). |
+| `max_retries` | (внутри `ErrorMode::Retry`) | `u32` | `3` | Количество повторных попыток при `error_mode` равном `"retry"`. |
+| `output_var` | `output_var` | `Option<String>` | `null` | Если установлено, сохраняет вывод этого шага в именованную переменную для последующего использования. |
+| `condition` | (внутри `StepMode::Conditional`) | `String` | `""` | Подстрока для поиска в предыдущем выводе (без учета регистра). |
+| `max_iterations` | (внутри `StepMode::Loop`) | `u32` | `5` | Максимальное количество итераций цикла до принудительного завершения. |
+| `until` | (внутри `StepMode::Loop`) | `String` | `""` | Подстрока в выводе для завершения цикла (без учета регистра). |
 
-### Agent Resolution
+### Разрешение агента (Agent Resolution)
 
-Every step must specify exactly one of `agent_name` or `agent_id`. The `StepAgent` enum is:
+Каждый шаг должен указывать ровно одно из полей `agent_name` или `agent_id`. Перечисление `StepAgent`:
 
 ```rust
 pub enum StepAgent {
-    ById { id: String },    // UUID of an existing agent
-    ByName { name: String }, // Name match (first agent with this name)
+    ById { id: String },    // UUID существующего агента
+    ByName { name: String }, // Совпадение по имени (первый агент с таким именем)
 }
 ```
 
-If the agent cannot be resolved at execution time, the workflow fails with `"Agent not found for step '<name>'"`.
+Если агент не может быть найден во время выполнения, воркфлоу завершается с ошибкой `"Agent not found for step '<name>'"`.
 
 ---
 
-## Step Modes
+## Режимы шагов (Step Modes)
 
-The `mode` field controls how a step executes relative to other steps in the workflow.
+Поле `mode` управляет тем, как шаг выполняется относительно других шагов в воркфлоу.
 
-### Sequential (default)
+### Последовательный (Sequential, по умолчанию)
 
 ```json
 { "mode": "sequential" }
 ```
 
-The step runs after the previous step completes. The previous step's output becomes `{{input}}` for this step. This is the default mode when `mode` is omitted.
+Шаг запускается после завершения предыдущего шага. Вывод предыдущего шага становится `{{input}}` для этого шага. Это режим по умолчанию, если `mode` опущен.
 
-### Fan-Out
+### Fan-Out (Параллельный запуск)
 
 ```json
 { "mode": "fan_out" }
 ```
 
-Fan-out steps run **in parallel**. The engine collects all consecutive `fan_out` steps and launches them simultaneously using `futures::future::join_all`. All fan-out steps receive the same `{{input}}` -- the output from the last step that ran before the fan-out group.
+Шаги `fan_out` запускаются **параллельно**. Движок собирает все идущие подряд шаги `fan_out` и запускает их одновременно, используя `futures::future::join_all`. Все шаги `fan_out` получают один и тот же `{{input}}` — вывод последнего шага, выполненного перед группой `fan_out`.
 
-If any fan-out step fails or times out, the entire workflow fails immediately.
+Если какой-либо шаг `fan_out` завершается неудачей или по тайм-ауту, весь воркфлоу немедленно прекращается.
 
-### Collect
+### Сбор (Collect)
 
 ```json
 { "mode": "collect" }
 ```
 
-The `collect` step gathers all outputs from the preceding fan-out group. It does not execute an agent -- it is a **data-only** step that joins all accumulated outputs with the separator `"\n\n---\n\n"` and sets the result as `{{input}}` for subsequent steps.
+Шаг `collect` собирает все результаты из предыдущей группы `fan_out`. Он не запускает агента — это шаг **только для данных**, который объединяет все накопленные выводы разделителем `"\n\n---\n\n"` и устанавливает результат как `{{input}}` для последующих шагов.
 
-A typical fan-out/collect pattern:
+Типичный паттерн fan-out/collect:
 
 ```
-step 1: fan_out  -->  runs in parallel
-step 2: fan_out  -->  runs in parallel
-step 3: collect  -->  joins outputs from steps 1 and 2
-step 4: sequential --> receives joined output as {{input}}
+шаг 1: fan_out  -->  запускается параллельно
+шаг 2: fan_out  -->  запускается параллельно
+шаг 3: collect  -->  объединяет выводы шагов 1 и 2
+шаг 4: sequential --> получает объединенный вывод как {{input}}
 ```
 
-### Conditional
+### Условный (Conditional)
 
 ```json
 { "mode": "conditional", "condition": "ERROR" }
 ```
 
-The step only executes if the previous step's output **contains** the `condition` substring (case-insensitive comparison via `to_lowercase().contains()`). If the condition is not met, the step is skipped entirely and `{{input}}` is not modified.
+Шаг выполняется только в том случае, если вывод предыдущего шага **содержит** подстроку `condition` (сравнение без учета регистра через `to_lowercase().contains()`). Если условие не выполнено, шаг полностью пропускается, и `{{input}}` не изменяется.
 
-When the condition is met, the step executes like a sequential step.
+Если условие выполнено, шаг выполняется как последовательный (sequential).
 
-### Loop
+### Цикл (Loop)
 
 ```json
 { "mode": "loop", "max_iterations": 5, "until": "APPROVED" }
 ```
 
-The step repeats up to `max_iterations` times. After each iteration, the engine checks whether the output **contains** the `until` substring (case-insensitive). If found, the loop terminates early.
+Шаг повторяется до `max_iterations` раз. После каждой итерации движок проверяет, содержит ли вывод подстроку `until` (без учета регистра). Если она найдена, цикл завершается досрочно.
 
-Each iteration feeds its output back as `{{input}}` for the next iteration. Step results are recorded with names like `"refine (iter 1)"`, `"refine (iter 2)"`, etc.
+Каждая итерация подает свой вывод обратно как `{{input}}` для следующей итерации. Результаты шагов записываются с именами вида `"refine (iter 1)"`, `"refine (iter 2)"` и т. д.
 
-If the `until` condition is never met, the loop runs exactly `max_iterations` times and continues to the next step with the last iteration's output.
+Если условие `until` никогда не выполняется, цикл выполняется ровно `max_iterations` раз и переходит к следующему шагу с выводом последней итерации.
 
 ---
 
-## Variable Substitution
+## Подстановка переменных
 
-Prompt templates support two kinds of variable references:
+Шаблоны промптов поддерживают два вида ссылок на переменные:
 
-### `{{input}}` -- Previous step output
+### `{{input}}` — Вывод предыдущего шага
 
-Always available. Contains the output from the immediately preceding step (or the workflow's initial input for the first step).
+Доступно всегда. Содержит вывод непосредственно предшествующего шага (или начальный вход воркфлоу для первого шага).
 
-### `{{variable_name}}` -- Named variables
+### `{{variable_name}}` — Именованные переменные
 
-When a step has `"output_var": "my_var"`, its output is stored in a variable map under the key `my_var`. Any subsequent step can reference it with `{{my_var}}` in its prompt template.
+Если у шага есть `"output_var": "my_var"`, его вывод сохраняется в словаре переменных под ключом `my_var`. Любой последующий шаг может сослаться на него с помощью `{{my_var}}` в своем шаблоне промпта.
 
-The expansion logic (from `WorkflowEngine::expand_variables`):
+Логика расширения (из `WorkflowEngine::expand_variables`):
 
 ```rust
 fn expand_variables(template: &str, input: &str, vars: &HashMap<String, String>) -> String {
@@ -178,73 +226,73 @@ fn expand_variables(template: &str, input: &str, vars: &HashMap<String, String>)
 }
 ```
 
-Variables persist for the entire workflow run. A later step can overwrite a variable by using the same `output_var` name.
+Переменные сохраняются на протяжении всего запуска воркфлоу. Последующий шаг может перезаписать переменную, используя то же имя в `output_var`.
 
-**Example**: A three-step workflow where step 3 references outputs from both step 1 and step 2:
+**Пример**: Воркфлоу из трех шагов, где шаг 3 ссылается на выводы шагов 1 и 2:
 
 ```json
 {
   "steps": [
-    { "name": "research", "output_var": "research_output", "prompt": "Research: {{input}}" },
-    { "name": "outline",  "output_var": "outline_output",  "prompt": "Outline based on: {{input}}" },
-    { "name": "combine",  "prompt": "Write article.\nResearch: {{research_output}}\nOutline: {{outline_output}}" }
+    { "name": "research", "output_var": "research_output", "prompt": "Исследуй: {{input}}" },
+    { "name": "outline",  "output_var": "outline_output",  "prompt": "Составь план на основе: {{input}}" },
+    { "name": "combine",  "prompt": "Напиши статью.\nИсследование: {{research_output}}\nПлан: {{outline_output}}" }
   ]
 }
 ```
 
 ---
 
-## Error Handling
+## Обработка ошибок
 
-Each step has an `error_mode` that controls behavior when the step fails or times out.
+У каждого шага есть `error_mode`, который управляет поведением при сбое шага или истечении времени ожидания.
 
-### Fail (default)
+### Fail (Ошибка, по умолчанию)
 
 ```json
 { "error_mode": "fail" }
 ```
 
-The workflow aborts immediately. The run state is set to `Failed`, the error message is recorded, and `completed_at` is set. The error message format is `"Step '<name>' failed: <error>"` or `"Step '<name>' timed out after <N>s"`.
+Выполнение воркфлоу немедленно прерывается. Состояние запуска устанавливается в `Failed`, записывается сообщение об ошибке и устанавливается `completed_at`. Формат сообщения об ошибке: `"Step '<name>' failed: <error>"` или `"Step '<name>' timed out after <N>s"`.
 
-### Skip
+### Skip (Пропустить)
 
 ```json
 { "error_mode": "skip" }
 ```
 
-The step is silently skipped on error or timeout. A warning is logged, but the workflow continues. The `{{input}}` for the next step remains unchanged (it keeps the value from before the skipped step). No `StepResult` is recorded for the skipped step.
+Шаг молча пропускается в случае ошибки или тайм-аута. В лог записывается предупреждение, но воркфлоу продолжается. `{{input}}` для следующего шага остается неизменным (сохраняет значение, которое было до пропущенного шага). `StepResult` для пропущенного шага не записывается.
 
-### Retry
+### Retry (Повтор)
 
 ```json
 { "error_mode": "retry", "max_retries": 3 }
 ```
 
-The step is retried up to `max_retries` times after the initial attempt (so `max_retries: 3` means up to 4 total attempts: 1 initial + 3 retries). Each attempt gets the full `timeout_secs` budget independently. If all attempts fail, the workflow aborts with `"Step '<name>' failed after <N> retries: <last_error>"`.
+Попытка выполнения шага повторяется до `max_retries` раз после первоначальной попытки (таким образом, `max_retries: 3` означает до 4 попыток всего: 1 начальная + 3 повтора). Каждая попытка получает полный бюджет `timeout_secs` независимо. Если все попытки не удались, воркфлоу прерывается с ошибкой `"Step '<name>' failed after <N> retries: <last_error>"`.
 
-### Timeout Behavior
+### Поведение при тайм-ауте
 
-Every step execution is wrapped in `tokio::time::timeout(Duration::from_secs(step.timeout_secs), ...)`. The default timeout is 120 seconds. Timeouts are treated as errors and handled according to the step's `error_mode`.
+Выполнение каждого шага обернуто в `tokio::time::timeout(Duration::from_secs(step.timeout_secs), ...)`. Тайм-аут по умолчанию составляет 120 секунд. Тайм-ауты рассматриваются как ошибки и обрабатываются в соответствии с `error_mode` шага.
 
-For fan-out steps, each parallel step gets its own timeout individually.
+Для шагов fan-out каждый параллельный шаг получает свой собственный тайм-аут индивидуально.
 
 ---
 
-## Examples
+## Примеры
 
-### Example 1: Code Review Pipeline
+### Пример 1: Конвейер код-ревью
 
-A sequential pipeline where code is analyzed, reviewed, and a summary is produced.
+Последовательный конвейер, в котором код анализируется, проверяется и составляется резюме.
 
 ```json
 {
   "name": "code-review-pipeline",
-  "description": "Analyze code, review for issues, and produce a summary report",
+  "description": "Анализ кода, поиск проблем и создание отчета",
   "steps": [
     {
       "name": "analyze",
       "agent_name": "code-reviewer",
-      "prompt": "Analyze the following code for bugs, style issues, and security vulnerabilities:\n\n{{input}}",
+      "prompt": "Проанализируй следующий код на наличие багов, проблем со стилем и уязвимостей безопасности:\n\n{{input}}",
       "mode": "sequential",
       "timeout_secs": 180,
       "error_mode": "fail",
@@ -253,7 +301,7 @@ A sequential pipeline where code is analyzed, reviewed, and a summary is produce
     {
       "name": "security-check",
       "agent_name": "security-auditor",
-      "prompt": "Review this code analysis for security issues. Flag anything critical:\n\n{{analysis}}",
+      "prompt": "Проверь этот анализ кода на наличие проблем с безопасностью. Отметь всё критическое:\n\n{{analysis}}",
       "mode": "sequential",
       "timeout_secs": 120,
       "error_mode": "retry",
@@ -263,7 +311,7 @@ A sequential pipeline where code is analyzed, reviewed, and a summary is produce
     {
       "name": "summary",
       "agent_name": "writer",
-      "prompt": "Write a concise code review summary.\n\nCode Analysis:\n{{analysis}}\n\nSecurity Review:\n{{security_review}}",
+      "prompt": "Напиши краткое резюме код-ревью.\n\nАнализ кода:\n{{analysis}}\n\nПроверка безопасности:\n{{security_review}}",
       "mode": "sequential",
       "timeout_secs": 60,
       "error_mode": "fail"
@@ -272,19 +320,19 @@ A sequential pipeline where code is analyzed, reviewed, and a summary is produce
 }
 ```
 
-### Example 2: Research and Write Article
+### Пример 2: Исследование и написание статьи
 
-Research a topic, outline it, then write -- with a conditional fact-check step.
+Исследование темы, составление плана, затем написание — с условным шагом проверки фактов.
 
 ```json
 {
   "name": "research-and-write",
-  "description": "Research a topic, outline, write, and optionally fact-check",
+  "description": "Исследование темы, план, написание и опциональная проверка фактов",
   "steps": [
     {
       "name": "research",
       "agent_name": "researcher",
-      "prompt": "Research the following topic thoroughly. Cite sources where possible:\n\n{{input}}",
+      "prompt": "Тщательно исследуй следующую тему. По возможности цитируй источники:\n\n{{input}}",
       "mode": "sequential",
       "timeout_secs": 300,
       "error_mode": "retry",
@@ -294,7 +342,7 @@ Research a topic, outline it, then write -- with a conditional fact-check step.
     {
       "name": "outline",
       "agent_name": "planner",
-      "prompt": "Create a detailed article outline based on this research:\n\n{{research}}",
+      "prompt": "Создай подробный план статьи на основе этого исследования:\n\n{{research}}",
       "mode": "sequential",
       "timeout_secs": 60,
       "output_var": "outline"
@@ -302,7 +350,7 @@ Research a topic, outline it, then write -- with a conditional fact-check step.
     {
       "name": "write",
       "agent_name": "writer",
-      "prompt": "Write a complete article.\n\nOutline:\n{{outline}}\n\nResearch:\n{{research}}",
+      "prompt": "Напиши полную статью.\n\nПлан:\n{{outline}}\n\nИсследование:\n{{research}}",
       "mode": "sequential",
       "timeout_secs": 300,
       "output_var": "article"
@@ -310,7 +358,7 @@ Research a topic, outline it, then write -- with a conditional fact-check step.
     {
       "name": "fact-check",
       "agent_name": "analyst",
-      "prompt": "Fact-check this article and note any claims that need verification:\n\n{{article}}",
+      "prompt": "Проверь факты в этой статье и отметь любые утверждения, требующие подтверждения:\n\n{{article}}",
       "mode": "conditional",
       "condition": "claim",
       "timeout_secs": 120,
@@ -320,21 +368,21 @@ Research a topic, outline it, then write -- with a conditional fact-check step.
 }
 ```
 
-The fact-check step only runs if the article contains the word "claim" (case-insensitive). If the fact-check agent fails, the workflow continues with the article as-is.
+Шаг проверки фактов запускается только в том случае, если статья содержит слово "claim" (без учета регистра). Если агент проверки фактов дает сбой, воркфлоу продолжается со статьей "как есть".
 
-### Example 3: Multi-Agent Brainstorm (Fan-Out + Collect)
+### Пример 3: Мозговой штурм с несколькими агентами (Fan-Out + Collect)
 
-Three agents brainstorm in parallel, then a fourth agent synthesizes their ideas.
+Три агента проводят мозговой штурм параллельно, затем четвертый агент синтезирует их идеи.
 
 ```json
 {
   "name": "brainstorm",
-  "description": "Parallel brainstorm with 3 agents, then synthesize",
+  "description": "Параллельный мозговой штурм с 3 агентами, затем синтез",
   "steps": [
     {
       "name": "creative-ideas",
       "agent_name": "writer",
-      "prompt": "Brainstorm 5 creative ideas for: {{input}}",
+      "prompt": "Придумай 5 креативных идей для: {{input}}",
       "mode": "fan_out",
       "timeout_secs": 60,
       "output_var": "creative"
@@ -342,7 +390,7 @@ Three agents brainstorm in parallel, then a fourth agent synthesizes their ideas
     {
       "name": "technical-ideas",
       "agent_name": "architect",
-      "prompt": "Brainstorm 5 technically feasible ideas for: {{input}}",
+      "prompt": "Придумай 5 технически реализуемых идей для: {{input}}",
       "mode": "fan_out",
       "timeout_secs": 60,
       "output_var": "technical"
@@ -350,7 +398,7 @@ Three agents brainstorm in parallel, then a fourth agent synthesizes their ideas
     {
       "name": "business-ideas",
       "agent_name": "analyst",
-      "prompt": "Brainstorm 5 ideas with strong business potential for: {{input}}",
+      "prompt": "Придумай 5 идей с сильным бизнес-потенциалом для: {{input}}",
       "mode": "fan_out",
       "timeout_secs": 60,
       "output_var": "business"
@@ -364,7 +412,7 @@ Three agents brainstorm in parallel, then a fourth agent synthesizes their ideas
     {
       "name": "synthesize",
       "agent_name": "orchestrator",
-      "prompt": "You received brainstorm results from three perspectives. Synthesize them into the top 5 actionable ideas, ranked by impact:\n\n{{input}}",
+      "prompt": "Ты получил результаты мозгового штурма с трех перспектив. Синтезируй их в топ-5 идей для реализации, ранжированных по значимости:\n\n{{input}}",
       "mode": "sequential",
       "timeout_secs": 120
     }
@@ -372,21 +420,21 @@ Three agents brainstorm in parallel, then a fourth agent synthesizes their ideas
 }
 ```
 
-The three fan-out steps run in parallel. The `collect` step joins their outputs with `---` separators. The `synthesize` step receives the combined output.
+Три шага fan-out запускаются параллельно. Шаг `collect` объединяет их выводы разделителями `---`. Шаг `synthesize` получает объединенный вывод.
 
-### Example 4: Iterative Refinement (Loop)
+### Пример 4: Итеративное улучшение (Loop)
 
-An agent refines a draft until it meets a quality bar.
+Агент улучшает черновик до тех пор, пока он не будет соответствовать планке качества.
 
 ```json
 {
   "name": "iterative-refinement",
-  "description": "Refine a document until approved or max iterations reached",
+  "description": "Улучшение документа до одобрения или достижения макс. итераций",
   "steps": [
     {
       "name": "first-draft",
       "agent_name": "writer",
-      "prompt": "Write a first draft about: {{input}}",
+      "prompt": "Напиши первый черновик о: {{input}}",
       "mode": "sequential",
       "timeout_secs": 120,
       "output_var": "draft"
@@ -394,7 +442,7 @@ An agent refines a draft until it meets a quality bar.
     {
       "name": "review-and-refine",
       "agent_name": "code-reviewer",
-      "prompt": "Review this draft. If it meets quality standards, respond with APPROVED at the start. Otherwise, provide specific feedback and a revised version:\n\n{{input}}",
+      "prompt": "Проверь этот черновик. Если он соответствует стандартам качества, ответь APPROVED в начале. В противном случае предоставь конкретную обратную связь и исправленную версию:\n\n{{input}}",
       "mode": "loop",
       "max_iterations": 4,
       "until": "APPROVED",
@@ -406,71 +454,71 @@ An agent refines a draft until it meets a quality bar.
 }
 ```
 
-The loop runs the reviewer up to 4 times. Each iteration receives the previous iteration's output as `{{input}}`. Once the reviewer includes "APPROVED" in its response, the loop terminates early.
+Цикл запускает проверяющего до 4 раз. Каждая итерация получает вывод предыдущей итерации как `{{input}}`. Как только рецензент включает "APPROVED" в свой ответ, цикл завершается досрочно.
 
 ---
 
-## Trigger Engine
+## Движок триггеров (Trigger Engine)
 
-The trigger engine (`openfang-kernel/src/triggers.rs`) provides event-driven automation. Triggers watch the kernel's event bus and automatically send messages to agents when matching events arrive.
+Движок триггеров (`openfang-kernel/src/triggers.rs`) обеспечивает автоматизацию на основе событий. Триггеры следят за шиной событий ядра и автоматически отправляют сообщения агентам при поступлении соответствующих событий.
 
-### Core Types
+### Основные типы
 
-| Rust type | Description |
+| Тип Rust | Описание |
 |---|---|
-| `TriggerId(Uuid)` | Unique identifier for a trigger. |
-| `Trigger` | A registered trigger: agent, pattern, prompt template, fire count, limits. |
-| `TriggerPattern` | Enum defining which events to match. |
-| `TriggerEngine` | The engine: `DashMap`-backed concurrent storage with agent-to-trigger index. |
+| `TriggerId(Uuid)` | Уникальный идентификатор триггера. |
+| `Trigger` | Зарегистрированный триггер: агент, шаблон, шаблон промпта, счетчик срабатываний, лимиты. |
+| `TriggerPattern` | Enum, определяющий, какие события сопоставлять. |
+| `TriggerEngine` | Сам движок: конкурентное хранилище на базе `DashMap` с индексом агент-триггер. |
 
-### Trigger Definition
+### Определение триггера
 
 ```rust
 pub struct Trigger {
     pub id: TriggerId,
-    pub agent_id: AgentId,         // Which agent receives the message
-    pub pattern: TriggerPattern,   // What events to match
-    pub prompt_template: String,   // Template with {{event}} placeholder
-    pub enabled: bool,             // Can be toggled on/off
+    pub agent_id: AgentId,         // Какой агент получает сообщение
+    pub pattern: TriggerPattern,   // Какие события сопоставлять
+    pub prompt_template: String,   // Шаблон с заполнителей {{event}}
+    pub enabled: bool,             // Можно включать/выключать
     pub created_at: DateTime<Utc>,
-    pub fire_count: u64,           // How many times it has fired
-    pub max_fires: u64,            // 0 = unlimited
+    pub fire_count: u64,           // Сколько раз сработал
+    pub max_fires: u64,            // 0 = без ограничений
 }
 ```
 
-### Event Patterns
+### Шаблоны событий (Event Patterns)
 
-The `TriggerPattern` enum supports 9 matching modes:
+Enum `TriggerPattern` поддерживает 9 режимов сопоставления:
 
-| Pattern | JSON | Description |
+| Шаблон | JSON | Описание |
 |---|---|---|
-| `All` | `"all"` | Matches every event (wildcard). |
-| `Lifecycle` | `"lifecycle"` | Matches any lifecycle event (spawned, started, terminated, etc.). |
-| `AgentSpawned` | `{"agent_spawned": {"name_pattern": "coder"}}` | Matches when an agent with a name containing `name_pattern` is spawned. Use `"*"` for any agent. |
-| `AgentTerminated` | `"agent_terminated"` | Matches when any agent terminates or crashes. |
-| `System` | `"system"` | Matches any system event (health checks, quota warnings, etc.). |
-| `SystemKeyword` | `{"system_keyword": {"keyword": "quota"}}` | Matches system events whose debug representation contains the keyword (case-insensitive). |
-| `MemoryUpdate` | `"memory_update"` | Matches any memory change event. |
-| `MemoryKeyPattern` | `{"memory_key_pattern": {"key_pattern": "config"}}` | Matches memory updates where the key contains `key_pattern`. Use `"*"` for any key. |
-| `ContentMatch` | `{"content_match": {"substring": "error"}}` | Matches any event whose human-readable description contains the substring (case-insensitive). |
+| `All` | `"all"` | Сопоставляет любое событие (wildcard). |
+| `Lifecycle` | `"lifecycle"` | Сопоставляет любое событие жизненного цикла (spawned, started, terminated и т. д.). |
+| `AgentSpawned` | `{"agent_spawned": {"name_pattern": "coder"}}` | Срабатывает, когда запускается агент с именем, содержащим `name_pattern`. Используйте `"*"` для любого агента. |
+| `AgentTerminated` | `"agent_terminated"` | Срабатывает, когда любой агент завершает работу или падает. |
+| `System` | `"system"` | Сопоставляет любое системное событие (проверки здоровья, предупреждения о квотах и т. д.). |
+| `SystemKeyword` | `{"system_keyword": {"keyword": "quota"}}` | Сопоставляет системные события, чье отладочное представление содержит ключевое слово (без учета регистра). |
+| `MemoryUpdate` | `"memory_update"` | Сопоставляет любое событие изменения памяти. |
+| `MemoryKeyPattern` | `{"memory_key_pattern": {"key_pattern": "config"}}` | Сопоставляет обновления памяти, где ключ содержит `key_pattern`. Используйте `"*"` для любого ключа. |
+| `ContentMatch` | `{"content_match": {"substring": "error"}}` | Сопоставляет любое событие, чье человекочитаемое описание содержит подстроку (без учета регистра). |
 
-### Pattern Matching Details
+### Детали сопоставления шаблонов
 
-The `matches_pattern` function determines how each pattern evaluates:
+Функция `matches_pattern` определяет, как оценивается каждый шаблон:
 
-- **`All`**: Always returns `true`.
-- **`Lifecycle`**: Checks `EventPayload::Lifecycle(_)`.
-- **`AgentSpawned`**: Checks for `LifecycleEvent::Spawned` where `name.contains(name_pattern)` or `name_pattern == "*"`.
-- **`AgentTerminated`**: Checks for `LifecycleEvent::Terminated` or `LifecycleEvent::Crashed`.
-- **`System`**: Checks `EventPayload::System(_)`.
-- **`SystemKeyword`**: Formats the system event via `Debug` trait, lowercases it, and checks `contains(keyword)`.
-- **`MemoryUpdate`**: Checks `EventPayload::MemoryUpdate(_)`.
-- **`MemoryKeyPattern`**: Checks `delta.key.contains(key_pattern)` or `key_pattern == "*"`.
-- **`ContentMatch`**: Uses the `describe_event()` function to produce a human-readable string, then checks `contains(substring)` (case-insensitive).
+- **`All`**: Всегда возвращает `true`.
+- **`Lifecycle`**: Проверяет `EventPayload::Lifecycle(_)`.
+- **`AgentSpawned`**: Ищет `LifecycleEvent::Spawned`, где `name.contains(name_pattern)` или `name_pattern == "*"`.
+- **`AgentTerminated`**: Ищет `LifecycleEvent::Terminated` или `LifecycleEvent::Crashed`.
+- **`System`**: Проверяет `EventPayload::System(_)`.
+- **`SystemKeyword`**: Форматирует системное событие через трейт `Debug`, переводит в нижний регистр и проверяет `contains(keyword)`.
+- **`MemoryUpdate`**: Проверяет `EventPayload::MemoryUpdate(_)`.
+- **`MemoryKeyPattern`**: Проверяет `delta.key.contains(key_pattern)` или `key_pattern == "*"`.
+- **`ContentMatch`**: Использует функцию `describe_event()` для создания человекочитаемой строки, затем проверяет `contains(substring)` (без учета регистра).
 
-### Prompt Template and `{{event}}`
+### Шаблон промпта и `{{event}}`
 
-When a trigger fires, the engine replaces `{{event}}` in the `prompt_template` with a human-readable event description. The `describe_event()` function produces strings like:
+Когда триггер срабатывает, движок заменяет `{{event}}` в `prompt_template` человекочитаемым описанием события. Функция `describe_event()` выдает строки вида:
 
 - `"Agent 'coder' (id: <uuid>) was spawned"`
 - `"Agent <uuid> terminated: shutdown requested"`
@@ -481,62 +529,62 @@ When a trigger fires, the engine replaces `{{event}}` in the `prompt_template` w
 - `"Memory Created on key 'config' for agent <uuid>"`
 - `"Tool 'web_search' succeeded (450ms): ..."`
 
-### Max Fires and Auto-Disable
+### Максимальное число срабатываний и автоотключение
 
-When `max_fires` is set to a value greater than 0, the trigger automatically disables itself (sets `enabled = false`) once `fire_count >= max_fires`. Setting `max_fires` to 0 means the trigger fires indefinitely.
+Когда `max_fires` установлено в значение больше 0, триггер автоматически отключается (устанавливает `enabled = false`), как только `fire_count >= max_fires`. Установка `max_fires` в 0 означает, что триггер будет срабатывать неограниченное количество раз.
 
-### Trigger Use Cases
+### Примеры использования триггеров
 
-**Monitor agent health:**
+**Мониторинг здоровья агентов:**
 ```json
 {
   "agent_id": "<ops-agent-uuid>",
   "pattern": {"content_match": {"substring": "health check failed"}},
-  "prompt_template": "ALERT: {{event}}. Investigate and report the status of all agents.",
+  "prompt_template": "ALERT: {{event}}. Исследуй и доложи о статусе всех агентов.",
   "max_fires": 0
 }
 ```
 
-**React to new agent spawns:**
+**Реакция на запуск новых агентов:**
 ```json
 {
   "agent_id": "<orchestrator-uuid>",
   "pattern": {"agent_spawned": {"name_pattern": "*"}},
-  "prompt_template": "A new agent was just created: {{event}}. Update the fleet roster.",
+  "prompt_template": "Только что был создан новый агент: {{event}}. Обнови список флота.",
   "max_fires": 0
 }
 ```
 
-**One-shot quota alert:**
+**Разовое предупреждение о квоте:**
 ```json
 {
   "agent_id": "<admin-agent-uuid>",
   "pattern": {"system_keyword": {"keyword": "quota"}},
-  "prompt_template": "Quota event detected: {{event}}. Recommend corrective action.",
+  "prompt_template": "Обнаружено событие квоты: {{event}}. Рекомендуй корректирующее действие.",
   "max_fires": 1
 }
 ```
 
 ---
 
-## API Endpoints
+## Эндпоинты API
 
-### Workflow Endpoints
+### Эндпоинты воркфлоу
 
-#### `POST /api/workflows` -- Create a workflow
+#### `POST /api/workflows` — Создать воркфлоу
 
-Register a new workflow definition.
+Регистрация нового определения воркфлоу.
 
-**Request body:**
+**Тело запроса:**
 ```json
 {
   "name": "my-pipeline",
-  "description": "Description of the workflow",
+  "description": "Описание воркфлоу",
   "steps": [
     {
       "name": "step-1",
       "agent_name": "researcher",
-      "prompt": "Research: {{input}}",
+      "prompt": "Исследуй: {{input}}",
       "mode": "sequential",
       "timeout_secs": 120,
       "error_mode": "fail",
@@ -546,56 +594,56 @@ Register a new workflow definition.
 }
 ```
 
-**Response (201 Created):**
+**Ответ (201 Created):**
 ```json
 { "workflow_id": "<uuid>" }
 ```
 
-#### `GET /api/workflows` -- List all workflows
+#### `GET /api/workflows` — Список всех воркфлоу
 
-Returns an array of registered workflow summaries.
+Возвращает массив кратких описаний зарегистрированных воркфлоу.
 
-**Response (200 OK):**
+**Ответ (200 OK):**
 ```json
 [
   {
     "id": "<uuid>",
     "name": "my-pipeline",
-    "description": "Description of the workflow",
+    "description": "Описание воркфлоу",
     "steps": 3,
     "created_at": "2026-01-15T10:30:00Z"
   }
 ]
 ```
 
-#### `POST /api/workflows/:id/run` -- Execute a workflow
+#### `POST /api/workflows/:id/run` — Запустить воркфлоу
 
-Start a synchronous workflow execution. The call blocks until the workflow completes or fails.
+Начать синхронное выполнение воркфлоу. Вызов блокируется до завершения или сбоя воркфлоу.
 
-**Request body:**
+**Тело запроса:**
 ```json
-{ "input": "The initial input text for the first step" }
+{ "input": "Начальный входной текст для первого шага" }
 ```
 
-**Response (200 OK):**
+**Ответ (200 OK):**
 ```json
 {
   "run_id": "<uuid>",
-  "output": "Final output from the last step",
+  "output": "Финальный результат последнего шага",
   "status": "completed"
 }
 ```
 
-**Response (500 Internal Server Error):**
+**Ответ (500 Internal Server Error):**
 ```json
 { "error": "Workflow execution failed" }
 ```
 
-#### `GET /api/workflows/:id/runs` -- List workflow runs
+#### `GET /api/workflows/:id/runs` — Список запусков воркфлоу
 
-Returns all workflow runs (not filtered by workflow ID in the current implementation).
+Возвращает все запуски воркфлоу (в текущей реализации не фильтруется по ID воркфлоу).
 
-**Response (200 OK):**
+**Ответ (200 OK):**
 ```json
 [
   {
@@ -609,23 +657,23 @@ Returns all workflow runs (not filtered by workflow ID in the current implementa
 ]
 ```
 
-### Trigger Endpoints
+### Эндпоинты триггеров
 
-#### `POST /api/triggers` -- Create a trigger
+#### `POST /api/triggers` — Создать триггер
 
-Register a new event trigger for an agent.
+Регистрация нового триггера событий для агента.
 
-**Request body:**
+**Тело запроса:**
 ```json
 {
   "agent_id": "<agent-uuid>",
   "pattern": "lifecycle",
-  "prompt_template": "A lifecycle event occurred: {{event}}",
+  "prompt_template": "Произошло событие жизненного цикла: {{event}}",
   "max_fires": 0
 }
 ```
 
-**Response (201 Created):**
+**Ответ (201 Created):**
 ```json
 {
   "trigger_id": "<uuid>",
@@ -633,18 +681,18 @@ Register a new event trigger for an agent.
 }
 ```
 
-#### `GET /api/triggers` -- List all triggers
+#### `GET /api/triggers` — Список всех триггеров
 
-Optionally filter by agent: `GET /api/triggers?agent_id=<uuid>`
+Опционально можно отфильтровать по агенту: `GET /api/triggers?agent_id=<uuid>`
 
-**Response (200 OK):**
+**Ответ (200 OK):**
 ```json
 [
   {
     "id": "<uuid>",
     "agent_id": "<agent-uuid>",
     "pattern": "lifecycle",
-    "prompt_template": "Event: {{event}}",
+    "prompt_template": "Событие: {{event}}",
     "enabled": true,
     "fire_count": 5,
     "max_fires": 0,
@@ -653,160 +701,160 @@ Optionally filter by agent: `GET /api/triggers?agent_id=<uuid>`
 ]
 ```
 
-#### `PUT /api/triggers/:id` -- Enable/disable a trigger
+#### `PUT /api/triggers/:id` — Включить/выключить триггер
 
-Toggle a trigger's enabled state.
+Переключение состояния активности триггера.
 
-**Request body:**
+**Тело запроса:**
 ```json
 { "enabled": false }
 ```
 
-**Response (200 OK):**
+**Ответ (200 OK):**
 ```json
 { "status": "updated", "trigger_id": "<uuid>", "enabled": false }
 ```
 
-#### `DELETE /api/triggers/:id` -- Delete a trigger
+#### `DELETE /api/triggers/:id` — Удалить триггер
 
-**Response (200 OK):**
+**Ответ (200 OK):**
 ```json
 { "status": "removed", "trigger_id": "<uuid>" }
 ```
 
-**Response (404 Not Found):**
+**Ответ (404 Not Found):**
 ```json
 { "error": "Trigger not found" }
 ```
 
 ---
 
-## CLI Commands
+## Команды CLI
 
-All workflow and trigger CLI commands require a running OpenFang daemon.
+Все CLI-команды для воркфлоу и триггеров требуют запущенного демона OpenFang.
 
-### Workflow Commands
+### Команды воркфлоу
 
 ```
 openfang workflow list
 ```
-Lists all registered workflows with their ID, name, step count, and creation date.
+Список всех зарегистрированных воркфлоу с их ID, именем, количеством шагов и датой создания.
 
 ```
 openfang workflow create <file>
 ```
-Creates a workflow from a JSON file. The file should contain the same JSON structure as the `POST /api/workflows` request body.
+Создает воркфлоу из JSON-файла. Файл должен иметь ту же структуру JSON, что и тело запроса `POST /api/workflows`.
 
 ```
 openfang workflow run <workflow_id> <input>
 ```
-Executes a workflow by its UUID with the given input text. Blocks until completion and prints the output.
+Выполняет воркфлоу по его UUID с заданным входным текстом. Блокирует выполнение до завершения и выводит результат.
 
-### Trigger Commands
+### Команды триггеров
 
 ```
 openfang trigger list [--agent-id <uuid>]
 ```
-Lists all registered triggers. Optionally filter by agent ID.
+Список всех зарегистрированных триггеров. Опционально фильтруется по ID агента.
 
 ```
 openfang trigger create <agent_id> <pattern_json> [--prompt <template>] [--max-fires <n>]
 ```
-Creates a trigger for the specified agent. The `pattern_json` argument is a JSON string describing the pattern.
+Создает триггер для указанного агента. Аргумент `pattern_json` — это JSON-строка, описывающая шаблон.
 
-Defaults:
+Значения по умолчанию:
 - `--prompt`: `"Event: {{event}}"`
-- `--max-fires`: `0` (unlimited)
+- `--max-fires`: `0` (без ограничений)
 
-Examples:
+Примеры:
 ```bash
-# Watch all lifecycle events
+# Следить за всеми событиями жизненного цикла
 openfang trigger create <agent-id> '"lifecycle"' --prompt "Lifecycle: {{event}}"
 
-# Watch for a specific agent spawn
+# Следить за запуском конкретного агента
 openfang trigger create <agent-id> '{"agent_spawned":{"name_pattern":"coder"}}' --max-fires 1
 
-# Watch for content containing "error"
+# Следить за контентом, содержащим "error"
 openfang trigger create <agent-id> '{"content_match":{"substring":"error"}}'
 ```
 
 ```
 openfang trigger delete <trigger_id>
 ```
-Deletes a trigger by its UUID.
+Удаляет триггер по его UUID.
 
 ---
 
-## Execution Limits
+## Ограничения выполнения
 
-### Run Eviction Cap
+### Лимит хранения запусков (Run Eviction Cap)
 
-The workflow engine retains a maximum of **200** workflow runs (`WorkflowEngine::MAX_RETAINED_RUNS`). When this limit is exceeded after creating a new run, the oldest **completed** or **failed** runs are evicted (sorted by `started_at`). Runs in `Pending` or `Running` state are never evicted.
+Движок воркфлоу сохраняет максимум **200** запусков воркфлоу (`WorkflowEngine::MAX_RETAINED_RUNS`). При превышении этого лимита после создания нового запуска самые старые **завершенные** или **неудачные** запуски удаляются (сортировка по `started_at`). Запуски в состоянии `Pending` или `Running` никогда не удаляются автоматически.
 
-### Step Timeouts
+### Тайм-ауты шагов
 
-Each step has a configurable `timeout_secs` (default: 120 seconds). The timeout is enforced via `tokio::time::timeout` and applies per-attempt -- retry mode gives each attempt a fresh timeout budget. Fan-out steps each get their own independent timeout.
+У каждого шага есть настраиваемый параметр `timeout_secs` (по умолчанию: 120 секунд). Тайм-аут обеспечивается через `tokio::time::timeout` и применяется к каждой попытке — режим повтора дает каждой попытке новый бюджет времени. Каждый шаг в fan-out получает свой независимый тайм-аут.
 
-### Loop Iteration Cap
+### Лимит итераций цикла
 
-Loop steps are bounded by `max_iterations` (default: 5 in the API). The engine will never execute more than this many iterations, even if the `until` condition is never met.
+Шаги цикла ограничены параметром `max_iterations` (по умолчанию: 5 в API). Движок никогда не выполнит больше этого количества итераций, даже если условие `until` никогда не будет выполнено.
 
-### Hourly Token Quota
+### Почасовая квота токенов
 
-The `AgentScheduler` (in `openfang-kernel/src/scheduler.rs`) tracks per-agent token usage with a rolling 1-hour window via `UsageTracker`. If an agent exceeds its `ResourceQuota.max_llm_tokens_per_hour`, the scheduler returns `OpenFangError::QuotaExceeded`. The window resets automatically after 3600 seconds. This quota applies to all agent interactions, including those invoked by workflows.
+`AgentScheduler` (в `openfang-kernel/src/scheduler.rs`) отслеживает использование токенов для каждого агента в скользящем 1-часовом окне через `UsageTracker`. Если агент превышает свою `ResourceQuota.max_llm_tokens_per_hour`, планировщик возвращает ошибку `OpenFangError::QuotaExceeded`. Окно сбрасывается автоматически через 3600 секунд. Эта квота применяется ко всем взаимодействиям с агентами, включая те, что вызваны воркфлоу.
 
 ---
 
-## Workflow Data Flow Diagram
+## Диаграмма потока данных воркфлоу
 
 ```
-                    input
+                    input (вход)
                       |
                       v
               +---------------+
-              |   Step 1      |  mode: sequential
-              |   agent: A    |
+              |   Шаг 1       |  режим: sequential
+              |   агент: A    |
               +-------+-------+
-                      | output -> {{input}} for step 2
-                      |          -> variables["var1"] if output_var set
+                      | вывод -> {{input}} для шага 2
+                      |       -> переменные["var1"], если установлен output_var
                       v
               +---------------+
-              |   Step 2      |  mode: fan_out
-              |   agent: B    |---+
+              |   Шаг 2       |  режим: fan_out
+              |   агент: B    |---+
               +---------------+   |
-              +---------------+   |  parallel execution
-              |   Step 3      |   |  (all receive same {{input}})
-              |   agent: C    |---+
+              +---------------+   |  параллельное выполнение
+              |   Шаг 3       |   |  (все получают один и тот же {{input}})
+              |   агент: C    |---+
               +---------------+   |
                       |           |
                       v           v
               +---------------+
-              |   Step 4      |  mode: collect
-              |   (no agent)  |  joins all outputs with "---"
+              |   Шаг 4       |  режим: collect
+              |   (нет агента)|  объединяет все выводы через "---"
               +-------+-------+
-                      | combined output -> {{input}}
+                      | комбинированный вывод -> {{input}}
                       v
               +---------------+
-              |   Step 5      |  mode: conditional { condition: "issue" }
-              |   agent: D    |  (skipped if {{input}} does not contain "issue")
+              |   Шаг 5       |  режим: conditional { condition: "issue" }
+              |   агент: D    |  (пропускается, если {{input}} не содержит "issue")
               +-------+-------+
                       |
                       v
               +---------------+
-              |   Step 6      |  mode: loop { max_iterations: 3, until: "DONE" }
-              |   agent: E    |  repeats, feeding output back as {{input}}
+              |   Шаг 6       |  режим: loop { max_iterations: 3, until: "DONE" }
+              |   агент: E    |  повторяется, подавая вывод обратно как {{input}}
               +-------+-------+
                       |
                       v
-                 final output
+                 финальный вывод
 ```
 
 ---
 
-## Internal Architecture Notes
+## Примечания по внутренней архитектуре
 
-- The `WorkflowEngine` is decoupled from `OpenFangKernel`. The `execute_run` method takes two closures: `agent_resolver` (resolves `StepAgent` to `AgentId` + name) and `send_message` (sends a prompt to an agent and returns output + token counts). This design makes the engine testable without a live kernel.
-- All state is held in `Arc<RwLock<HashMap>>`, allowing concurrent read access and serialized writes.
-- The `TriggerEngine` uses `DashMap` for lock-free concurrent access, with an `agent_triggers` index for efficient per-agent trigger lookups.
-- Fan-out parallelism uses `futures::future::join_all` -- all fan-out steps in a consecutive group are launched simultaneously.
-- The trigger `evaluate` method uses `iter_mut()` on the `DashMap` to atomically increment fire counts while checking patterns, preventing race conditions.
+- `WorkflowEngine` отделен от `OpenFangKernel`. Метод `execute_run` принимает два замыкания: `agent_resolver` (разрешает `StepAgent` в `AgentId` + имя) и `send_message` (отправляет промпт агенту и возвращает вывод + количество токенов). Такая конструкция делает движок тестируемым без работающего ядра.
+- Всё состояние хранится в `Arc<RwLock<HashMap>>`, что позволяет осуществлять параллельный доступ на чтение и сериализованную запись.
+- `TriggerEngine` использует `DashMap` для неблокирующего конкурентного доступа с индексом `agent_triggers` для эффективного поиска триггеров по агентам.
+- Параллелизм Fan-out использует `futures::future::join_all` — все шаги fan-out в последовательной группе запускаются одновременно.
+- Метод триггера `evaluate` использует `iter_mut()` на `DashMap` для атомарного увеличения счетчика срабатываний при проверке шаблонов, предотвращая состояния гонки.

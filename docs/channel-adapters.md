@@ -1,8 +1,8 @@
 ## Адаптеры каналов
 
-OpenFang подключается к платформам обмена сообщениями через **40 адаптеров каналов**, что позволяет взаимодействовать с агентами на большинстве популярных платформ. Адаптеры охватывают потребительские мессенджеры, корпоративные решения, социальные сети, сообщества, протоколы для приватности и универсальные webhooks.
+OpenFang подключается к платформам обмена сообщениями через **40 адаптеров каналов**, что позволяет взаимодействовать с агентами на большинстве популярных платформ. Адаптеры охватывают потребительские мессенджеры, корпоративные решения, социальные сети, сообщества, протоколы для приватности и универсальные вебхуки.
 
-Все адаптеры реализуют общие принципы: аккуратное завершение через `watch::channel`, экспоненциальный бэкофф при падениях соединения, `Zeroizing<String>` для секретов, автоматическое разбиение сообщений по лимитам платформ, переопределения модели/подсказки на уровне канала, политика DM/group, лимиты по пользователям и форматирование вывода (Markdown, TelegramHTML, SlackMrkdwn, PlainText).
+Все адаптеры реализуют общие принципы: аккуратное завершение через `watch::channel`, экспоненциальный бэкофф при падениях соединения, `Zeroizing<String>` для секретов, автоматическое разбиение сообщений по лимитам платформ, переопределения модели/подсказки на уровне канала, политики DM/group, лимиты по пользователям и форматирование вывода (Markdown, TelegramHTML, SlackMrkdwn, PlainText).
 
 ## Содержание
 
@@ -10,7 +10,17 @@ OpenFang подключается к платформам обмена сооб�
 - [Конфигурация каналов](#channel-configuration)
 - [Переопределения каналов](#channel-overrides)
 - [Форматтер, лимитер и политики](#formatter-rate-limiter-and-policies)
-- [Телеграм / Discord / Slack / WhatsApp и др.]
+- [Telegram](#telegram)
+- [Discord](#discord)
+- [Slack](#slack)
+- [WhatsApp](#whatsapp)
+- [Feishu / Lark](#feishu--lark)
+- [Signal](#signal)
+- [Matrix](#matrix)
+- [Email](#email)
+- [WebChat](#webchat-built-in)
+- [Маршрутизация агентов](#agent-routing)
+- [Написание собственных адаптеров](#writing-custom-adapters)
 
 ---
 
@@ -40,10 +50,6 @@ default_agent = "coder"
 - `allowed_users` — опциональный список ID пользователей, которым разрешено взаимодействовать.
 - `overrides` — секция для переопределений поведения на уровне канала.
 
-### Ссылки по переменным окружения
-
-Таблицы с переменными окружения (Telegram, Discord, Slack, WhatsApp и т.д.) сохранены в оригинальном справочнике; используйте их как руководство при настройке.
-
 ---
 
 ## Переопределения каналов
@@ -53,7 +59,7 @@ default_agent = "coder"
 ```toml
 [channels.telegram.overrides]
 model = "gemini-2.5-flash"
-system_prompt = "You are a concise Telegram assistant. Keep replies under 200 words."
+system_prompt = "Вы — лаконичный помощник в Telegram. Ответы не должны превышать 200 слов."
 dm_policy = "respond"
 group_policy = "mention_only"
 rate_limit_per_user = 10
@@ -63,143 +69,131 @@ output_format = "telegram_html"
 
 ---
 
-Для полного списка опций и примеров обратитесь к оригиналу документации в репозитории.
+## Форматтер, лимитер и политики
 
-## Formatter, Rate Limiter, and Policies
+### Форматтер вывода
 
-### Output Formatter
+Модуль `formatter` (`openfang-channels/src/formatter.rs`) преобразует Markdown-вывод от LLM в нативные форматы платформ:
 
-The `formatter` module (`openfang-channels/src/formatter.rs`) converts Markdown output from the LLM into platform-native formats:
-
-| OutputFormat | Target | Notes |
+| OutputFormat | Цель | Примечания |
 |-------------|--------|-------|
-| `Markdown` | Standard Markdown | Default; passed through as-is. |
-| `TelegramHtml` | Telegram HTML subset | Converts `**bold**` to `<b>`, `` `code` `` to `<code>`, etc. |
-| `SlackMrkdwn` | Slack mrkdwn | Converts `**bold**` to `*bold*`, links to `<url\|text>`, etc. |
-| `PlainText` | Plain text | Strips all formatting. |
+| `Markdown` | Стандартный Markdown | По умолчанию; передается как есть. |
+| `TelegramHtml` | Подмножество HTML Telegram | Преобразует `**жирный**` в `<b>`, `` `код` `` в `<code>` и т.д. |
+| `SlackMrkdwn` | Slack mrkdwn | Преобразует `**жирный**` в `*жирный*`, ссылки в `<url\|текст>` и т.д. |
+| `PlainText` | Простой текст | Удаляет всю разметку. |
 
-### Per-User Rate Limiter
+### Лимитер частоты запросов на пользователя
 
-The `ChannelRateLimiter` (`openfang-channels/src/rate_limiter.rs`) uses a `DashMap` to track per-user message counts. When `rate_limit_per_user` is set on a channel's overrides, the limiter enforces a sliding-window cap of N messages per minute. Excess messages receive a polite rejection.
+`ChannelRateLimiter` (`openfang-channels/src/rate_limiter.rs`) использует `DashMap` для отслеживания количества сообщений от каждого пользователя. Если в переопределениях канала установлено `rate_limit_per_user`, лимитер применяет ограничение скользящего окна (N сообщений в минуту). При превышении лимита пользователь получает вежливый отказ.
 
-### DM Policy
+### Политика DM (Личные сообщения)
 
-Controls how the adapter handles direct messages:
+Управляет тем, как адаптер обрабатывает прямые сообщения:
 
-| DmPolicy | Behavior |
+| DmPolicy | Поведение |
 |----------|----------|
-| `Respond` | Respond to all DMs (default). |
-| `AllowedOnly` | Only respond to DMs from users in `allowed_users`. |
-| `Ignore` | Silently drop all DMs. |
+| `Respond` | Отвечать на все ЛС (по умолчанию). |
+| `AllowedOnly` | Отвечать только пользователям из `allowed_users`. |
+| `Ignore` | Молча игнорировать все ЛС. |
 
-### Group Policy
+### Политика Group (Групповые чаты)
 
-Controls how the adapter handles messages in group chats, channels, and rooms:
+Управляет обработкой сообщений в групповых чатах, каналах и комнатах:
 
-| GroupPolicy | Behavior |
+| GroupPolicy | Поведение |
 |-------------|----------|
-| `All` | Respond to every message in the group. |
-| `MentionOnly` | Only respond when the bot is @mentioned (default). |
-| `CommandsOnly` | Only respond to `/command` messages. |
-| `Ignore` | Silently ignore all group messages. |
+| `All` | Отвечать на каждое сообщение в группе. |
+| `MentionOnly` | Отвечать только при @упоминании бота (по умолчанию). |
+| `CommandsOnly` | Отвечать только на сообщения, начинающиеся с `/команды`. |
+| `Ignore` | Молча игнорировать все групповые сообщения. |
 
-Policy enforcement happens in `dispatch_message()` before the message reaches the agent loop. This means ignored messages consume zero LLM tokens.
+Применение политики происходит в `dispatch_message()` до того, как сообщение попадет в цикл агента. Это означает, что игнорируемые сообщения не потребляют токены LLM.
 
 ---
 
 ## Telegram
 
-### Prerequisites
+### Предварительные условия
 
-- A Telegram bot token (from [@BotFather](https://t.me/botfather))
+- Токен бота Telegram (получите у [@BotFather](https://t.me/botfather))
 
-### Setup
+### Настройка
 
-1. Open Telegram and message `@BotFather`.
-2. Send `/newbot` and follow the prompts to create a new bot.
-3. Copy the bot token.
-4. Set the environment variable:
+1. Откройте Telegram и напишите `@BotFather`.
+2. Отправьте `/newbot` и следуйте инструкциям для создания нового бота.
+3. Скопируйте токен бота.
+4. Установите переменную окружения:
 
 ```bash
 export TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 ```
 
-5. Add to config:
+5. Добавьте в конфиг:
 
 ```toml
 [channels.telegram]
 bot_token_env = "TELEGRAM_BOT_TOKEN"
 default_agent = "assistant"
-# Optional: restrict to specific Telegram user IDs
+# Опционально: ограничить доступ конкретными ID пользователей
 # allowed_users = ["123456789"]
 
 [channels.telegram.overrides]
-# Optional: Telegram-native HTML formatting
+# Опционально: нативное HTML-форматирование Telegram
 # output_format = "telegram_html"
 # group_policy = "mention_only"
 ```
 
-6. Restart the daemon:
+6. Перезапустите демон:
 
 ```bash
 openfang start
 ```
 
-### How It Works
+### Как это работает
 
-The Telegram adapter uses long-polling via the `getUpdates` API. It polls every few seconds with a 30-second long-poll timeout. On API failures, it applies exponential backoff (starting at 1 second, up to 60 seconds). Shutdown is coordinated via a `watch::channel`.
+Адаптер Telegram использует технологию long-polling через API `getUpdates`. Он опрашивает сервер каждые несколько секунд с 30-секундным таймаутом ожидания. При ошибках API применяется экспоненциальная задержка (от 1 до 60 секунд). Завершение работы координируется через `watch::channel`.
 
-Messages from authorized users are converted to `ChannelMessage` events and routed to the configured agent. Responses are sent back via the `sendMessage` API. Long responses are automatically split into multiple messages to respect Telegram's 4096-character limit using the shared `split_message()` utility.
+Сообщения от авторизованных пользователей преобразуются в события `ChannelMessage` и направляются настроенному агенту. Ответы отправляются через API `sendMessage`. Длинные ответы автоматически разбиваются на несколько сообщений, чтобы соответствовать лимиту Telegram в 4096 символов, используя общую утилиту `split_message()`.
 
-### Per-User Identity (`telegram_user_id`)
+### Идентификация пользователя (`telegram_user_id`)
 
-Every inbound Telegram message exposes the sender's numeric Telegram user_id under `message.metadata["telegram_user_id"]` as a string. This is the stable, permanent identifier from `message.from.id` (or `message.sender_chat.id` for channel/group posts).
+Каждое входящее сообщение Telegram содержит числовой ID отправителя в поле `message.metadata["telegram_user_id"]` в виде строки. Это стабильный, постоянный идентификатор из `message.from.id`.
 
-Display names are not unique and can change, so agents that need deterministic per-user behavior — RBAC, per-user workspaces, family-assistant style memory keyed by person — should key on `telegram_user_id`, not `sender.display_name`.
+Отображаемые имена (display names) не уникальны и могут меняться, поэтому агенты, которым требуется детерминированное поведение для каждого пользователя (RBAC, персональные рабочие пространства), должны ориентироваться на `telegram_user_id`, а не на имя отправителя.
 
-The bridge also injects the id into the prompt prefix when no `sender_email` is set:
+Мост также вставляет ID в префикс промпта, если не установлен `sender_email`:
 
 ```
 [From: Alena (tg_id:554772934)] Hello!
 ```
 
-Agents can read the raw metadata field via tool calls that expose `ChannelMessage.metadata` (the prompt prefix is a convenience for plain LLM context). `sender.platform_id` continues to hold the **chat_id** (not user_id), since replies are addressed to the chat, not the user.
-
-### Interactive Setup
-
-```bash
-openfang channel setup telegram
-```
-
-This walks you through the setup interactively.
-
 ---
 
 ## Discord
 
-### Prerequisites
+### Предварительные условия
 
-- A Discord application and bot (from the [Discord Developer Portal](https://discord.com/developers/applications))
+- Приложение и бот Discord (создайте в [Discord Developer Portal](https://discord.com/developers/applications))
 
-### Setup
+### Настройка
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications).
-2. Click "New Application" and name it.
-3. Go to the **Bot** section and click "Add Bot".
-4. Copy the bot token.
-5. Under **Privileged Gateway Intents**, enable:
-   - **Message Content Intent** (required to read message content)
-6. Go to **OAuth2 > URL Generator**:
-   - Select scopes: `bot`
-   - Select permissions: `Send Messages`, `Read Message History`
-   - Copy the generated URL and open it to invite the bot to your server.
-7. Set the environment variable:
+1. Перейдите в [Discord Developer Portal](https://discord.com/developers/applications).
+2. Нажмите "New Application" и дайте ему имя.
+3. Перейдите в раздел **Bot** и нажмите "Add Bot".
+4. Скопируйте токен бота.
+5. В разделе **Privileged Gateway Intents** включите:
+   - **Message Content Intent** (необходимо для чтения текста сообщений)
+6. Перейдите в **OAuth2 > URL Generator**:
+   - Выберите scopes: `bot`
+   - Выберите permissions: `Send Messages`, `Read Message History`
+   - Скопируйте сгенерированный URL и откройте его в браузере, чтобы пригласить бота на свой сервер.
+7. Установите переменную окружения:
 
 ```bash
 export DISCORD_BOT_TOKEN=MTIzNDU2Nzg5.ABCDEF.ghijklmnop
 ```
 
-8. Add to config:
+8. Добавьте в конфиг:
 
 ```toml
 [channels.discord]
@@ -207,82 +201,75 @@ bot_token_env = "DISCORD_BOT_TOKEN"
 default_agent = "coder"
 ```
 
-9. Restart the daemon.
+9. Перезапустите демон.
 
-### How It Works
+### Как это работает
 
-The Discord adapter connects to the Discord Gateway via WebSocket (v10). It listens for `MESSAGE_CREATE` events and routes messages to the configured agent. Responses are sent via the REST API's `channels/{id}/messages` endpoint.
-
-The adapter handles Gateway reconnection, heartbeating, and session resumption automatically.
+Адаптер Discord подключается к Discord Gateway через WebSocket (v10). Он слушает события `MESSAGE_CREATE` и пересылает сообщения агенту. Ответы отправляются через REST API эндпоинт `channels/{id}/messages`. Адаптер автоматически обрабатывает переподключения, сердцебиение (heartbeating) и возобновление сессий.
 
 ---
 
 ## Slack
 
-### Prerequisites
+### Предварительные условия
 
-- A Slack app with Socket Mode enabled
+- Приложение Slack с включенным Socket Mode
 
-### Setup
+### Настройка
 
-1. Go to [Slack API](https://api.slack.com/apps) and click "Create New App" > "From Scratch".
-2. Enable **Socket Mode** (Settings > Socket Mode):
-   - Generate an App-Level Token with scope `connections:write`.
-   - Copy the token (`xapp-...`).
-3. Go to **OAuth & Permissions** and add Bot Token Scopes:
+1. Перейдите в [Slack API](https://api.slack.com/apps) и нажмите "Create New App" > "From Scratch".
+2. Включите **Socket Mode** (Settings > Socket Mode):
+   - Сгенерируйте App-Level Token с разрешением `connections:write`.
+   - Скопируйте токен (`xapp-...`).
+3. Перейдите в **OAuth & Permissions** и добавьте Bot Token Scopes:
    - `chat:write`
    - `app_mentions:read`
    - `im:history`
    - `im:read`
    - `im:write`
-4. Install the app to your workspace.
-5. Copy the Bot User OAuth Token (`xoxb-...`).
-6. Set the environment variables:
+4. Установите приложение в ваше рабочее пространство (workspace).
+5. Скопируйте Bot User OAuth Token (`xoxb-...`).
+6. Установите переменные окружения:
 
 ```bash
 export SLACK_APP_TOKEN=xapp-1-...
 export SLACK_BOT_TOKEN=xoxb-...
 ```
 
-7. Add to config:
+7. Добавьте в конфиг:
 
 ```toml
 [channels.slack]
 bot_token_env = "SLACK_BOT_TOKEN"
 app_token_env = "SLACK_APP_TOKEN"
 default_agent = "ops"
-
-[channels.slack.overrides]
-# Optional: Slack-native mrkdwn formatting
-# output_format = "slack_mrkdwn"
-# threading = true
 ```
 
-8. Restart the daemon.
+8. Перезапустите демон.
 
-### How It Works
+### Как это работает
 
-The Slack adapter uses Socket Mode, which establishes a WebSocket connection to Slack's servers. This avoids the need for a public webhook URL. The adapter receives events (app mentions, direct messages) and routes them to the configured agent. Responses are posted via the `chat.postMessage` Web API. When `threading = true`, replies are sent to the message's thread via `thread_ts`.
+Адаптер Slack использует Socket Mode, который устанавливает WebSocket-соединение с серверами Slack. Это избавляет от необходимости иметь публичный URL для вебхука. Адаптер получает события (упоминания приложения, личные сообщения) и направляет их агенту. Ответы публикуются через Web API `chat.postMessage`. При включении `threading = true` ответы отправляются в тред сообщения через `thread_ts`.
 
 ---
 
 ## WhatsApp
 
-### Prerequisites
+### Предварительные условия
 
-- A Meta Business account with WhatsApp Cloud API access
+- Аккаунт Meta Business с доступом к WhatsApp Cloud API
 
-### Setup
+### Настройка
 
-1. Go to [Meta for Developers](https://developers.facebook.com/).
-2. Create a Business App.
-3. Add the WhatsApp product.
-4. Set up a test phone number (or use a production one).
-5. Copy:
+1. Перейдите на [Meta for Developers](https://developers.facebook.com/).
+2. Создайте Business App.
+3. Добавьте продукт WhatsApp.
+4. Настройте тестовый номер телефона (или используйте рабочий).
+5. Скопируйте:
    - Phone Number ID
    - Permanent Access Token
-   - Choose a Verify Token (any string you choose)
-6. Set environment variables:
+   - Придумайте Verify Token (любая строка)
+6. Установите переменные окружения:
 
 ```bash
 export WA_PHONE_ID=123456789012345
@@ -290,7 +277,7 @@ export WA_ACCESS_TOKEN=EAABs...
 export WA_VERIFY_TOKEN=my-secret-verify-token
 ```
 
-7. Add to config:
+7. Добавьте в конфиг:
 
 ```toml
 [channels.whatsapp]
@@ -302,37 +289,35 @@ webhook_port = 8443
 default_agent = "assistant"
 ```
 
-8. Set up a webhook in the Meta dashboard pointing to your server's public URL:
+8. Настройте вебхук в панели Meta, указав публичный URL вашего сервера:
    - URL: `https://your-domain.com:8443/webhook/whatsapp`
-   - Verify Token: the value you chose above
-   - Subscribe to: `messages`
+   - Verify Token: значение, выбранное выше
+   - Подписка на: `messages`
 
-9. Restart the daemon.
+### Как это работает
 
-### How It Works
-
-The WhatsApp adapter runs an HTTP server (on the configured `webhook_port`) that receives incoming webhooks from the WhatsApp Cloud API. It handles webhook verification (GET) and message reception (POST). Responses are sent via the Cloud API's `messages` endpoint.
+Адаптер WhatsApp запускает HTTP-сервер (на порту `webhook_port`), который принимает входящие вебхуки от WhatsApp Cloud API. Он обрабатывает верификацию вебхука (GET) и прием сообщений (POST). Ответы отправляются через эндпоинт `messages` Cloud API.
 
 ---
 
 ## Feishu / Lark
 
-### Prerequisites
+### Предварительные условия
 
-- A Feishu/Lark app created in [open.feishu.cn](https://open.feishu.cn/)
-- App ID and App Secret
+- Приложение Feishu/Lark, созданное на [open.feishu.cn](https://open.feishu.cn/)
+- App ID и App Secret
 
-### Setup
+### Настройка
 
-1. Create a custom app in Feishu Open Platform.
-2. Enable the IM message event subscription for your app.
-3. Set environment variable:
+1. Создайте кастомное приложение на Feishu Open Platform.
+2. Включите подписку на события IM-сообщений.
+3. Установите переменную окружения:
 
 ```bash
 export FEISHU_APP_SECRET=cli_xxx_secret
 ```
 
-4. Add to config (default: `websocket` mode):
+4. Добавьте в конфиг (по умолчанию режим `websocket`):
 
 ```toml
 [channels.feishu]
@@ -342,44 +327,27 @@ mode = "websocket"
 default_agent = "assistant"
 ```
 
-5. Restart the daemon.
+5. Перезапустите демон.
 
-### Webhook Compatibility Mode
+### Как это работает
 
-If you need the legacy callback flow, switch to `webhook` and expose a public callback URL:
-
-```toml
-[channels.feishu]
-app_id = "cli_xxx"
-app_secret_env = "FEISHU_APP_SECRET"
-mode = "webhook"
-webhook_port = 8453
-default_agent = "assistant"
-```
-
-Then configure Feishu event callback to:
-
-`https://<your-domain>:8453/feishu/webhook`
-
-### How It Works
-
-- **websocket mode**: OpenFang obtains endpoint from Feishu and receives events via long connection (no public inbound webhook needed).
-- **webhook mode**: OpenFang starts an HTTP callback server and receives Feishu push events.
-- **send path (both modes)**: outbound messages still go through Feishu OpenAPI HTTP `im/v1/messages`.
+- **Режим websocket**: OpenFang получает эндпоинт от Feishu и принимает события через постоянное соединение (публичный вебхук не требуется).
+- **Режим webhook**: OpenFang запускает HTTP-сервер для приема push-событий от Feishu.
+- В обоих режимах исходящие сообщения отправляются через Feishu OpenAPI HTTP `im/v1/messages`.
 
 ---
 
 ## Signal
 
-### Prerequisites
+### Предварительные условия
 
-- Signal CLI installed and linked to a phone number
+- Установленный signal-cli, привязанный к номеру телефона
 
-### Setup
+### Настройка
 
-1. Install [signal-cli](https://github.com/AsamK/signal-cli).
-2. Register or link a phone number.
-3. Add to config:
+1. Установите [signal-cli](https://github.com/AsamK/signal-cli).
+2. Зарегистрируйте или привяжите номер телефона.
+3. Добавьте в конфиг:
 
 ```toml
 [channels.signal]
@@ -388,31 +356,31 @@ phone_number = "+1234567890"
 default_agent = "assistant"
 ```
 
-4. Restart the daemon.
+4. Перезапустите демон.
 
-### How It Works
+### Как это работает
 
-The Signal adapter spawns `signal-cli` as a subprocess in daemon mode and communicates via JSON-RPC. Incoming messages are read from the signal-cli output stream and routed to the configured agent.
+Адаптер Signal запускает `signal-cli` как подпроцесс в режиме демона и взаимодействует через JSON-RPC. Входящие сообщения считываются из потока вывода `signal-cli` и направляются агенту.
 
 ---
 
 ## Matrix
 
-### Prerequisites
+### Предварительные условия
 
-- A Matrix homeserver account and access token
+- Аккаунт на homeserver Matrix и токен доступа
 
-### Setup
+### Настройка
 
-1. Create a bot account on your Matrix homeserver.
-2. Generate an access token.
-3. Set the environment variable:
+1. Создайте аккаунт бота на вашем сервере Matrix.
+2. Сгенерируйте токен доступа (access token).
+3. Установите переменную окружения:
 
 ```bash
 export MATRIX_TOKEN=syt_...
 ```
 
-4. Add to config:
+4. Добавьте в конфиг:
 
 ```toml
 [channels.matrix]
@@ -422,31 +390,31 @@ user_id = "@openfang-bot:matrix.org"
 default_agent = "assistant"
 ```
 
-5. Invite the bot to the rooms you want it to monitor.
-6. Restart the daemon.
+5. Пригласите бота в комнаты, которые он должен мониторить.
+6. Перезапустите демон.
 
-### How It Works
+### Как это работает
 
-The Matrix adapter uses the Matrix Client-Server API. It syncs with the homeserver using long-polling (`/sync` with a timeout) and processes new messages from joined rooms. Responses are sent via the `/rooms/{roomId}/send` endpoint.
+Адаптер Matrix использует Matrix Client-Server API. Он синхронизируется с сервером с помощью long-polling (`/sync`) и обрабатывает новые сообщения из комнат. Ответы отправляются через эндпоинт `/rooms/{roomId}/send`.
 
 ---
 
 ## Email
 
-### Prerequisites
+### Предварительные условия
 
-- An email account with IMAP and SMTP access
+- Аккаунт электронной почты с доступом по IMAP и SMTP
 
-### Setup
+### Настройка
 
-1. For Gmail, create an [App Password](https://myaccount.google.com/apppasswords).
-2. Set the environment variable:
+1. Для Gmail создайте [пароль приложения](https://myaccount.google.com/apppasswords).
+2. Установите переменную окружения:
 
 ```bash
 export EMAIL_PASSWORD=abcd-efgh-ijkl-mnop
 ```
 
-3. Add to config:
+3. Добавьте в конфиг:
 
 ```toml
 [channels.email]
@@ -460,255 +428,87 @@ poll_interval = 30
 default_agent = "email-assistant"
 ```
 
-4. Restart the daemon.
+4. Перезапустите демон.
 
-### How It Works
+### Как это работает
 
-The email adapter polls the IMAP inbox at the configured interval. New emails are parsed (subject + body) and routed to the configured agent. Responses are sent as reply emails via SMTP, preserving the subject line threading.
+Адаптер email опрашивает входящий ящик IMAP с заданным интервалом. Новые письма парсятся (тема + тело) и направляются агенту. Ответы отправляются через SMTP, сохраняя тему письма для поддержки цепочек сообщений.
 
 ---
 
-## WebChat (Built-in)
+## WebChat (Встроенный)
 
-The WebChat UI is embedded in the daemon and requires no configuration. When the daemon is running:
+Интерфейс WebChat встроен в демон и не требует настройки. Когда демон запущен, он доступен по адресу:
 
 ```
 http://127.0.0.1:4200/
 ```
 
-Features:
-- Real-time chat via WebSocket
-- Streaming responses (text deltas as they arrive)
-- Agent selection (switch between running agents)
-- Token usage display
-- No authentication required on localhost (protected by CORS)
+Особенности:
+- Чат в реальном времени через WebSocket.
+- Потоковые ответы (стриминг текста).
+- Выбор агента среди запущенных.
+- Отображение использования токенов.
+- На localhost аутентификация не требуется (защищено CORS).
 
 ---
 
-## Agent Routing
+## Маршрутизация агентов
 
-The `AgentRouter` determines which agent receives an incoming message. The routing logic is:
+`AgentRouter` определяет, какой агент получит входящее сообщение. Логика маршрутизации такова:
 
-1. **Bindings** (most specific first). Declarative `[[bindings]]` rules in `config.toml` map message attributes (channel, channel_id, peer_id, guild_id, account_id, roles) to agents. The router scores each rule by specificity and picks the highest-scoring match.
-2. **Per-channel default**: Each channel config has a `default_agent` field. Messages from that channel go to that agent.
-3. **User-agent binding**: If a user has previously been associated with a specific agent (via commands or configuration), messages from that user route to that agent.
-4. **Command prefix**: Users can switch agents by sending a command like `/agent coder` in the chat. Subsequent messages will be routed to the "coder" agent.
-5. **Fallback**: If no routing applies, messages go to the first available agent.
+1. **Привязки (Bindings)** — от более специфичных к общим. Декларативные правила `[[bindings]]` в `config.toml` сопоставляют атрибуты сообщения (канал, channel_id, peer_id, guild_id, account_id, роли) с агентами.
+2. **Значение по умолчанию для канала**: Поле `default_agent` в конфиге канала.
+3. **Привязка пользователь-агент**: Если пользователь ранее был ассоциирован с конкретным агентом (через команды или конфиг).
+4. **Префикс команды**: Пользователи могут переключить агента, отправив команду `/agent coder`. Последующие сообщения будут направлены агенту "coder".
+5. **Резерв (Fallback)**: Если ни одно правило не подошло, сообщение идет первому доступному агенту.
 
-### Bindings
+### Привязки (Bindings)
 
-A binding has an `agent` (the target) and a `match_rule` (the criteria). All non-empty fields in the rule must match.
+Привязка состоит из `agent` (цель) и `match_rule` (критерии). Все непустые поля в правиле должны совпадать.
 
 ```toml
-# Route a specific Discord channel to a dedicated agent.
+# Направить конкретный канал Discord выделенному агенту.
 [[bindings]]
 agent = "researcher-medical"
 match_rule = { channel = "discord", channel_id = "1234567890" }
 
-[[bindings]]
-agent = "researcher-business"
-match_rule = { channel = "discord", channel_id = "9876543210" }
-
-# Catch-all for the same user on any other channel.
+# Общее правило для того же пользователя на любом другом канале.
 [[bindings]]
 agent = "assistant"
 match_rule = { channel = "discord", peer_id = "user_discord_id" }
 ```
 
-**`peer_id` vs `channel_id`** — these are easy to confuse and the difference matters:
+**`peer_id` vs `channel_id`** — их легко перепутать, но разница важна:
+- `peer_id` соответствует **пользователю** (Discord user ID, Slack user ID и т.д.).
+- `channel_id` соответствует **каналу/беседе** (текстовый канал Discord, чат Telegram).
 
-- `peer_id` matches the **user** (Discord user ID, Slack user ID, etc.).
-- `channel_id` matches the **channel/conversation** (Discord text channel, Slack conversation, Telegram chat).
-
-Use `peer_id` for "messages from this person." Use `channel_id` for "messages in this room."
-
-**Specificity scores** (higher wins):
-
-| Field        | Score |
-| ------------ | ----- |
-| `peer_id`    | 8     |
-| `channel_id` | 8     |
-| `guild_id`   | 4     |
-| `roles`      | 2     |
-| `account_id` | 2     |
-| `channel`    | 1     |
-
-A binding's score is the sum of its set fields. `peer_id` and `channel_id` are equally specific, so a rule with both (16) beats either alone (8). Ties are broken by declaration order in the config.
-
-**Adapter coverage for `channel_id`** — the following adapters populate `ctx.channel_id` directly from `sender.platform_id` (their "user" field is overloaded as a channel/conversation/room/space ID because that field doubles as the send target):
-
-`discord`, `slack`, `telegram`, `matrix`, `mattermost`, `teams`, `webex`, `rocketchat`, `nextcloud`, `pumble`, `revolt`, `guilded`, `feishu`, `lark`, `keybase`, `google_chat`, `line`, `twist`, `flock`, `twitch`.
-
-(Feishu Intl region emits `Custom("lark")` rather than `Custom("feishu")`; both spellings are recognized.)
-
-Adapters not on this list (Reddit, Bluesky, Mastodon, Signal, Email, ntfy, Discourse, etc.) carry a *user* ID in `platform_id` and have no per-conversation concept, or use a hybrid scheme (IRC, Zulip flip between channel and user based on `is_group`). Bindings targeting `channel_id` on those platforms will only match if the adapter writes a `channel_id` key into message metadata.
-
-The kernel emits a startup warning when a binding sets `channel_id` for a non-supporting adapter, so misconfigurations surface early instead of silently routing nowhere. The single source of truth for this list is `CHANNELS_WITH_PLATFORM_ID_AS_CHANNEL` in `openfang-types::config`, consumed by both routing (`ChannelMessage::channel_id()`) and config validation.
-
-**Strict parsing** — `AgentBinding` and `BindingMatchRule` use `#[serde(deny_unknown_fields)]`. Typos at the binding level (e.g. `match_rules` for `match_rule`, `channnel_id` for `channel_id`) fail config load with a clear error rather than parsing into a no-op rule that silently matches every message. Existing configs that work today are unaffected; only configs with stray/misspelled fields inside a `[[bindings]]` block need a fix. The top-level `KernelConfig` deliberately stays permissive so unrecognized top-level keys (forward-compat, downstream forks) don't break startup.
+Используйте `peer_id` для "сообщений от этого человека". Используйте `channel_id` для "сообщений в этой комнате".
 
 ---
 
-## Writing Custom Adapters
+## Написание собственных адаптеров
 
-To add support for a new messaging platform, implement the `ChannelAdapter` trait. The trait is defined in `crates/openfang-channels/src/types.rs`.
+Чтобы добавить поддержку новой платформы обмена сообщениями, реализуйте трейт `ChannelAdapter`, определенный в `crates/openfang-channels/src/types.rs`.
 
-### The ChannelAdapter Trait
+### Трейт ChannelAdapter
 
 ```rust
 pub trait ChannelAdapter: Send + Sync {
-    /// Human-readable name of this adapter.
     fn name(&self) -> &str;
-
-    /// The channel type this adapter handles.
     fn channel_type(&self) -> ChannelType;
-
-    /// Start receiving messages. Returns a stream of incoming messages.
-    async fn start(
-        &self,
-    ) -> Result<Pin<Box<dyn Stream<Item = ChannelMessage> + Send>>, Box<dyn std::error::Error>>;
-
-    /// Send a response back to a user on this channel.
-    async fn send(
-        &self,
-        user: &ChannelUser,
-        content: ChannelContent,
-    ) -> Result<(), Box<dyn std::error::Error>>;
-
-    /// Send a typing indicator (optional -- default no-op).
-    async fn send_typing(&self, _user: &ChannelUser) -> Result<(), Box<dyn std::error::Error>> {
-        Ok(())
-    }
-
-    /// Stop the adapter and clean up resources.
+    async fn start(&self) -> Result<Pin<Box<dyn Stream<Item = ChannelMessage> + Send>>, Box<dyn std::error::Error>>;
+    async fn send(&self, user: &ChannelUser, content: ChannelContent) -> Result<(), Box<dyn std::error::Error>>;
     async fn stop(&self) -> Result<(), Box<dyn std::error::Error>>;
-
-    /// Get the current health status of this adapter (optional -- default returns disconnected).
-    fn status(&self) -> ChannelStatus {
-        ChannelStatus::default()
-    }
-
-    /// Send a response as a thread reply (optional -- default falls back to `send()`).
-    async fn send_in_thread(
-        &self,
-        user: &ChannelUser,
-        content: ChannelContent,
-        _thread_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.send(user, content).await
-    }
+    // ... дополнительные методы для типизации, статуса и тредов
 }
 ```
 
-### 1. Define Your Adapter
+### Основные этапы:
 
-Create `crates/openfang-channels/src/myplatform.rs`:
-
-```rust
-use crate::types::{
-    ChannelAdapter, ChannelContent, ChannelMessage, ChannelStatus, ChannelType, ChannelUser,
-};
-use futures::stream::{self, Stream};
-use std::pin::Pin;
-use tokio::sync::watch;
-use zeroize::Zeroizing;
-
-pub struct MyPlatformAdapter {
-    token: Zeroizing<String>,
-    client: reqwest::Client,
-    shutdown: watch::Receiver<bool>,
-}
-
-impl MyPlatformAdapter {
-    pub fn new(token: String, shutdown: watch::Receiver<bool>) -> Self {
-        Self {
-            token: Zeroizing::new(token),
-            client: reqwest::Client::new(),
-            shutdown,
-        }
-    }
-}
-
-impl ChannelAdapter for MyPlatformAdapter {
-    fn name(&self) -> &str {
-        "MyPlatform"
-    }
-
-    fn channel_type(&self) -> ChannelType {
-        ChannelType::Custom("myplatform".to_string())
-    }
-
-    async fn start(
-        &self,
-    ) -> Result<Pin<Box<dyn Stream<Item = ChannelMessage> + Send>>, Box<dyn std::error::Error>> {
-        // Return a stream that yields ChannelMessage items.
-        // Use self.shutdown to detect when the daemon is stopping.
-        // Apply exponential backoff on connection failures.
-        let stream = stream::empty(); // Replace with your polling/WebSocket logic
-        Ok(Box::pin(stream))
-    }
-
-    async fn send(
-        &self,
-        user: &ChannelUser,
-        content: ChannelContent,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // Send the response back to the platform.
-        // Use split_message() if the platform has message length limits.
-        // Use self.client and self.token to call the platform's API.
-        Ok(())
-    }
-
-    async fn stop(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // Clean shutdown: close connections, stop polling.
-        Ok(())
-    }
-
-    fn status(&self) -> ChannelStatus {
-        ChannelStatus::default()
-    }
-}
-```
-
-**Key points for new adapters:**
-- Use `ChannelType::Custom("myplatform".to_string())` for the channel type. Only the 9 most common channels have named `ChannelType` variants (`Telegram`, `WhatsApp`, `Slack`, `Discord`, `Signal`, `Matrix`, `Email`, `Teams`, `Mattermost`). All others use `Custom(String)`.
-- Wrap secrets in `Zeroizing<String>` so they are wiped from memory on drop.
-- Accept a `watch::Receiver<bool>` for coordinated shutdown with the daemon.
-- Use exponential backoff for resilience on connection failures.
-- Use the shared `split_message(text, max_len)` utility for platforms with message length limits.
-
-### 2. Register the Module
-
-In `crates/openfang-channels/src/lib.rs`:
-
-```rust
-pub mod myplatform;
-```
-
-### 3. Wire It Into the Bridge
-
-In `crates/openfang-api/src/channel_bridge.rs`, add initialization logic for your adapter alongside the existing adapters.
-
-### 4. Add Config Support
-
-In `openfang-types`, add a config struct:
-
-```rust
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct MyPlatformConfig {
-    pub token_env: String,
-    pub default_agent: Option<String>,
-    #[serde(default)]
-    pub overrides: ChannelOverrides,
-}
-```
-
-Add it to the `ChannelsConfig` struct and `config.toml` parsing. The `overrides` field gives your channel automatic support for model/prompt overrides, DM/group policies, rate limiting, threading, and output format selection.
-
-### 5. Add CLI Setup Wizard
-
-In `crates/openfang-cli/src/main.rs`, add a case to `cmd_channel_setup` with step-by-step instructions for your platform.
-
-### 6. Test
-
-Write integration tests. Use the `ChannelMessage` type to simulate incoming messages without connecting to the real platform.
+1. **Определите адаптер**: Создайте новый файл в `crates/openfang-channels/src/`. Используйте `Zeroizing<String>` для секретов и `watch::Receiver<bool>` для управления завершением.
+2. **Зарегистрируйте модуль**: Добавьте его в `lib.rs` крейта каналов.
+3. **Подключите к мосту**: В `crates/openfang-api/src/channel_bridge.rs` добавьте логику инициализации вашего адаптера.
+4. **Добавьте поддержку конфига**: В `openfang-types` добавьте структуру конфигурации для новой платформы.
+5. **Добавьте мастер настройки CLI**: В `crates/openfang-cli/src/main.rs` добавьте пошаговую инструкцию для вашей платформы.
+6. **Протестируйте**: Напишите интеграционные тесты, используя `ChannelMessage` для симуляции входящих данных.

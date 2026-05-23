@@ -1,55 +1,55 @@
-# MCP & A2A Integration Guide
+# Руководство по интеграции MCP и A2A
 
-OpenFang implements both the **Model Context Protocol (MCP)** and **Agent-to-Agent (A2A)** protocol, enabling deep interoperability with external tools, IDEs, and other agent frameworks.
-
----
-
-## Table of Contents
-
-- [Part 1: MCP (Model Context Protocol)](#part-1-mcp-model-context-protocol)
-  - [Overview](#mcp-overview)
-  - [MCP Client -- Connecting to External Servers](#mcp-client)
-  - [MCP Server -- Exposing OpenFang via MCP](#mcp-server)
-  - [Configuration Examples](#mcp-configuration-examples)
-  - [API Endpoints](#mcp-api-endpoints)
-- [Part 2: A2A (Agent-to-Agent Protocol)](#part-2-a2a-agent-to-agent-protocol)
-  - [Overview](#a2a-overview)
-  - [Agent Card](#agent-card)
-  - [A2A Server](#a2a-server)
-  - [A2A Client](#a2a-client)
-  - [Task Lifecycle](#task-lifecycle)
-  - [API Endpoints](#a2a-api-endpoints)
-  - [Configuration](#a2a-configuration)
-- [Security](#security)
+OpenFang реализует как **Model Context Protocol (MCP)**, так и протокол **Agent-to-Agent (A2A)**, обеспечивая глубокую совместимость с внешними инструментами, IDE и другими фреймворками агентов.
 
 ---
 
-## Part 1: MCP (Model Context Protocol)
+## Содержание
 
-### MCP Overview
-
-The Model Context Protocol (MCP) is a JSON-RPC 2.0 based protocol that standardizes how LLM applications discover and invoke tools. OpenFang supports MCP in both directions:
-
-- **As a client**: OpenFang connects to external MCP servers (GitHub, filesystem, databases, Puppeteer, etc.) and makes their tools available to all agents.
-- **As a server**: OpenFang exposes its own agents as MCP tools, so IDEs like Cursor, VS Code, and Claude Desktop can call OpenFang agents directly.
-
-OpenFang implements MCP protocol version `2024-11-05`.
-
-**Source files:**
-- Client: `crates/openfang-runtime/src/mcp.rs`
-- Server handler: `crates/openfang-runtime/src/mcp_server.rs`
-- CLI server: `crates/openfang-cli/src/mcp.rs`
-- Config types: `crates/openfang-types/src/config.rs` (`McpServerConfigEntry`, `McpTransportEntry`)
+- [Часть 1: MCP (Model Context Protocol)](#part-1-mcp-model-context-protocol)
+  - [Обзор](#mcp-overview)
+  - [Клиент MCP — подключение к внешним серверам](#mcp-client)
+  - [Сервер MCP — предоставление доступа к OpenFang через MCP](#mcp-server)
+  - [Примеры конфигурации](#mcp-configuration-examples)
+  - [Конечные точки API](#mcp-api-endpoints)
+- [Часть 2: A2A (Agent-to-Agent Protocol)](#part-2-a2a-agent-to-agent-protocol)
+  - [Обзор](#a2a-overview)
+  - [Карточка агента (Agent Card)](#agent-card)
+  - [Сервер A2A](#a2a-server)
+  - [Клиент A2A](#a2a-client)
+  - [Жизненный цикл задачи](#task-lifecycle)
+  - [Конечные точки API](#a2a-api-endpoints)
+  - [Конфигурация](#a2a-configuration)
+- [Безопасность](#security)
 
 ---
 
-### MCP Client
+## Часть 1: MCP (Model Context Protocol)
 
-The MCP client (`McpConnection` in `openfang-runtime`) allows OpenFang to connect to any MCP-compatible server and use its tools as if they were built-in.
+### Обзор MCP
 
-#### Configuration
+Model Context Protocol (MCP) — это протокол на базе JSON-RPC 2.0, который стандартизирует способы обнаружения и вызова инструментов приложениями LLM. OpenFang поддерживает MCP в обоих направлениях:
 
-MCP servers are configured in `config.toml` using the `[[mcp_servers]]` array:
+- **Как клиент**: OpenFang подключается к внешним серверам MCP (GitHub, файловая система, базы данных, Puppeteer и т. д.) и делает их инструменты доступными для всех агентов.
+- **Как сервер**: OpenFang предоставляет своих собственных агентов в качестве инструментов MCP, поэтому такие IDE, как Cursor, VS Code и Claude Desktop, могут вызывать агентов OpenFang напрямую.
+
+OpenFang реализует протокол MCP версии `2024-11-05`.
+
+**Исходные файлы:**
+- Клиент: `crates/openfang-runtime/src/mcp.rs`
+- Обработчик сервера: `crates/openfang-runtime/src/mcp_server.rs`
+- Сервер CLI: `crates/openfang-cli/src/mcp.rs`
+- Типы конфигурации: `crates/openfang-types/src/config.rs` (`McpServerConfigEntry`, `McpTransportEntry`)
+
+---
+
+### Клиент MCP
+
+Клиент MCP (`McpConnection` в `openfang-runtime`) позволяет OpenFang подключаться к любому MCP-совместимому серверу и использовать его инструменты так, как если бы они были встроенными.
+
+#### Конфигурация
+
+Серверы MCP настраиваются в `config.toml` с использованием массива `[[mcp_servers]]`:
 
 ```toml
 [[mcp_servers]]
@@ -63,20 +63,20 @@ command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 ```
 
-Each entry maps to a `McpServerConfigEntry` struct:
+Каждая запись соответствует структуре `McpServerConfigEntry`:
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `name` | `String` | required | Display name, used in tool namespacing |
-| `transport` | `McpTransportEntry` | required | How to connect (stdio or SSE) |
-| `timeout_secs` | `u64` | `30` | JSON-RPC request timeout |
-| `env` | `Vec<String>` | `[]` | Env vars to pass through to the subprocess |
+| `name` | `String` | обязательно | Отображаемое имя, используемое в пространстве имен инструментов |
+| `transport` | `McpTransportEntry` | обязательно | Способ подключения (stdio или SSE) |
+| `timeout_secs` | `u64` | `30` | Таймаут запроса JSON-RPC |
+| `env` | `Vec<String>` | `[]` | Переменные окружения для передачи в подпроцесс |
 
-#### Transport Types
+#### Типы транспорта
 
-OpenFang supports two MCP transports, defined by `McpTransport`:
+OpenFang поддерживает два транспорта MCP, определенных в `McpTransport`:
 
-**Stdio** -- Spawns a subprocess and communicates via stdin/stdout with newline-delimited JSON-RPC:
+**Stdio** — запускает подпроцесс и взаимодействует через stdin/stdout с использованием JSON-RPC с разделителями-строками:
 
 ```toml
 [mcp_servers.transport]
@@ -85,7 +85,7 @@ command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 ```
 
-**SSE** -- Connects to a remote HTTP endpoint and sends JSON-RPC via POST:
+**SSE** — подключается к удаленной конечной точке HTTP и отправляет JSON-RPC через POST:
 
 ```toml
 [mcp_servers.transport]
@@ -93,60 +93,60 @@ type = "sse"
 url = "https://mcp.example.com/api"
 ```
 
-#### Tool Namespacing
+#### Пространство имен инструментов
 
-All tools discovered from MCP servers are namespaced using the pattern `mcp_{server}_{tool}` to prevent collisions with built-in tools or tools from other servers. Names are normalized to lowercase with hyphens replaced by underscores.
+Все инструменты, обнаруженные на серверах MCP, получают пространство имен по шаблону `mcp_{server}_{tool}` для предотвращения конфликтов со встроенными инструментами или инструментами с других серверов. Имена нормализуются к нижнему регистру, а дефисы заменяются на подчеркивания.
 
-Examples:
-- Server `github`, tool `create_issue` becomes `mcp_github_create_issue`
-- Server `my-server`, tool `do_thing` becomes `mcp_my_server_do_thing`
+Примеры:
+- Сервер `github`, инструмент `create_issue` становится `mcp_github_create_issue`
+- Сервер `my-server`, инструмент `do_thing` становится `mcp_my_server_do_thing`
 
-Helper functions (exported from `openfang_runtime::mcp`):
-- `format_mcp_tool_name(server, tool)` -- builds the namespaced name
-- `is_mcp_tool(name)` -- checks if a tool name starts with `mcp_`
-- `extract_mcp_server(tool_name)` -- extracts the server name from a namespaced tool
+Вспомогательные функции (экспортируемые из `openfang_runtime::mcp`):
+- `format_mcp_tool_name(server, tool)` — создает имя с пространством имен
+- `is_mcp_tool(name)` — проверяет, начинается ли имя инструмента с `mcp_`
+- `extract_mcp_server(tool_name)` — извлекает имя сервера из имени инструмента
 
-#### Auto-Connection on Kernel Boot
+#### Автоматическое подключение при загрузке ядра
 
-When the kernel starts (`start_background_agents()`), it checks `config.mcp_servers`. If any are configured, it spawns a background task that calls `connect_mcp_servers()`. This method:
+При запуске ядра (`start_background_agents()`) оно проверяет `config.mcp_servers`. Если настроены какие-либо серверы, запускается фоновая задача, вызывающая `connect_mcp_servers()`. Этот метод:
 
-1. Iterates each `McpServerConfigEntry` in the config
-2. Converts the config-level `McpTransportEntry` into a runtime `McpTransport`
-3. Calls `McpConnection::connect()` which:
-   - Spawns the subprocess (stdio) or creates an HTTP client (SSE)
-   - Sends the `initialize` handshake with client info
-   - Sends the `notifications/initialized` notification
-   - Calls `tools/list` to discover all available tools
-   - Namespaces each tool with `mcp_{server}_{tool}`
-4. Caches discovered `ToolDefinition` entries in `kernel.mcp_tools`
-5. Stores the live `McpConnection` in `kernel.mcp_connections`
+1. Перебирает каждую запись `McpServerConfigEntry` в конфигурации.
+2. Преобразует `McpTransportEntry` уровня конфигурации в `McpTransport` времени выполнения.
+3. Вызывает `McpConnection::connect()`, которая:
+   - Запускает подпроцесс (stdio) или создает HTTP-клиент (SSE).
+   - Отправляет рукопожатие `initialize` с информацией о клиенте.
+   - Отправляет уведомление `notifications/initialized`.
+   - Вызывает `tools/list` для обнаружения всех доступных инструментов.
+   - Присваивает каждому инструменту пространство имен `mcp_{server}_{tool}`.
+4. Кэширует обнаруженные записи `ToolDefinition` в `kernel.mcp_tools`.
+5. Сохраняет активное соединение `McpConnection` в `kernel.mcp_connections`.
 
-After connection, the kernel logs the total number of MCP tools available.
+После подключения ядро записывает в лог общее количество доступных инструментов MCP.
 
-#### Tool Discovery and Listing
+#### Обнаружение и перечисление инструментов
 
-MCP tools are merged into the agent's available tool set via `available_tools()`:
+Инструменты MCP объединяются с набором доступных инструментов агента через `available_tools()`:
 
 ```
-built-in tools (23) + skill tools + MCP tools = full tool list
+встроенные инструменты (23) + инструменты навыков + инструменты MCP = полный список инструментов
 ```
 
-When an agent calls an MCP tool during its loop, the tool runner recognizes the `mcp_` prefix, finds the appropriate `McpConnection`, strips the namespace prefix, and forwards the `tools/call` request to the external MCP server.
+Когда агент вызывает инструмент MCP в своем цикле, исполнитель инструментов распознает префикс `mcp_`, находит соответствующее соединение `McpConnection`, удаляет префикс пространства имен и перенаправляет запрос `tools/call` внешнему серверу MCP.
 
-#### Connection Lifecycle
+#### Жизненный цикл соединения
 
-The `McpConnection` struct manages the lifetime of the connection:
+Структура `McpConnection` управляет временем жизни соединения:
 
 ```rust
 pub struct McpConnection {
     config: McpServerConfig,
     tools: Vec<ToolDefinition>,
-    transport: McpTransportHandle,  // Stdio or SSE
-    next_id: u64,                   // JSON-RPC request counter
+    transport: McpTransportHandle,  // Stdio или SSE
+    next_id: u64,                   // Счетчик запросов JSON-RPC
 }
 ```
 
-When the connection is dropped, stdio subprocesses are automatically killed via `Drop`:
+Когда соединение разрывается, подпроцессы stdio автоматически завершаются через `Drop`:
 
 ```rust
 impl Drop for McpConnection {
@@ -160,57 +160,57 @@ impl Drop for McpConnection {
 
 ---
 
-### MCP Server
+### Сервер MCP
 
-OpenFang can also act as an MCP server, exposing its agents as callable tools to external MCP clients.
+OpenFang также может выступать в роли сервера MCP, предоставляя своих агентов как вызываемые инструменты для внешних клиентов MCP.
 
-#### How It Works
+#### Как это работает
 
-Each OpenFang agent becomes an MCP tool named `openfang_agent_{name}` (with hyphens replaced by underscores). The tool accepts a single `message` string parameter and returns the agent's response.
+Каждый агент OpenFang становится инструментом MCP с именем `openfang_agent_{name}` (дефисы заменяются на подчеркивания). Инструмент принимает один строковый параметр `message` и возвращает ответ агента.
 
-For example, an agent named `code-reviewer` becomes the MCP tool `openfang_agent_code_reviewer`.
+Например, агент с именем `code-reviewer` становится инструментом MCP `openfang_agent_code_reviewer`.
 
 #### CLI: `openfang mcp`
 
-The primary way to run the MCP server is the `openfang mcp` command, which starts a stdio-based MCP server:
+Основной способ запуска сервера MCP — команда `openfang mcp`, которая запускает сервер MCP на базе stdio:
 
 ```bash
 openfang mcp
 ```
 
-This command:
-1. Checks if an OpenFang daemon is running (via `find_daemon()`)
-2. If found, proxies all tool calls to the daemon via its HTTP API
-3. If no daemon is running, boots an in-process kernel as a fallback
-4. Reads Content-Length framed JSON-RPC messages from stdin
-5. Writes Content-Length framed JSON-RPC responses to stdout
+Эта команда:
+1. Проверяет, запущен ли демон OpenFang (через `find_daemon()`).
+2. Если найден, проксирует все вызовы инструментов демону через его HTTP API.
+3. Если демон не запущен, загружает ядро внутри процесса в качестве запасного варианта.
+4. Читает сообщения JSON-RPC с заголовком Content-Length из stdin.
+5. Записывает ответы JSON-RPC с заголовком Content-Length в stdout.
 
-The MCP server uses `McpBackend` which supports two modes:
-- `McpBackend::Daemon` -- forwards requests to a running OpenFang daemon via HTTP
-- `McpBackend::InProcess` -- boots a full kernel when no daemon is available
+Сервер MCP использует `McpBackend`, который поддерживает два режима:
+- `McpBackend::Daemon` — пересылает запросы запущенному демону OpenFang через HTTP.
+- `McpBackend::InProcess` — загружает полное ядро, когда демон недоступен.
 
-#### HTTP MCP Endpoint
+#### Конечная точка HTTP MCP
 
-OpenFang also exposes an MCP endpoint over HTTP at `POST /mcp`. Unlike the stdio server (which only exposes agents), the HTTP endpoint exposes the full tool set (built-in + skills + MCP tools) and executes tools via the kernel's `execute_tool()` pipeline. This means the HTTP MCP endpoint supports:
+OpenFang также предоставляет конечную точку MCP через HTTP по адресу `POST /mcp`. В отличие от сервера stdio (который предоставляет только агентов), конечная точка HTTP предоставляет полный набор инструментов (встроенные + навыки + инструменты MCP) и выполняет инструменты через конвейер ядра `execute_tool()`. Это означает, что HTTP-конечная точка MCP поддерживает:
 
-- All 23 built-in tools (file_read, web_fetch, etc.)
-- All installed skill tools
-- All connected MCP server tools
+- Все 23 встроенных инструмента (file_read, web_fetch и т. д.).
+- Все установленные инструменты навыков.
+- Все подключенные инструменты серверов MCP.
 
-#### Supported JSON-RPC Methods
+#### Поддерживаемые методы JSON-RPC
 
-| Method | Description |
+| Метод | Описание |
 |--------|-------------|
-| `initialize` | Handshake; returns server capabilities and info |
-| `notifications/initialized` | Client confirmation; no response |
-| `tools/list` | Returns all available tools with names, descriptions, and input schemas |
-| `tools/call` | Executes a tool and returns the result |
+| `initialize` | Рукопожатие; возвращает возможности и информацию о сервере |
+| `notifications/initialized` | Подтверждение клиента; без ответа |
+| `tools/list` | Возвращает все доступные инструменты с именами, описаниями и схемами ввода |
+| `tools/call` | Выполняет инструмент и возвращает результат |
 
-Unknown methods receive a `-32601` (Method not found) error.
+Неизвестные методы получают ошибку `-32601` (Method not found).
 
-#### Protocol Details
+#### Детали протокола
 
-**Message Framing** (stdio mode):
+**Обрамление сообщений** (режим stdio):
 
 ```
 Content-Length: 123\r\n
@@ -218,9 +218,9 @@ Content-Length: 123\r\n
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
 ```
 
-Messages are limited to 10 MB (`MAX_MCP_MESSAGE_SIZE`). Oversized messages are drained and rejected.
+Размер сообщений ограничен 10 МБ (`MAX_MCP_MESSAGE_SIZE`). Сообщения, превышающие этот размер, отбрасываются и отклоняются.
 
-**Initialize Handshake:**
+**Рукопожатие инициализации:**
 
 ```json
 {
@@ -235,7 +235,7 @@ Messages are limited to 10 MB (`MAX_MCP_MESSAGE_SIZE`). Oversized messages are d
 }
 ```
 
-Response:
+Ответ:
 
 ```json
 {
@@ -249,7 +249,7 @@ Response:
 }
 ```
 
-**Tool Call:**
+**Вызов инструмента:**
 
 ```json
 {
@@ -265,7 +265,7 @@ Response:
 }
 ```
 
-Response:
+Ответ:
 
 ```json
 {
@@ -280,11 +280,11 @@ Response:
 }
 ```
 
-#### Connecting from IDEs
+#### Подключение из IDE
 
-**Cursor / VS Code (with MCP extension):**
+**Cursor / VS Code (с расширением MCP):**
 
-Add to your MCP configuration file (e.g., `.cursor/mcp.json` or VS Code MCP settings):
+Добавьте в файл конфигурации MCP (например, `.cursor/mcp.json` или настройки VS Code MCP):
 
 ```json
 {
@@ -299,7 +299,7 @@ Add to your MCP configuration file (e.g., `.cursor/mcp.json` or VS Code MCP sett
 
 **Claude Desktop:**
 
-Add to `claude_desktop_config.json`:
+Добавьте в `claude_desktop_config.json`:
 
 ```json
 {
@@ -313,13 +313,13 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-After configuration, all OpenFang agents appear as tools in the IDE. For example, you can ask Claude Desktop to "use the openfang code-reviewer agent to review this file."
+После настройки все агенты OpenFang появятся в IDE как инструменты. Например, вы можете попросить Claude Desktop: "use the openfang code-reviewer agent to review this file."
 
 ---
 
-### MCP Configuration Examples
+### Примеры конфигурации MCP
 
-#### GitHub Server (file + issue + PR tools)
+#### Сервер GitHub (инструменты для работы с файлами, задачами и PR)
 
 ```toml
 [[mcp_servers]]
@@ -333,7 +333,7 @@ command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 ```
 
-#### Filesystem Server
+#### Сервер файловой системы
 
 ```toml
 [[mcp_servers]]
@@ -347,7 +347,7 @@ command = "npx"
 args = ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/projects"]
 ```
 
-#### PostgreSQL Server
+#### Сервер PostgreSQL
 
 ```toml
 [[mcp_servers]]
@@ -361,7 +361,7 @@ command = "npx"
 args = ["-y", "@modelcontextprotocol/server-postgres"]
 ```
 
-#### Puppeteer (Browser Automation)
+#### Puppeteer (автоматизация браузера)
 
 ```toml
 [[mcp_servers]]
@@ -374,7 +374,7 @@ command = "npx"
 args = ["-y", "@modelcontextprotocol/server-puppeteer"]
 ```
 
-#### Remote SSE Server
+#### Удаленный сервер SSE
 
 ```toml
 [[mcp_servers]]
@@ -386,7 +386,7 @@ type = "sse"
 url = "https://tools.example.com/mcp"
 ```
 
-#### Multiple Servers
+#### Несколько серверов
 
 ```toml
 [[mcp_servers]]
@@ -415,14 +415,14 @@ args = ["-y", "@modelcontextprotocol/server-postgres"]
 
 ---
 
-### MCP API Endpoints
+### Конечные точки API MCP
 
-| Method | Path | Description |
+| Метод | Путь | Описание |
 |--------|------|-------------|
-| `GET` | `/api/mcp/servers` | List configured and connected MCP servers with their tools |
-| `POST` | `/mcp` | Handle MCP JSON-RPC requests over HTTP (full tool execution) |
+| `GET` | `/api/mcp/servers` | Список настроенных и подключенных серверов MCP с их инструментами |
+| `POST` | `/mcp` | Обработка запросов JSON-RPC MCP через HTTP (полное выполнение инструментов) |
 
-**GET /api/mcp/servers** response:
+Ответ **GET /api/mcp/servers**:
 
 ```json
 {
@@ -450,40 +450,40 @@ args = ["-y", "@modelcontextprotocol/server-postgres"]
 
 ---
 
-## Part 2: A2A (Agent-to-Agent Protocol)
+## Часть 2: A2A (Agent-to-Agent Protocol)
 
-### A2A Overview
+### Обзор A2A
 
-The Agent-to-Agent (A2A) protocol, originally specified by Google, enables cross-framework agent interoperability. It allows agents built with different frameworks to discover each other's capabilities and exchange tasks.
+Протокол Agent-to-Agent (A2A), первоначально разработанный Google, обеспечивает совместимость агентов из разных фреймворков. Он позволяет агентам, созданным с помощью различных инструментов, обнаруживать возможности друг друга и обмениваться задачами.
 
-OpenFang implements A2A in both directions:
+OpenFang реализует A2A в обоих направлениях:
 
-- **As a server**: Publishes Agent Cards describing each agent's capabilities, accepts task submissions, and tracks task lifecycle.
-- **As a client**: Discovers external A2A agents at boot time, sends tasks to them, and polls for results.
+- **Как сервер**: Публикует карточки агентов (Agent Cards), описывающие возможности каждого агента, принимает задачи и отслеживает их жизненный цикл.
+- **Как клиент**: Обнаруживает внешних агентов A2A во время загрузки, отправляет им задачи и опрашивает результаты.
 
-**Source files:**
-- Protocol types and logic: `crates/openfang-runtime/src/a2a.rs`
-- API routes: `crates/openfang-api/src/routes.rs`
-- Config types: `crates/openfang-types/src/config.rs` (`A2aConfig`, `ExternalAgent`)
+**Исходные файлы:**
+- Типы протокола и логика: `crates/openfang-runtime/src/a2a.rs`
+- Маршруты API: `crates/openfang-api/src/routes.rs`
+- Типы конфигурации: `crates/openfang-types/src/config.rs` (`A2aConfig`, `ExternalAgent`)
 
 ---
 
-### Agent Card
+### Карточка агента (Agent Card)
 
-An Agent Card is a JSON document that describes an agent's identity, capabilities, and supported interaction modes. It is served at the well-known path `/.well-known/agent.json` per the A2A specification.
+Карточка агента — это JSON-документ, который описывает идентификатор агента, его возможности и поддерживаемые режимы взаимодействия. Она доступна по общеизвестному пути `/.well-known/agent.json` в соответствии со спецификацией A2A.
 
-The `AgentCard` struct:
+Структура `AgentCard`:
 
 ```rust
 pub struct AgentCard {
     pub name: String,
     pub description: String,
-    pub url: String,                         // endpoint URL (e.g., "http://host/a2a")
-    pub version: String,                     // protocol version
+    pub url: String,                         // URL конечной точки (напр., "http://host/a2a")
+    pub version: String,                     // версия протокола
     pub capabilities: AgentCapabilities,
-    pub skills: Vec<AgentSkill>,             // A2A skill descriptors
-    pub default_input_modes: Vec<String>,    // e.g., ["text"]
-    pub default_output_modes: Vec<String>,   // e.g., ["text"]
+    pub skills: Vec<AgentSkill>,             // дескрипторы навыков A2A
+    pub default_input_modes: Vec<String>,    // напр., ["text"]
+    pub default_output_modes: Vec<String>,   // напр., ["text"]
 }
 ```
 
@@ -491,25 +491,25 @@ pub struct AgentCard {
 
 ```rust
 pub struct AgentCapabilities {
-    pub streaming: bool,                 // true -- OpenFang supports streaming
-    pub push_notifications: bool,        // false -- not currently implemented
-    pub state_transition_history: bool,  // true -- task status history available
+    pub streaming: bool,                 // true — OpenFang поддерживает потоковую передачу
+    pub push_notifications: bool,        // false — в настоящее время не реализовано
+    pub state_transition_history: bool,  // true — доступна история статусов задач
 }
 ```
 
-**AgentSkill** (not the same as OpenFang skills -- these are A2A capability descriptors):
+**AgentSkill** (не путать с навыками OpenFang — это дескрипторы возможностей A2A):
 
 ```rust
 pub struct AgentSkill {
-    pub id: String,           // matches the OpenFang tool name
-    pub name: String,         // human-readable (underscores replaced with spaces)
+    pub id: String,           // совпадает с именем инструмента OpenFang
+    pub name: String,         // понятное имя (подчеркивания заменены пробелами)
     pub description: String,
     pub tags: Vec<String>,
     pub examples: Vec<String>,
 }
 ```
 
-Agent Cards are built from OpenFang agent manifests via `build_agent_card()`. Each tool in the agent's capability list becomes an A2A skill descriptor. Example card:
+Карточки агентов создаются на основе манифестов агентов OpenFang через `build_agent_card()`. Каждый инструмент в списке возможностей агента становится дескриптором навыка A2A. Пример карточки:
 
 ```json
 {
@@ -538,81 +538,81 @@ Agent Cards are built from OpenFang agent manifests via `build_agent_card()`. Ea
 
 ---
 
-### A2A Server
+### Сервер A2A
 
-OpenFang serves A2A requests through the REST API. The server-side implementation involves:
+OpenFang обслуживает запросы A2A через REST API. Реализация на стороне сервера включает:
 
-1. **Agent Card publication** at `/.well-known/agent.json`
-2. **Agent listing** at `/a2a/agents`
-3. **Task submission and tracking** via the `A2aTaskStore`
+1. **Публикацию карточки агента** по адресу `/.well-known/agent.json`.
+2. **Список агентов** по адресу `/a2a/agents`.
+3. **Отправку и отслеживание задач** через `A2aTaskStore`.
 
 #### A2aTaskStore
 
-The `A2aTaskStore` is an in-memory, bounded store for tracking A2A task lifecycle:
+`A2aTaskStore` — это ограниченное хранилище в памяти для отслеживания жизненного цикла задач A2A:
 
 ```rust
 pub struct A2aTaskStore {
     tasks: Mutex<HashMap<String, A2aTask>>,
-    max_tasks: usize,  // default: 1000
+    max_tasks: usize,  // по умолчанию: 1000
 }
 ```
 
-Key properties:
-- **Bounded**: When the store reaches `max_tasks`, it evicts the oldest completed/failed/cancelled task (FIFO)
-- **Thread-safe**: Uses `Mutex<HashMap>` for concurrent access
-- **Kernel field**: Stored as `kernel.a2a_task_store`
+Основные свойства:
+- **Ограниченность**: Когда хранилище достигает `max_tasks`, оно удаляет самую старую завершенную/неудачную/отмененную задачу (FIFO).
+- **Потокобезопасность**: Использует `Mutex<HashMap>` для параллельного доступа.
+- **Поле ядра**: Сохраняется как `kernel.a2a_task_store`.
 
-Methods on `A2aTaskStore`:
-- `insert(task)` -- add a new task, evicting old ones if at capacity
-- `get(task_id)` -- retrieve a task by ID
-- `update_status(task_id, status)` -- change a task's status
-- `complete(task_id, response, artifacts)` -- mark as completed with response
-- `fail(task_id, error_message)` -- mark as failed with error
-- `cancel(task_id)` -- mark as cancelled
+Методы `A2aTaskStore`:
+- `insert(task)` — добавить новую задачу, удалив старые при заполнении.
+- `get(task_id)` — получить задачу по ID.
+- `update_status(task_id, status)` — изменить статус задачи.
+- `complete(task_id, response, artifacts)` — пометить как завершенную с ответом.
+- `fail(task_id, error_message)` — пометить как неудачную с ошибкой.
+- `cancel(task_id)` — пометить как отмененную.
 
-#### Task Submission Flow
+#### Поток отправки задачи
 
-When `POST /a2a/tasks/send` is called:
+При вызове `POST /a2a/tasks/send`:
 
-1. Extract the message text from the A2A request format (parts with type "text")
-2. Find the target agent (currently uses the first registered agent)
-3. Create an `A2aTask` with status `Working` and insert into the task store
-4. Send the message to the agent via `kernel.send_message()`
-5. On success: complete the task with the agent's response
-6. On failure: fail the task with the error message
-7. Return the final task state
+1. Извлекается текст сообщения из формата запроса A2A (части с типом "text").
+2. Находится целевой агент (в настоящее время используется первый зарегистрированный агент).
+3. Создается `A2aTask` со статусом `Working` и вставляется в хранилище задач.
+4. Сообщение отправляется агенту через `kernel.send_message()`.
+5. В случае успеха: задача завершается с ответом агента.
+6. В случае ошибки: задача помечается как неудачная с сообщением об ошибке.
+7. Возвращается конечное состояние задачи.
 
 ---
 
-### A2A Client
+### Клиент A2A
 
-The `A2aClient` struct discovers and interacts with external A2A agents:
+Структура `A2aClient` обнаруживает внешних агентов A2A и взаимодействует с ними:
 
 ```rust
 pub struct A2aClient {
-    client: reqwest::Client,  // 30-second timeout
+    client: reqwest::Client,  // таймаут 30 секунд
 }
 ```
 
-**Methods:**
+**Методы:**
 
-- `discover(url)` -- fetches `{url}/.well-known/agent.json` and parses the Agent Card
-- `send_task(url, message, session_id)` -- sends a JSON-RPC task submission
-- `get_task(url, task_id)` -- polls for task status
+- `discover(url)` — получает `{url}/.well-known/agent.json` и парсит карточку агента.
+- `send_task(url, message, session_id)` — отправляет запрос JSON-RPC на выполнение задачи.
+- `get_task(url, task_id)` — опрашивает статус задачи.
 
-#### Auto-Discovery at Boot
+#### Автообнаружение при загрузке
 
-When the kernel starts and A2A is enabled with external agents configured, it spawns a background task that calls `discover_external_agents()`. This function:
+Когда ядро запускается и A2A включен с настроенными внешними агентами, запускается фоновая задача, вызывающая `discover_external_agents()`. Эта функция:
 
-1. Creates an `A2aClient`
-2. Iterates each configured `ExternalAgent`
-3. Fetches each agent's card from `{url}/.well-known/agent.json`
-4. Logs successful discoveries (name, URL, skill count)
-5. Stores discovered `(name, AgentCard)` pairs in `kernel.a2a_external_agents`
+1. Создает `A2aClient`.
+2. Перебирает каждого настроенного `ExternalAgent`.
+3. Получает карточку каждого агента по адресу `{url}/.well-known/agent.json`.
+4. Записывает успешные обнаружения в лог (имя, URL, количество навыков).
+5. Сохраняет обнаруженные пары `(name, AgentCard)` в `kernel.a2a_external_agents`.
 
-Failed discoveries are logged as warnings but do not prevent boot.
+Неудачные попытки обнаружения записываются как предупреждения, но не препятствуют загрузке.
 
-#### Sending Tasks to External Agents
+#### Отправка задач внешним агентам
 
 ```rust
 let client = A2aClient::new();
@@ -624,7 +624,7 @@ let task = client.send_task(
 println!("Task {}: {:?}", task.id, task.status);
 ```
 
-The client sends a JSON-RPC request:
+Клиент отправляет запрос JSON-RPC:
 
 ```json
 {
@@ -643,9 +643,9 @@ The client sends a JSON-RPC request:
 
 ---
 
-### Task Lifecycle
+### Жизненный цикл задачи
 
-An `A2aTask` tracks the full lifecycle of a cross-agent interaction:
+`A2aTask` отслеживает полный жизненный цикл взаимодействия между агентами:
 
 ```rust
 pub struct A2aTask {
@@ -657,24 +657,24 @@ pub struct A2aTask {
 }
 ```
 
-#### Task States
+#### Статусы задач
 
-| Status | Description |
+| Статус | Описание |
 |--------|-------------|
-| `Submitted` | Task received but not yet started |
-| `Working` | Task is being actively processed by the agent |
-| `InputRequired` | Agent needs more information from the caller |
-| `Completed` | Task finished successfully |
-| `Cancelled` | Task was cancelled by the caller |
-| `Failed` | Task encountered an error |
+| `Submitted` | Задача получена, но еще не запущена |
+| `Working` | Задача активно обрабатывается агентом |
+| `InputRequired` | Агенту требуется дополнительная информация от вызывающей стороны |
+| `Completed` | Задача успешно завершена |
+| `Cancelled` | Задача была отменена вызывающей стороной |
+| `Failed` | В ходе выполнения задачи возникла ошибка |
 
-#### Message Format
+#### Формат сообщения
 
-Messages use an A2A-specific format with typed content parts:
+Сообщения используют специфичный для A2A формат с типизированными частями контента:
 
 ```rust
 pub struct A2aMessage {
-    pub role: String,          // "user" or "agent"
+    pub role: String,          // "user" или "agent"
     pub parts: Vec<A2aPart>,
 }
 
@@ -685,9 +685,9 @@ pub enum A2aPart {
 }
 ```
 
-#### Artifacts
+#### Артефакты
 
-Tasks can produce artifacts (files, structured data) alongside messages:
+Задачи могут создавать артефакты (файлы, структурированные данные) вместе с сообщениями:
 
 ```rust
 pub struct A2aArtifact {
@@ -698,23 +698,23 @@ pub struct A2aArtifact {
 
 ---
 
-### A2A API Endpoints
+### Конечные точки API A2A
 
-| Method | Path | Auth | Description |
+| Метод | Путь | Аутентификация | Описание |
 |--------|------|------|-------------|
-| `GET` | `/.well-known/agent.json` | Public | Agent Card for the primary agent |
-| `GET` | `/a2a/agents` | Public | List all agent cards |
-| `POST` | `/a2a/tasks/send` | Public | Submit a task to an agent |
-| `GET` | `/a2a/tasks/{id}` | Public | Get task status and messages |
-| `POST` | `/a2a/tasks/{id}/cancel` | Public | Cancel a running task |
+| `GET` | `/.well-known/agent.json` | Публичная | Карточка для основного агента |
+| `GET` | `/a2a/agents` | Публичная | Список всех карточек агентов |
+| `POST` | `/a2a/tasks/send` | Публичная | Отправить задачу агенту |
+| `GET` | `/a2a/tasks/{id}` | Публичная | Получить статус задачи и сообщения |
+| `POST` | `/a2a/tasks/{id}/cancel` | Публичная | Отменить выполняемую задачу |
 
 #### GET /.well-known/agent.json
 
-Returns the Agent Card for the first registered agent. If no agents are spawned, returns a placeholder card.
+Возвращает карточку первого зарегистрированного агента. Если ни один агент не запущен, возвращает карточку-заглушку.
 
 #### GET /a2a/agents
 
-Lists all registered agents as Agent Cards:
+Выводит список всех зарегистрированных агентов в виде карточек агентов:
 
 ```json
 {
@@ -736,7 +736,7 @@ Lists all registered agents as Agent Cards:
 
 #### POST /a2a/tasks/send
 
-Submit a task. Request body follows JSON-RPC 2.0 format:
+Отправить задачу. Тело запроса соответствует формату JSON-RPC 2.0:
 
 ```json
 {
@@ -753,7 +753,7 @@ Submit a task. Request body follows JSON-RPC 2.0 format:
 }
 ```
 
-Response (completed task):
+Ответ (завершенная задача):
 
 ```json
 {
@@ -776,17 +776,17 @@ Response (completed task):
 
 #### GET /a2a/tasks/{id}
 
-Poll for task status. Returns `404` if the task is not found or has been evicted.
+Опрос статуса задачи. Возвращает `404`, если задача не найдена или была удалена.
 
 #### POST /a2a/tasks/{id}/cancel
 
-Cancel a running task. Sets its status to `Cancelled`. Returns `404` if the task is not found.
+Отменить выполняемую задачу. Устанавливает статус `Cancelled`. Возвращает `404`, если задача не найдена.
 
 ---
 
-### A2A Configuration
+### Конфигурация A2A
 
-A2A is configured in `config.toml` under the `[a2a]` section:
+A2A настраивается в `config.toml` в разделе `[a2a]`:
 
 ```toml
 [a2a]
@@ -802,54 +802,54 @@ name = "data-analyst"
 url = "https://data.example.com"
 ```
 
-The `A2aConfig` struct:
+Структура `A2aConfig`:
 
-| Field | Type | Default | Description |
+| Поле | Тип | По умолчанию | Описание |
 |-------|------|---------|-------------|
-| `enabled` | `bool` | `false` | Whether A2A endpoints are active |
-| `listen_path` | `String` | `"/a2a"` | Base path for A2A endpoints |
-| `external_agents` | `Vec<ExternalAgent>` | `[]` | External agents to discover at boot |
+| `enabled` | `bool` | `false` | Активны ли конечные точки A2A |
+| `listen_path` | `String` | `"/a2a"` | Базовый путь для конечных точек A2A |
+| `external_agents` | `Vec<ExternalAgent>` | `[]` | Внешние агенты для обнаружения при загрузке |
 
-Each `ExternalAgent`:
+Каждый `ExternalAgent`:
 
-| Field | Type | Description |
+| Поле | Тип | Описание |
 |-------|------|-------------|
-| `name` | `String` | Display name for this external agent |
-| `url` | `String` | Base URL where the agent's card is published |
+| `name` | `String` | Отображаемое имя для этого внешнего агента |
+| `url` | `String` | Базовый URL, где опубликована карточка агента |
 
-If `a2a` is `None` (not present in config), all A2A features are disabled. The A2A endpoints are always registered in the router but the discovery and task store functionality requires `enabled = true`.
+Если `a2a` равно `None` (отсутствует в конфигурации), все функции A2A отключены. Конечные точки A2A всегда регистрируются в маршрутизаторе, но для работы обнаружения и хранилища задач требуется `enabled = true`.
 
 ---
 
-## Security
+## Безопасность
 
-### MCP Security
+### Безопасность MCP
 
-**Subprocess Sandboxing**: Stdio MCP servers run with `env_clear()` -- the subprocess environment is completely cleared. Only explicitly whitelisted environment variables (listed in the `env` field) plus `PATH` are passed through. This prevents leaking secrets to untrusted MCP server processes.
+**Изоляция подпроцессов**: Серверы MCP stdio запускаются с `env_clear()` — среда подпроцесса полностью очищается. Передаются только явно разрешенные переменные окружения (перечисленные в поле `env`), а также `PATH`. Это предотвращает утечку секретов в недоверенные процессы серверов MCP.
 
-**Path Traversal Prevention**: The command path for stdio MCP servers is validated to reject `..` sequences.
+**Предотвращение обхода путей**: Путь команды для серверов MCP stdio проверяется на отсутствие последовательностей `..`.
 
-**SSRF Protection**: SSE transport URLs are checked against known metadata endpoints (169.254.169.254, metadata.google) to prevent SSRF attacks.
+**Защита от SSRF**: URL-адреса транспорта SSE проверяются на соответствие известным конечным точкам метаданных (169.254.169.254, metadata.google) для предотвращения атак SSRF.
 
-**Request Timeout**: All MCP requests have a configurable timeout (default 30 seconds) to prevent hung connections.
+**Таймаут запроса**: Все запросы MCP имеют настраиваемый таймаут (по умолчанию 30 секунд) для предотвращения зависания соединений.
 
-**Message Size Limit**: The stdio MCP server enforces a 10 MB maximum message size to prevent out-of-memory attacks. Oversized messages are drained and rejected.
+**Ограничение размера сообщений**: Сервер MCP stdio устанавливает максимальный размер сообщения в 10 МБ для предотвращения атак с исчерпанием памяти. Сообщения, превышающие этот размер, отбрасываются и отклоняются.
 
-### A2A Security
+### Безопасность A2A
 
-**Rate Limiting**: A2A endpoints go through the same GCRA rate limiter as all other API endpoints.
+**Ограничение частоты запросов**: Конечные точки A2A проходят через тот же ограничитель частоты GCRA, что и все остальные конечные точки API.
 
-**API Authentication**: When `api_key` is set in the kernel config, all API endpoints (including A2A) require a `Authorization: Bearer <key>` header. The exception is `/.well-known/agent.json` and the health endpoint which are typically public.
+**Аутентификация API**: Когда в конфигурации ядра установлен `api_key`, все конечные точки API (включая A2A) требуют заголовок `Authorization: Bearer <key>`. Исключение составляют `/.well-known/agent.json` и конечная точка работоспособности (health), которые обычно являются публичными.
 
-**Task Store Bounds**: The `A2aTaskStore` is bounded (default 1000 tasks) with FIFO eviction of completed/failed/cancelled tasks, preventing memory exhaustion from task accumulation.
+**Ограничения хранилища задач**: `A2aTaskStore` ограничен (по умолчанию 1000 задач) с удалением FIFO завершенных/неудачных/отмененных задач, что предотвращает исчерпание памяти из-за накопления задач.
 
-**External Agent Discovery**: The `A2aClient` uses a 30-second timeout and sends a `User-Agent: OpenFang/0.1 A2A` header. Failed discoveries are logged but do not block kernel boot.
+**Обнаружение внешних агентов**: `A2aClient` использует 30-секундный таймаут и отправляет заголовок `User-Agent: OpenFang/0.1 A2A`. Неудачные попытки обнаружения записываются в лог, но не блокируют загрузку ядра.
 
-### Kernel-Level Protection
+### Защита на уровне ядра
 
-Both MCP and A2A tool execution flows through the same security pipeline as all other tool calls:
-- Capability-based access control (agents only get tools they are authorized for)
-- Tool result truncation (50K character hard cap)
-- Universal 60-second tool execution timeout
-- Loop guard detection (blocks repetitive tool call patterns)
-- Taint tracking on data flowing between tools
+Оба потока выполнения инструментов MCP и A2A проходят через тот же конвейер безопасности, что и все остальные вызовы инструментов:
+- Контроль доступа на основе возможностей (агенты получают только те инструменты, на которые они авторизованы).
+- Обрезка результатов инструментов (жесткое ограничение в 50 000 символов).
+- Универсальный 60-секундный таймаут выполнения инструмента.
+- Обнаружение циклических вызовов (блокирует повторяющиеся шаблоны вызовов инструментов).
+- Отслеживание "грязных" данных (taint tracking) между инструментами.

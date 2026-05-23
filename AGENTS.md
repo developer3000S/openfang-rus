@@ -1,15 +1,123 @@
-```markdown
-## Набор проверок (Health Stack)
+# OpenFang — Инструкции для агентов
 
-- typecheck: `cargo build --workspace --lib`
-- lint: `cargo clippy --workspace --all-targets -- -D warnings`
-- test: `cargo test --workspace`
-- shell: `shellcheck scripts/install.sh`
+## Обзор проекта
+OpenFang — это операционная система для агентов с открытым исходным кодом, написанная на Rust (14 крейтов).
+- Конфигурация: `~/.openfang/config.toml`
+- API по умолчанию: `http://127.0.0.1:4200`
+- Бинарный файл CLI: `target/release/openfang.exe` (или `target/debug/openfang.exe`)
 
+## Процесс сборки и проверки
+После реализации каждой функции запускайте ВСЕ ТРИ проверки:
+```bash
+cargo build --workspace --lib          # Должно компилироваться (используйте --lib, если exe заблокирован)
+cargo test --workspace                 # Все тесты должны проходить (на данный момент 1744+)
+cargo clippy --workspace --all-targets -- -D warnings  # Ноль предупреждений
 ```
-## Health Stack
 
-- typecheck: cargo build --workspace --lib
-- lint: cargo clippy --workspace --all-targets -- -D warnings
-- test: cargo test --workspace
-- shell: shellcheck scripts/install.sh
+## ОБЯЗАТЕЛЬНО: Живое интеграционное тестирование
+**После внедрения любого нового эндпоинта, функции или изменения связей вы ОБЯЗАНЫ запустить живые интеграционные тесты.** Одних юнит-тестов недостаточно — они могут проходить, пока функция на самом деле является "мертвым кодом". Живые тесты выявляют:
+- Отсутствие регистрации маршрутов в `server.rs`
+- Поля конфигурации, которые не десериализуются из TOML
+- Несоответствие типов между слоями ядра и API
+- Эндпоинты, которые компилируются, но возвращают неверные или пустые данные
+
+### Как запускать живые интеграционные тесты
+
+#### Шаг 1: Остановите любой запущенный демон
+```bash
+tasklist | grep -i openfang
+taskkill //PID <pid> //F
+# Подождите 2-3 секунды, пока порт освободится
+sleep 3
+```
+
+#### Шаг 2: Соберите свежий релизный бинарный файл
+```bash
+cargo build --release -p openfang-cli
+```
+
+#### Шаг 3: Запустите демон с необходимыми API-ключами
+```bash
+GROQ_API_KEY=<key> target/release/openfang.exe start &
+sleep 6  # Подождите полной загрузки
+curl -s http://127.0.0.1:4200/api/health  # Проверьте, что он запущен
+```
+Команда демона — `start` (не `daemon`).
+
+#### Шаг 4: Протестируйте каждый новый эндпоинт
+```bash
+# GET эндпоинты — убедитесь, что они возвращают реальные данные, а не пустые/null
+curl -s http://127.0.0.1:4200/api/<new-endpoint>
+
+# POST/PUT эндпоинты — отправьте реальные полезные нагрузки
+curl -s -X POST http://127.0.0.1:4200/api/<endpoint> \
+  -H "Content-Type: application/json" \
+  -d '{"field": "value"}'
+
+# Убедитесь, что эндпоинты записи сохраняют данные — прочитайте их после записи
+curl -s -X PUT http://127.0.0.1:4200/api/<endpoint> -d '...'
+curl -s http://127.0.0.1:4200/api/<endpoint>  # Должно отражать обновление
+```
+
+#### Шаг 5: Протестируйте интеграцию с реальной LLM
+```bash
+# Получите ID агента
+curl -s http://127.0.0.1:4200/api/agents | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])"
+
+# Отправьте реальное сообщение (инициирует реальный вызов LLM к Groq/OpenAI)
+curl -s -X POST "http://127.0.0.1:4200/api/agents/<id>/message" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Поздоровайся в 5 словах."}'
+```
+
+#### Шаг 6: Проверьте побочные эффекты
+После вызова LLM убедитесь, что учет/стоимость/использование обновились:
+```bash
+curl -s http://127.0.0.1:4200/api/budget       # Стоимость должна увеличиться
+curl -s http://127.0.0.1:4200/api/budget/agents  # Должны отобразиться расходы по агентам
+```
+
+#### Шаг 7: Проверьте HTML дашборда
+```bash
+# Проверьте наличие новых компонентов интерфейса в отдаваемом HTML
+curl -s http://127.0.0.1:4200/ | grep -c "newComponentName"
+# Должно вернуть значение > 0
+```
+
+#### Шаг 8: Очистка
+```bash
+tasklist | grep -i openfang
+taskkill //PID <pid> //F
+```
+
+### Ключевые API-эндпоинты для тестирования
+| Эндпоинт | Метод | Цель |
+|----------|--------|---------|
+| `/api/health` | GET | Базовая проверка здоровья |
+| `/api/agents` | GET | Список всех агентов |
+| `/api/agents/{id}/message` | POST | Отправить сообщение (запускает LLM) |
+| `/api/budget` | GET/PUT | Статус/обновление глобального бюджета |
+| `/api/budget/agents` | GET | Рейтинг затрат по агентам |
+| `/api/budget/agents/{id}` | GET | Детали бюджета одного агента |
+| `/api/network/status` | GET | Статус сети OFP |
+| `/api/peers` | GET | Подключенные пиры OFP |
+| `/api/a2a/agents` | GET | Внешние агенты A2A |
+| `/api/a2a/discover` | POST | Обнаружить агента A2A по URL |
+| `/api/a2a/send` | POST | Отправить задачу внешнему агенту A2A |
+| `/api/a2a/tasks/{id}/status` | GET | Проверить статус внешней задачи A2A |
+
+## Примечания по архитектуре
+- **Не трогайте `openfang-cli`** — пользователь активно собирает интерактивный CLI
+- Трейт `KernelHandle` позволяет избежать циклических зависимостей между рантаймом и ядром
+- `AppState` в `server.rs` связывает ядро с маршрутами API
+- Новые маршруты должны быть зарегистрированы в роутере `server.rs` И реализованы в `routes.rs`
+- Дашборд — это SPA на Alpine.js в `static/index_body.html`; новым вкладкам нужны как HTML, так и JS данные/методы
+- Полям конфигурации необходимы: поле структуры + `#[serde(default)]` + запись в реализации Default + деривативы Serialize/Deserialize
+
+## Распространенные ошибки
+- `openfang.exe` может быть заблокирован, если запущен демон — используйте флаг `--lib` или сначала завершите работу демона
+- `PeerRegistry` представлен как `Option<PeerRegistry>` в ядре, но как `Option<Arc<PeerRegistry>>` в `AppState` — оберните с помощью `.as_ref().map(|r| Arc::new(r.clone()))`
+- Поля конфигурации, добавленные в структуру `KernelConfig`, ОБЯЗАТЕЛЬНО должны быть добавлены в реализацию `Default`, иначе сборка завершится с ошибкой
+- Поле `AgentLoopResult` называется `.response`, а не `.response_text`
+- Команда CLI для запуска демона — `start`, а не `daemon`
+- В Windows: используйте `taskkill //PID <pid> //F` (двойной слэш в MSYS2/Git Bash)

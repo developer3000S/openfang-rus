@@ -1,10 +1,10 @@
-# Agent Templates Catalog
+# Каталог шаблонов агентов
 
-OpenFang ships with **30 pre-built agent templates** organized into 4 performance tiers. Each template is a ready-to-spawn `agent.toml` manifest located in the `agents/` directory. Templates cover software engineering, business operations, personal productivity, and everyday tasks.
+OpenFang поставляется с **30 встроенными шаблонами агентов**, разделенными на 4 уровня производительности. Каждый шаблон представляет собой готовый к запуску манифест `agent.toml`, расположенный в директории `agents/`. Шаблоны охватывают разработку ПО, бизнес-операции, личную продуктивность и повседневные задачи.
 
-## Quick Start
+## Быстрый старт
 
-Spawn any template from the CLI:
+Запустите любого агента по шаблону через CLI:
 
 ```bash
 openfang spawn orchestrator
@@ -12,51 +12,51 @@ openfang spawn coder
 openfang spawn --template agents/writer/agent.toml
 ```
 
-Spawn via the REST API:
+Запуск через REST API:
 
 ```bash
-# Spawn from a built-in template name
+# Запуск по имени встроенного шаблона
 curl -X POST http://localhost:4200/api/agents \
   -H "Content-Type: application/json" \
   -d '{"template": "coder"}'
 
-# Spawn with overrides
+# Запуск с переопределениями
 curl -X POST http://localhost:4200/api/agents \
   -H "Content-Type: application/json" \
   -d '{"template": "writer", "model": "gemini-2.5-flash"}'
 ```
 
-Send a message to a running agent:
+Отправка сообщения работающему агенту:
 
 ```bash
 curl -X POST http://localhost:4200/api/agents/{id}/message \
   -H "Content-Type: application/json" \
-  -d '{"content": "Write unit tests for the auth module"}'
+  -d '{"content": "Напиши юнит-тесты для модуля аутентификации"}'
 ```
 
 ---
 
-## Template Tiers
+## Уровни шаблонов (Template Tiers)
 
-Templates are organized into 4 tiers based on task complexity and the LLM models they use. Higher tiers use more capable (and more expensive) models for tasks that require deep reasoning.
+Шаблоны организованы в 4 уровня в зависимости от сложности задач и используемых моделей LLM. Более высокие уровни используют более мощные (и дорогие) модели для задач, требующих глубоких рассуждений.
 
-### Tier 1 -- Frontier (DeepSeek)
+### Уровень 1 — Frontier (DeepSeek)
 
-For tasks requiring the deepest reasoning: multi-agent orchestration, system architecture, and security analysis.
+Для задач, требующих глубочайшего анализа: многоагентная оркестрация, системная архитектура и аудит безопасности.
 
-| Template | Provider | Model |
+| Шаблон | Провайдер | Модель |
 |----------|----------|-------|
 | orchestrator | deepseek | deepseek-chat |
 | architect | deepseek | deepseek-chat |
 | security-auditor | deepseek | deepseek-chat |
 
-All Tier 1 agents fall back to `groq/llama-3.3-70b-versatile` if the DeepSeek API key is unavailable.
+Все агенты Уровня 1 переключаются на `groq/llama-3.3-70b-versatile`, если API-ключ DeepSeek недоступен.
 
-### Tier 2 -- Smart (Gemini 2.5 Flash)
+### Уровень 2 — Smart (Gemini 2.5 Flash)
 
-For tasks requiring strong analytical and coding abilities: software engineering, data science, research, testing, and legal review.
+Для задач, требующих сильных аналитических способностей и навыков кодирования: программная инженерия, наука о данных, исследования, тестирование и юридический анализ.
 
-| Template | Provider | Model |
+| Шаблон | Провайдер | Модель |
 |----------|----------|-------|
 | coder | gemini | gemini-2.5-flash |
 | code-reviewer | gemini | gemini-2.5-flash |
@@ -67,13 +67,13 @@ For tasks requiring strong analytical and coding abilities: software engineering
 | test-engineer | gemini | gemini-2.5-flash |
 | legal-assistant | gemini | gemini-2.5-flash |
 
-All Tier 2 agents fall back to `groq/llama-3.3-70b-versatile` if the Gemini API key is unavailable.
+Все агенты Уровня 2 переключаются на `groq/llama-3.3-70b-versatile`, если API-ключ Gemini недоступен.
 
-### Tier 3 -- Balanced (Groq + Gemini Fallback)
+### Уровень 3 — Balanced (Groq + Gemini Fallback)
 
-For everyday business and productivity tasks: planning, writing, email, customer support, sales, recruiting, and meetings.
+Для повседневных деловых задач и продуктивности: планирование, копирайтинг, электронная почта, поддержка клиентов, продажи, рекрутинг и встречи.
 
-| Template | Provider | Model | Fallback |
+| Шаблон | Провайдер | Модель | Фоллбэк (Fallback) |
 |----------|----------|-------|----------|
 | planner | groq | llama-3.3-70b-versatile | gemini/gemini-2.0-flash |
 | writer | groq | llama-3.3-70b-versatile | gemini/gemini-2.0-flash |
@@ -87,11 +87,11 @@ For everyday business and productivity tasks: planning, writing, email, customer
 | recruiter | groq | llama-3.3-70b-versatile | gemini/gemini-2.0-flash |
 | meeting-assistant | groq | llama-3.3-70b-versatile | gemini/gemini-2.0-flash |
 
-### Tier 4 -- Fast (Groq Only)
+### Уровень 4 — Fast (Groq Only)
 
-For lightweight, high-speed tasks: ops monitoring, translation, tutoring, wellness tracking, budgeting, travel, and home automation. No fallback model configured (except `ops` which uses a smaller 8B model for speed).
+Для легких и высокоскоростных задач: операционный мониторинг, перевод, обучение, отслеживание здоровья, бюджетирование, планирование поездок и домашняя автоматизация. Фоллбэк-модели не настроены (кроме `ops`, использующего модель 8B для скорости).
 
-| Template | Provider | Model |
+| Шаблон | Провайдер | Модель |
 |----------|----------|-------|
 | ops | groq | llama-3.1-8b-instant |
 | hello-world | groq | llama-3.3-70b-versatile |
@@ -104,23 +104,23 @@ For lightweight, high-speed tasks: ops monitoring, translation, tutoring, wellne
 
 ---
 
-## Template Catalog
+## Каталог шаблонов
 
-### orchestrator
+### orchestrator (оркестратор)
 
-**Tier 1 -- Frontier** | `deepseek/deepseek-chat` | Fallback: `groq/llama-3.3-70b-versatile`
+**Уровень 1 — Frontier** | `deepseek/deepseek-chat` | Фоллбэк: `groq/llama-3.3-70b-versatile`
 
-> Meta-agent that decomposes complex tasks, delegates to specialist agents, and synthesizes results.
+> Мета-агент, который декомпозирует сложные задачи, делегирует их специалистам и синтезирует результаты.
 
-The orchestrator is the command center of the agent fleet. It analyzes user requests, breaks them into subtasks, uses `agent_list` to discover available specialists, delegates work via `agent_send`, spawns new agents when needed, and synthesizes all responses into a coherent final answer. It explains its delegation strategy before executing and avoids delegating trivially simple tasks.
+Оркестратор — это командный центр флота агентов. Он анализирует запросы пользователей, разбивает их на подзадачи, использует `agent_list` для поиска доступных специалистов, делегирует работу через `agent_send`, запускает новых агентов при необходимости и синтезирует все ответы в итоговый результат. Он объясняет свою стратегию делегирования перед выполнением и избегает делегирования тривиально простых задач.
 
-- **Tags**: none
-- **Temperature**: 0.3
-- **Max tokens**: 8192
-- **Token quota**: 500,000/hour
-- **Schedule**: Continuous check every 120 seconds
-- **Tools**: `agent_send`, `agent_spawn`, `agent_list`, `agent_kill`, `memory_store`, `memory_recall`, `file_read`, `file_write`
-- **Capabilities**: `agent_spawn = true`, `agent_message = ["*"]`, `memory_read = ["*"]`, `memory_write = ["*"]`
+- **Теги**: нет
+- **Температура**: 0.3
+- **Макс. токенов**: 8192
+- **Квота токенов**: 500,000/час
+- **Расписание**: Непрерывная проверка каждые 120 секунд
+- **Инструменты**: `agent_send`, `agent_spawn`, `agent_list`, `agent_kill`, `memory_store`, `memory_recall`, `file_read`, `file_write`
+- **Возможности**: `agent_spawn = true`, `agent_message = ["*"]`, `memory_read = ["*"]`, `memory_write = ["*"]`
 
 ```bash
 openfang spawn orchestrator
@@ -129,20 +129,20 @@ openfang spawn orchestrator
 
 ---
 
-### architect
+### architect (архитектор)
 
-**Tier 1 -- Frontier** | `deepseek/deepseek-chat` | Fallback: `groq/llama-3.3-70b-versatile`
+**Уровень 1 — Frontier** | `deepseek/deepseek-chat` | Фоллбэк: `groq/llama-3.3-70b-versatile`
 
-> System architect. Designs software architectures, evaluates trade-offs, creates technical specifications.
+> Системный архитектор. Проектирует архитектуры ПО, оценивает компромиссы, создает технические спецификации.
 
-Designs systems following principles of separation of concerns, performance-aware design, simplicity over cleverness, and designing for change without over-engineering. Clarifies requirements, identifies key components, defines interfaces and data flow, evaluates trade-offs (latency, throughput, complexity, maintainability), and documents decisions with rationale. Outputs use clear headings, ASCII diagrams, and structured reasoning.
+Проектирует системы, следуя принципам разделения ответственности, проектирования с учетом производительности, предпочтения простоты перед сложностью и проектирования для изменений без избыточности. Уточняет требования, определяет ключевые компоненты, интерфейсы и потоки данных, оценивает компромиссы (задержка, пропускная способность, сложность, поддерживаемость) и документирует решения с обоснованием. В ответах использует четкие заголовки, ASCII-диаграммы и структурированные рассуждения.
 
-- **Tags**: `architecture`, `design`, `planning`
-- **Temperature**: 0.3
-- **Max tokens**: 8192
-- **Token quota**: 200,000/hour
-- **Tools**: `file_read`, `file_list`, `memory_store`, `memory_recall`, `agent_send`
-- **Capabilities**: `agent_message = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `architecture`, `design`, `planning`
+- **Температура**: 0.3
+- **Макс. токенов**: 8192
+- **Квота токенов**: 200,000/час
+- **Инструменты**: `file_read`, `file_list`, `memory_store`, `memory_recall`, `agent_send`
+- **Возможности**: `agent_message = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn architect
@@ -151,22 +151,22 @@ openfang spawn architect
 
 ---
 
-### security-auditor
+### security-auditor (аудитор безопасности)
 
-**Tier 1 -- Frontier** | `deepseek/deepseek-chat` | Fallback: `groq/llama-3.3-70b-versatile`
+**Уровень 1 — Frontier** | `deepseek/deepseek-chat` | Фоллбэк: `groq/llama-3.3-70b-versatile`
 
-> Security specialist. Reviews code for vulnerabilities, checks configurations, performs threat modeling.
+> Специалист по безопасности. Проверяет код на наличие уязвимостей, проверяет конфигурации, выполняет моделирование угроз.
 
-Focuses on OWASP Top 10, input validation, auth flaws, cryptographic misuse, injection attacks (SQL, command, XSS, SSTI), insecure deserialization, secrets management, dependency vulnerabilities, race conditions, and privilege escalation. Maps the attack surface, traces data flow from untrusted inputs, checks trust boundaries, reviews error handling, and assesses cryptographic implementations. Reports findings with severity levels (CRITICAL/HIGH/MEDIUM/LOW/INFO) in the format: Finding, Impact, Evidence, Remediation.
+Фокусируется на OWASP Top 10, валидации ввода, недостатках аутентификации, неправильном использовании криптографии, инъекциях (SQL, команды, XSS, SSTI), небезопасной десериализации, управлении секретами, уязвимостях зависимостей, состояниях гонки и повышении привилегий. Картографирует поверхность атаки, отслеживает потоки данных от недоверенных источников, проверяет границы доверия, анализирует обработку ошибок и оценивает криптографические реализации. Сообщает о находках с указанием уровней критичности (CRITICAL/HIGH/MEDIUM/LOW/INFO) в формате: Находка, Влияние, Доказательства, Рекомендации по исправлению.
 
-- **Tags**: `security`, `audit`, `vulnerability`
-- **Temperature**: 0.2
-- **Max tokens**: 4096
-- **Token quota**: 150,000/hour
-- **Schedule**: Proactive on `event:agent_spawned`, `event:agent_terminated`
-- **Tools**: `file_read`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`
-- **Shell access**: `cargo audit *`, `cargo tree *`, `git log *`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `security`, `audit`, `vulnerability`
+- **Температура**: 0.2
+- **Макс. токенов**: 4096
+- **Квота токенов**: 150,000/час
+- **Расписание**: Проактивное по событиям `event:agent_spawned`, `event:agent_terminated`
+- **Инструменты**: `file_read`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`
+- **Доступ к шеллу**: `cargo audit *`, `cargo tree *`, `git log *`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn security-auditor
@@ -175,22 +175,22 @@ openfang spawn security-auditor
 
 ---
 
-### coder
+### coder (программист)
 
-**Tier 2 -- Smart** | `gemini/gemini-2.5-flash` | Fallback: `groq/llama-3.3-70b-versatile`
+**Уровень 2 — Smart** | `gemini/gemini-2.5-flash` | Фоллбэк: `groq/llama-3.3-70b-versatile`
 
-> Expert software engineer. Reads, writes, and analyzes code.
+> Опытный инженер ПО. Читает, пишет и анализирует код.
 
-Writes clean, production-quality code with a step-by-step reasoning approach. Reads files first to understand context, then makes precise changes. Always writes tests for produced code. Supports Rust, Python, JavaScript, and other languages.
+Пишет чистый код промышленного качества, используя пошаговый подход к рассуждениям. Сначала читает файлы для понимания контекста, затем вносит точные изменения. Всегда пишет тесты для созданного кода. Поддерживает Rust, Python, JavaScript и другие языки.
 
-- **Tags**: `coding`, `implementation`, `rust`, `python`
-- **Temperature**: 0.3
-- **Max tokens**: 8192
-- **Token quota**: 200,000/hour
-- **Max concurrent tools**: 10
-- **Tools**: `file_read`, `file_write`, `file_list`, `shell_exec`
-- **Shell access**: `cargo *`, `rustc *`, `git *`, `npm *`, `python *`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*"]`
+- **Теги**: `coding`, `implementation`, `rust`, `python`
+- **Температура**: 0.3
+- **Макс. токенов**: 8192
+- **Квота токенов**: 200,000/час
+- **Макс. параллельных инструментов**: 10
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `shell_exec`
+- **Доступ к шеллу**: `cargo *`, `rustc *`, `git *`, `npm *`, `python *`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*"]`
 
 ```bash
 openfang spawn coder
@@ -199,21 +199,21 @@ openfang spawn coder
 
 ---
 
-### code-reviewer
+### code-reviewer (рецензент кода)
 
-**Tier 2 -- Smart** | `gemini/gemini-2.5-flash` | Fallback: `groq/llama-3.3-70b-versatile`
+**Уровень 2 — Smart** | `gemini/gemini-2.5-flash` | Фоллбэк: `groq/llama-3.3-70b-versatile`
 
-> Senior code reviewer. Reviews PRs, identifies issues, suggests improvements with production standards.
+> Старший рецензент кода. Проверяет PR, выявляет проблемы, предлагает улучшения в соответствии со стандартами продакшена.
 
-Reviews code by priority: correctness, security, performance, maintainability, style. Groups feedback by file with severity tags: `[MUST FIX]`, `[SHOULD FIX]`, `[NIT]`, `[PRAISE]`. Explains WHY, not just WHAT. Suggests specific code for proposed changes. Acknowledges good code, avoids bikeshedding on style when formatters exist.
+Проверяет код в порядке приоритета: корректность, безопасность, производительность, поддерживаемость, стиль. Группирует отзывы по файлам с тегами важности: `[MUST FIX]`, `[SHOULD FIX]`, `[NIT]`, `[PRAISE]`. Объясняет ПОЧЕМУ, а не только ЧТО. Предлагает конкретный код для изменений. Отмечает хороший код, избегает споров о стиле, если существуют форматировщики.
 
-- **Tags**: `review`, `code-quality`, `best-practices`
-- **Temperature**: 0.3
-- **Max tokens**: 4096
-- **Token quota**: 150,000/hour
-- **Tools**: `file_read`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`
-- **Shell access**: `cargo clippy *`, `cargo fmt *`, `git diff *`, `git log *`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `review`, `code-quality`, `best-practices`
+- **Температура**: 0.3
+- **Макс. токенов**: 4096
+- **Квота токенов**: 150,000/час
+- **Инструменты**: `file_read`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`
+- **Доступ к шеллу**: `cargo clippy *`, `cargo fmt *`, `git diff *`, `git log *`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn code-reviewer
@@ -222,21 +222,21 @@ openfang spawn code-reviewer
 
 ---
 
-### data-scientist
+### data-scientist (дата-сайентист)
 
-**Tier 2 -- Smart** | `gemini/gemini-2.5-flash` | Fallback: `groq/llama-3.3-70b-versatile`
+**Уровень 2 — Smart** | `gemini/gemini-2.5-flash` | Фоллбэк: `groq/llama-3.3-70b-versatile`
 
-> Data scientist. Analyzes datasets, builds models, creates visualizations, performs statistical analysis.
+> Специалист по данным. Анализирует наборы данных, строит модели, создает визуализации, выполняет статистический анализ.
 
-Follows a structured methodology: understand the question, explore data (shape, distributions, missing values), analyze with appropriate statistical methods, build predictive models when needed, and communicate findings clearly. Toolkit includes descriptive stats, hypothesis testing (t-test, chi-squared, ANOVA), correlation/regression, time series, clustering, dimensionality reduction, and A/B test design.
+Следует структурированной методологии: понимание вопроса, исследование данных (структура, распределения, пропущенные значения), анализ с использованием соответствующих статистических методов, построение прогнозных моделей при необходимости и четкое сообщение выводов. Набор инструментов включает описательную статистику, проверку гипотез (t-test, chi-squared, ANOVA), корреляцию/регрессию, временные ряды, кластеризацию, снижение размерности и дизайн A/B тестов.
 
-- **Tags**: none
-- **Temperature**: 0.3
-- **Max tokens**: 4096
-- **Token quota**: 150,000/hour
-- **Tools**: `file_read`, `file_write`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`
-- **Shell access**: `python *`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: нет
+- **Температура**: 0.3
+- **Макс. токенов**: 4096
+- **Квота токенов**: 150,000/час
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`
+- **Доступ к шеллу**: `python *`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn data-scientist
@@ -245,21 +245,21 @@ openfang spawn data-scientist
 
 ---
 
-### debugger
+### debugger (отладчик)
 
-**Tier 2 -- Smart** | `gemini/gemini-2.5-flash` | Fallback: `groq/llama-3.3-70b-versatile`
+**Уровень 2 — Smart** | `gemini/gemini-2.5-flash` | Фоллбэк: `groq/llama-3.3-70b-versatile`
 
-> Expert debugger. Traces bugs, analyzes stack traces, performs root cause analysis.
+> Эксперт по отладке. Отслеживает баги, анализирует стектрейсы, выполняет поиск первопричин (RCA).
 
-Follows a strict methodology: reproduce, isolate (binary search through code/data), identify root cause (not just symptoms), fix (minimal correct fix), verify (regression tests). Looks for common patterns: off-by-one, null/None, race conditions, resource leaks. Checks error handling paths and recent changes. Presents findings as Bug Report, Root Cause, Fix, Prevention.
+Следует строгой методологии: воспроизведение, изоляция (бинарный поиск по коду/данным), определение первопричины (а не просто симптомов), исправление (минимальное корректное исправление), проверка (регрессионные тесты). Ищет общие паттерны: ошибки "на единицу" (off-by-one), null/None, состояния гонки, утечки ресурсов. Проверяет пути обработки ошибок и недавние изменения. Представляет результаты как: Отчет о баге, Первопричина, Исправление, Предотвращение.
 
-- **Tags**: none
-- **Temperature**: 0.2
-- **Max tokens**: 4096
-- **Token quota**: 150,000/hour
-- **Tools**: `file_read`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`
-- **Shell access**: `cargo *`, `git log *`, `git diff *`, `git show *`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: нет
+- **Температура**: 0.2
+- **Макс. токенов**: 4096
+- **Квота токенов**: 150,000/час
+- **Инструменты**: `file_read`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`
+- **Доступ к шеллу**: `cargo *`, `git log *`, `git diff *`, `git show *`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn debugger
@@ -268,20 +268,20 @@ openfang spawn debugger
 
 ---
 
-### researcher
+### researcher (исследователь)
 
-**Tier 2 -- Smart** | `gemini/gemini-2.5-flash` | Fallback: `groq/llama-3.3-70b-versatile`
+**Уровень 2 — Smart** | `gemini/gemini-2.5-flash` | Фоллбэк: `groq/llama-3.3-70b-versatile`
 
-> Research agent. Fetches web content and synthesizes information.
+> Агент-исследователь. Собирает контент из веба и синтезирует информацию.
 
-Fetches web pages, reads documents, and synthesizes findings into clear, structured reports. Always cites sources, separates facts from analysis, and flags uncertainty. Breaks research tasks into sub-questions and investigates each systematically.
+Загружает веб-страницы, читает документы и синтезирует результаты в четкие структурированные отчеты. Всегда цитирует источники, отделяет факты от анализа и отмечает неопределенность. Разбивает исследовательские задачи на подвопросы и систематически исследует каждый.
 
-- **Tags**: `research`, `analysis`, `web`
-- **Temperature**: 0.5
-- **Max tokens**: 4096
-- **Token quota**: 150,000/hour
-- **Tools**: `web_fetch`, `file_read`, `file_write`, `file_list`
-- **Capabilities**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `research`, `analysis`, `web`
+- **Температура**: 0.5
+- **Макс. токенов**: 4096
+- **Квота токенов**: 150,000/час
+- **Инструменты**: `web_fetch`, `file_read`, `file_write`, `file_list`
+- **Возможности**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn researcher
@@ -290,21 +290,21 @@ openfang spawn researcher
 
 ---
 
-### analyst
+### analyst (аналитик)
 
-**Tier 2 -- Smart** | `gemini/gemini-2.5-flash` | Fallback: `groq/llama-3.3-70b-versatile`
+**Уровень 2 — Smart** | `gemini/gemini-2.5-flash` | Фоллбэк: `groq/llama-3.3-70b-versatile`
 
-> Data analyst. Processes data, generates insights, creates reports.
+> Аналитик данных. Обрабатывает данные, генерирует идеи, создает отчеты.
 
-Analyzes data, finds patterns, generates insights, and creates structured reports. Shows methodology, uses numbers and evidence to support conclusions. Reads files first to understand data structure, then presents findings with summary, key metrics, detailed analysis, and recommendations.
+Анализирует данные, находит закономерности, генерирует идеи и создает структурированные отчеты. Показывает методологию, использует цифры и доказательства для поддержки выводов. Сначала читает файлы для понимания структуры данных, затем представляет результаты с резюме, ключевыми метриками, подробным анализом и рекомендациями.
 
-- **Tags**: none
-- **Temperature**: 0.4
-- **Max tokens**: 4096
-- **Token quota**: 150,000/hour
-- **Tools**: `file_read`, `file_write`, `file_list`, `shell_exec`
-- **Shell access**: `python *`, `cargo *`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: нет
+- **Температура**: 0.4
+- **Макс. токенов**: 4096
+- **Квота токенов**: 150,000/час
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `shell_exec`
+- **Доступ к шеллу**: `python *`, `cargo *`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn analyst
@@ -313,21 +313,21 @@ openfang spawn analyst
 
 ---
 
-### test-engineer
+### test-engineer (инженер по тестированию)
 
-**Tier 2 -- Smart** | `gemini/gemini-2.5-flash` | Fallback: `groq/llama-3.3-70b-versatile`
+**Уровень 2 — Smart** | `gemini/gemini-2.5-flash` | Фоллбэк: `groq/llama-3.3-70b-versatile`
 
-> Quality assurance engineer. Designs test strategies, writes tests, validates correctness.
+> QA-инженер. Разрабатывает стратегии тестирования, пишет тесты, проверяет корректность.
 
-Tests document behavior, not implementation. Prefers fast, deterministic tests. Designs unit tests, integration tests, property-based tests, edge case tests, and regression tests. Follows the Arrange-Act-Assert pattern with descriptive test names (`test_X_when_Y_should_Z`). Reviews test coverage to identify untested paths and missing edge cases.
+Тестирует поведение документации, а не реализацию. Предпочитает быстрые детерминированные тесты. Разрабатывает модульные, интеграционные тесты, тесты на основе свойств (property-based), тесты граничных случаев и регрессионные тесты. Следует паттерну Arrange-Act-Assert с описательными именами тестов (`test_X_when_Y_should_Z`). Анализирует покрытие тестами для выявления непротестированных путей и пропущенных граничных случаев.
 
-- **Tags**: `testing`, `qa`, `validation`
-- **Temperature**: 0.3
-- **Max tokens**: 4096
-- **Token quota**: 150,000/hour
-- **Tools**: `file_read`, `file_write`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`
-- **Shell access**: `cargo test *`, `cargo check *`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `testing`, `qa`, `validation`
+- **Температура**: 0.3
+- **Макс. токенов**: 4096
+- **Квота токенов**: 150,000/час
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`
+- **Доступ к шеллу**: `cargo test *`, `cargo check *`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn test-engineer
@@ -336,21 +336,21 @@ openfang spawn test-engineer
 
 ---
 
-### legal-assistant
+### legal-assistant (помощник юриста)
 
-**Tier 2 -- Smart** | `gemini/gemini-2.5-flash` | Fallback: `groq/llama-3.3-70b-versatile`
+**Уровень 2 — Smart** | `gemini/gemini-2.5-flash` | Фоллбэк: `groq/llama-3.3-70b-versatile`
 
-> Legal assistant for contract review, legal research, compliance checking, and document drafting.
+> Юридический помощник для проверки контрактов, правовых исследований, проверки комплаенса и составления документов.
 
-Systematically reviews contracts covering parties, termination provisions, payment terms, indemnification, IP provisions, confidentiality, governing law, and force majeure. Drafts NDAs, service agreements, terms of service, privacy policies, and employment agreements. Checks compliance against GDPR, SOC 2, HIPAA, PCI DSS, CCPA/CPRA, ADA, and OSHA. Always includes a disclaimer that output does not constitute legal advice.
+Систематически проверяет контракты, включая стороны, положения о расторжении, условия оплаты, возмещение ущерба, положения об ИС, конфиденциальность, применимое право и форс-мажор. Составляет соглашения о неразглашении (NDA), договоры об оказании услуг, условия использования, политики конфиденциальности и трудовые договоры. Проверяет соответствие GDPR, SOC 2, HIPAA, PCI DSS, CCPA/CPRA, ADA и OSHA. Всегда включает дисклеймер о том, что результат не является юридической консультацией.
 
-- **Tags**: `legal`, `contracts`, `compliance`, `research`, `review`, `documents`
-- **Temperature**: 0.2
-- **Max tokens**: 8192
-- **Token quota**: 200,000/hour
-- **Max concurrent tools**: 5
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
-- **Capabilities**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `legal`, `contracts`, `compliance`, `research`, `review`, `documents`
+- **Температура**: 0.2
+- **Макс. токенов**: 8192
+- **Квота токенов**: 200,000/час
+- **Макс. параллельных инструментов**: 5
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
+- **Возможности**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn legal-assistant
@@ -359,20 +359,20 @@ openfang spawn legal-assistant
 
 ---
 
-### planner
+### planner (планировщик)
 
-**Tier 3 -- Balanced** | `groq/llama-3.3-70b-versatile` | Fallback: `gemini/gemini-2.0-flash`
+**Уровень 3 — Balanced** | `groq/llama-3.3-70b-versatile` | Фоллбэк: `gemini/gemini-2.0-flash`
 
-> Project planner. Creates project plans, breaks down epics, estimates effort, identifies risks and dependencies.
+> Планировщик проектов. Создает планы проектов, разбивает эпики, оценивает усилия, выявляет риски и зависимости.
 
-Follows a structured methodology: scope (in/out), decompose (epics to stories to tasks), sequence (dependencies and critical path), estimate (S/M/L/XL with rationale), risk (technical and schedule), milestones (with acceptance criteria). Estimates ranges (best/likely/worst), tackles riskiest parts first, and builds in 20-30% buffer for unknowns.
+Следует структурированной методологии: объем (включено/исключено), декомпозиция (от эпиков к стори и задачам), последовательность (зависимости и критический путь), оценка (S/M/L/XL с обоснованием), риски (технические и временные), вехи (с критериями приемки). Оценивает диапазоны (оптимистичный/вероятный/пессимистичный), сначала берется за самые рискованные части и закладывает 20-30% буфера на непредвиденные обстоятельства.
 
-- **Tags**: none
-- **Temperature**: 0.3
-- **Max tokens**: 8192
-- **Token quota**: 200,000/hour
-- **Tools**: `file_read`, `file_list`, `memory_store`, `memory_recall`, `agent_send`
-- **Capabilities**: `agent_message = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: нет
+- **Температура**: 0.3
+- **Макс. токенов**: 8192
+- **Квота токенов**: 200,000/час
+- **Инструменты**: `file_read`, `file_list`, `memory_store`, `memory_recall`, `agent_send`
+- **Возможности**: `agent_message = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn planner
@@ -381,20 +381,20 @@ openfang spawn planner
 
 ---
 
-### writer
+### writer (автор/копирайтер)
 
-**Tier 3 -- Balanced** | `groq/llama-3.3-70b-versatile` | Fallback: `gemini/gemini-2.0-flash`
+**Уровень 3 — Balanced** | `groq/llama-3.3-70b-versatile` | Фоллбэк: `gemini/gemini-2.0-flash`
 
-> Content writer. Creates documentation, articles, and technical writing.
+> Создатель контента. Создает документацию, статьи и технические тексты.
 
-Excels at documentation, technical writing, blog posts, and clear communication. Writes concisely with active voice, structures content with headers and bullet points. Reads existing files for context and writes output to files when asked.
+Специализируется на документации, технических текстах, постах для блогов и четкой коммуникации. Пишет лаконично, используя активный залог, структурирует контент с помощью заголовков и списков. Читает существующие файлы для понимания контекста и записывает результат в файлы по запросу.
 
-- **Tags**: none
-- **Temperature**: 0.7
-- **Max tokens**: 4096
-- **Token quota**: 100,000/hour
-- **Tools**: `file_read`, `file_write`, `file_list`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*"]`
+- **Теги**: нет
+- **Температура**: 0.7
+- **Макс. токенов**: 4096
+- **Квота токенов**: 100,000/час
+- **Инструменты**: `file_read`, `file_write`, `file_list`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*"]`
 
 ```bash
 openfang spawn writer
@@ -403,20 +403,20 @@ openfang spawn writer
 
 ---
 
-### doc-writer
+### doc-writer (технический писатель)
 
-**Tier 3 -- Balanced** | `groq/llama-3.3-70b-versatile` | Fallback: `gemini/gemini-2.0-flash`
+**Уровень 3 — Balanced** | `groq/llama-3.3-70b-versatile` | Фоллбэк: `gemini/gemini-2.0-flash`
 
-> Technical writer. Creates documentation, README files, API docs, tutorials, and architecture guides.
+> Технический писатель. Создает файлы README, документацию API, руководства и описания архитектуры.
 
-Writes for the reader: starts with WHY, then WHAT, then HOW. Uses progressive disclosure (overview to details). Creates READMEs, API docs, architecture docs, tutorials, reference docs, and Architecture Decision Records (ADRs). Uses active voice, short sentences, and includes code examples for every non-trivial concept.
+Пишет для читателя: начинает с ПОЧЕМУ, затем ЧТО, затем КАК. Использует постепенное раскрытие информации (от обзора к деталям). Создает README, API-доки, архитектурные документы, туториалы, справочники и записи архитектурных решений (ADR). Использует активный залог, короткие предложения и включает примеры кода для каждой нетривиальной концепции.
 
-- **Tags**: none
-- **Temperature**: 0.4
-- **Max tokens**: 8192
-- **Token quota**: 200,000/hour
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: нет
+- **Температура**: 0.4
+- **Макс. токенов**: 8192
+- **Квота токенов**: 200,000/час
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn doc-writer
@@ -425,21 +425,21 @@ openfang spawn doc-writer
 
 ---
 
-### devops-lead
+### devops-lead (DevOps-лид)
 
-**Tier 3 -- Balanced** | `groq/llama-3.3-70b-versatile` | Fallback: `gemini/gemini-2.0-flash`
+**Уровень 3 — Balanced** | `groq/llama-3.3-70b-versatile` | Фоллбэк: `gemini/gemini-2.0-flash`
 
-> DevOps lead. Manages CI/CD, infrastructure, deployments, monitoring, and incident response.
+> Ведущий инженер DevOps. Управляет CI/CD, инфраструктурой, развертыванием, мониторингом и реагированием на инциденты.
 
-Covers CI/CD pipeline design, container orchestration (Docker, Kubernetes), Infrastructure as Code (Terraform, Pulumi), monitoring and observability (Prometheus, Grafana, OpenTelemetry), incident response, security hardening, and capacity planning. Designs pipelines with fast feedback loops, immutable artifacts, and automated rollback.
+Охватывает проектирование конвейеров CI/CD, оркестрацию контейнеров (Docker, Kubernetes), инфраструктуру как код (Terraform, Pulumi), мониторинг и наблюдаемость (Prometheus, Grafana, OpenTelemetry), реагирование на инциденты, усиление безопасности и планирование мощностей. Проектирует конвейеры с быстрой обратной связью, иммутабельными артефактами и автоматическим откатом.
 
-- **Tags**: none
-- **Temperature**: 0.2
-- **Max tokens**: 4096
-- **Token quota**: 150,000/hour
-- **Tools**: `file_read`, `file_write`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`, `agent_send`
-- **Shell access**: `docker *`, `git *`, `cargo *`, `kubectl *`
-- **Capabilities**: `agent_message = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: нет
+- **Температура**: 0.2
+- **Макс. токенов**: 4096
+- **Квота токенов**: 150,000/час
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `shell_exec`, `memory_store`, `memory_recall`, `agent_send`
+- **Доступ к шеллу**: `docker *`, `git *`, `cargo *`, `kubectl *`
+- **Возможности**: `agent_message = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn devops-lead
@@ -448,22 +448,22 @@ openfang spawn devops-lead
 
 ---
 
-### assistant
+### assistant (ассистент)
 
-**Tier 3 -- Balanced** | `groq/llama-3.3-70b-versatile` | Fallback: `gemini/gemini-2.0-flash`
+**Уровень 3 — Balanced** | `groq/llama-3.3-70b-versatile` | Фоллбэк: `gemini/gemini-2.0-flash`
 
-> General-purpose assistant. The default OpenFang agent for everyday tasks, questions, and conversations.
+> Универсальный помощник. Агент OpenFang по умолчанию для повседневных задач, вопросов и общения.
 
-The versatile default agent covering conversational intelligence, task execution, research and synthesis, writing and communication, problem solving, agent delegation (routes specialized tasks to the right specialist), knowledge management, and creative brainstorming. Acts as the user's trusted first point of contact -- handles most tasks directly and delegates to specialists when they would do better.
+Универсальный агент по умолчанию, охватывающий разговорный интеллект, выполнение задач, исследования и синтез, написание текстов и коммуникации, решение проблем, делегирование (направляет специализированные задачи нужным специалистам), управление знаниями и творческий мозговой штурм. Действует как надежная точка контакта для пользователя — выполняет большинство задач напрямую и делегирует их специалистам, когда те справятся лучше.
 
-- **Tags**: `general`, `assistant`, `default`, `multipurpose`, `conversation`, `productivity`
-- **Temperature**: 0.5
-- **Max tokens**: 8192
-- **Token quota**: 300,000/hour
-- **Max concurrent tools**: 10
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`, `shell_exec`, `agent_send`, `agent_list`
-- **Shell access**: `python *`, `cargo *`, `git *`, `npm *`
-- **Capabilities**: `network = ["*"]`, `agent_message = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `general`, `assistant`, `default`, `multipurpose`, `conversation`, `productivity`
+- **Температура**: 0.5
+- **Макс. токенов**: 8192
+- **Квота токенов**: 300,000/час
+- **Макс. параллельных инструментов**: 10
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`, `shell_exec`, `agent_send`, `agent_list`
+- **Доступ к шеллу**: `python *`, `cargo *`, `git *`, `npm *`
+- **Возможности**: `network = ["*"]`, `agent_message = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn assistant
@@ -472,21 +472,21 @@ openfang spawn assistant
 
 ---
 
-### email-assistant
+### email-assistant (Email-помощник)
 
-**Tier 3 -- Balanced** | `groq/llama-3.3-70b-versatile` | Fallback: `gemini/gemini-2.0-flash`
+**Уровень 3 — Balanced** | `groq/llama-3.3-70b-versatile` | Фоллбэк: `gemini/gemini-2.0-flash`
 
-> Email triage, drafting, scheduling, and inbox management agent.
+> Агент для сортировки, написания черновиков, планирования и управления почтовым ящиком.
 
-Rapidly triages incoming email by urgency, category, and required action. Drafts professional emails adapted to recipient and situation. Manages email-based scheduling and follow-up obligations. Recognizes recurring email patterns and generates reusable templates. Produces concise digests for long threads and high-volume inboxes.
+Быстро сортирует входящую почту по срочности, категории и требуемому действию. Составляет профессиональные письма, адаптированные к получателю и ситуации. Управляет планированием встреч через почту и обязательствами по последующим действиям. Распознает повторяющиеся паттерны в письмах и создает многоразовые шаблоны. Создает краткие дайджесты для длинных цепочек писем и переполненных ящиков.
 
-- **Tags**: `email`, `communication`, `triage`, `drafting`, `scheduling`, `productivity`
-- **Temperature**: 0.4
-- **Max tokens**: 8192
-- **Token quota**: 150,000/hour
-- **Max concurrent tools**: 5
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
-- **Capabilities**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `email`, `communication`, `triage`, `drafting`, `scheduling`, `productivity`
+- **Температура**: 0.4
+- **Макс. токенов**: 8192
+- **Квота токенов**: 150,000/час
+- **Макс. параллельных инструментов**: 5
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
+- **Возможности**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn email-assistant
@@ -495,21 +495,21 @@ openfang spawn email-assistant
 
 ---
 
-### social-media
+### social-media (SMM-агент)
 
-**Tier 3 -- Balanced** | `groq/llama-3.3-70b-versatile` | Fallback: `gemini/gemini-2.0-flash`
+**Уровень 3 — Balanced** | `groq/llama-3.3-70b-versatile` | Фоллбэк: `gemini/gemini-2.0-flash`
 
-> Social media content creation, scheduling, and engagement strategy agent.
+> Агент для создания контента для соцсетей, планирования и стратегии вовлечения.
 
-Crafts platform-optimized content for Twitter/X, LinkedIn, Instagram, Facebook, TikTok, Reddit, Mastodon, Bluesky, and Threads. Plans content calendars, designs engagement strategies, analyzes engagement data, defines brand voice guidelines, and optimizes hashtags and SEO. Adapts tone from professional thought leadership to casual and punchy depending on platform.
+Создает оптимизированный для платформ контент для Twitter/X, LinkedIn, Instagram, Facebook, TikTok, Reddit, Mastodon, Bluesky и Threads. Планирует контент-календари, разрабатывает стратегии вовлечения, анализирует данные о вовлеченности, определяет рекомендации по голосу бренда, оптимизирует хештеги и SEO. Адаптирует тон от профессионального экспертного мнения до непринужденного и броского в зависимости от платформы.
 
-- **Tags**: `social-media`, `content`, `marketing`, `engagement`, `scheduling`, `analytics`
-- **Temperature**: 0.7
-- **Max tokens**: 4096
-- **Token quota**: 120,000/hour
-- **Max concurrent tools**: 5
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
-- **Capabilities**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `social-media`, `content`, `marketing`, `engagement`, `scheduling`, `analytics`
+- **Температура**: 0.7
+- **Макс. токенов**: 4096
+- **Квота токенов**: 120,000/час
+- **Макс. параллельных инструментов**: 5
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
+- **Возможности**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn social-media
@@ -518,21 +518,21 @@ openfang spawn social-media
 
 ---
 
-### customer-support
+### customer-support (поддержка клиентов)
 
-**Tier 3 -- Balanced** | `groq/llama-3.3-70b-versatile` | Fallback: `gemini/gemini-2.0-flash`
+**Уровень 3 — Balanced** | `groq/llama-3.3-70b-versatile` | Фоллбэк: `gemini/gemini-2.0-flash`
 
-> Customer support agent for ticket handling, issue resolution, and customer communication.
+> Агент поддержки для обработки тикетов, решения проблем и общения с клиентами.
 
-Triages support tickets by category, severity, product area, and customer tier. Follows systematic troubleshooting workflows for issue diagnosis. Writes empathetic, solution-oriented customer responses. Manages knowledge base content and escalation handoffs. Monitors customer sentiment and generates support metrics summaries.
+Сортирует тикеты поддержки по категориям, серьезности, области продукта и уровню клиента. Следует систематическим воркфлоу по устранению неполадок для диагностики проблем. Пишет эмпатичные, ориентированные на решение ответы клиентам. Управляет контентом базы знаний и передачей тикетов специалистам. Мониторит настроения клиентов и создает сводки метрик поддержки.
 
-- **Tags**: `support`, `customer-service`, `tickets`, `helpdesk`, `communication`, `resolution`
-- **Temperature**: 0.3
-- **Max tokens**: 4096
-- **Token quota**: 200,000/hour
-- **Max concurrent tools**: 5
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
-- **Capabilities**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `support`, `customer-service`, `tickets`, `helpdesk`, `communication`, `resolution`
+- **Температура**: 0.3
+- **Макс. токенов**: 4096
+- **Квота токенов**: 200,000/час
+- **Макс. параллельных инструментов**: 5
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
+- **Возможности**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn customer-support
@@ -541,21 +541,21 @@ openfang spawn customer-support
 
 ---
 
-### sales-assistant
+### sales-assistant (ассистент по продажам)
 
-**Tier 3 -- Balanced** | `groq/llama-3.3-70b-versatile` | Fallback: `gemini/gemini-2.0-flash`
+**Уровень 3 — Balanced** | `groq/llama-3.3-70b-versatile` | Фоллбэк: `gemini/gemini-2.0-flash`
 
-> Sales assistant for CRM updates, outreach drafting, pipeline management, and deal tracking.
+> Ассистент по продажам для обновлений CRM, написания предложений, управления пайплайном и отслеживания сделок.
 
-Drafts personalized cold outreach emails using the AIDA framework. Manages CRM data with structured updates. Analyzes sales pipelines with weighted values, at-risk deals, and conversion rates. Prepares pre-call briefs with prospect research. Builds competitive battle cards and performs win/loss analysis.
+Составляет персонализированные "холодные" письма, используя фреймворк AIDA. Управляет данными в CRM со структурированными обновлениями. Анализирует пайплайны продаж со взвешенными значениями, сделками под риском и коэффициентами конверсии. Готовит брифы перед звонками с исследованием потенциальных клиентов. Создает конкурентные карты и выполняет анализ побед/поражений.
 
-- **Tags**: `sales`, `crm`, `outreach`, `pipeline`, `prospecting`, `deals`
-- **Temperature**: 0.5
-- **Max tokens**: 4096
-- **Token quota**: 150,000/hour
-- **Max concurrent tools**: 5
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
-- **Capabilities**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `sales`, `crm`, `outreach`, `pipeline`, `prospecting`, `deals`
+- **Температура**: 0.5
+- **Макс. токенов**: 4096
+- **Квота токенов**: 150,000/час
+- **Макс. параллельных инструментов**: 5
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
+- **Возможности**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn sales-assistant
@@ -564,21 +564,21 @@ openfang spawn sales-assistant
 
 ---
 
-### recruiter
+### recruiter (рекрутер)
 
-**Tier 3 -- Balanced** | `groq/llama-3.3-70b-versatile` | Fallback: `gemini/gemini-2.0-flash`
+**Уровень 3 — Balanced** | `groq/llama-3.3-70b-versatile` | Фоллбэк: `gemini/gemini-2.0-flash`
 
-> Recruiting agent for resume screening, candidate outreach, job description writing, and hiring pipeline management.
+> Агент по рекрутингу для скрининга резюме, взаимодействия с кандидатами, написания описаний вакансий и управления воронкой найма.
 
-Evaluates resumes against job requirements with structured match scoring. Writes inclusive, searchable job descriptions. Drafts personalized candidate outreach sequences. Prepares structured interview guides with STAR-format behavioral questions. Tracks candidates through hiring pipeline stages and generates reports. Actively supports inclusive hiring practices.
+Оценивает резюме на соответствие требованиям вакансии со структурированной оценкой совпадения. Пишет инклюзивные, оптимизированные для поиска описания вакансий. Составляет персонализированные цепочки сообщений кандидатам. Готовит структурированные гайды для интервью с поведенческими вопросами в формате STAR. Отслеживает кандидатов через этапы найма и генерирует отчеты. Активно поддерживает инклюзивные практики найма.
 
-- **Tags**: `recruiting`, `hiring`, `resume`, `outreach`, `talent`, `hr`
-- **Temperature**: 0.4
-- **Max tokens**: 4096
-- **Token quota**: 150,000/hour
-- **Max concurrent tools**: 5
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
-- **Capabilities**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `recruiting`, `hiring`, `resume`, `outreach`, `talent`, `hr`
+- **Температура**: 0.4
+- **Макс. токенов**: 4096
+- **Квота токенов**: 150,000/час
+- **Макс. параллельных инструментов**: 5
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
+- **Возможности**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn recruiter
@@ -587,21 +587,21 @@ openfang spawn recruiter
 
 ---
 
-### meeting-assistant
+### meeting-assistant (помощник по встречам)
 
-**Tier 3 -- Balanced** | `groq/llama-3.3-70b-versatile` | Fallback: `gemini/gemini-2.0-flash`
+**Уровень 3 — Balanced** | `groq/llama-3.3-70b-versatile` | Фоллбэк: `gemini/gemini-2.0-flash`
 
-> Meeting notes, action items, agenda preparation, and follow-up tracking agent.
+> Агент для заметок со встреч, выделения задач, подготовки повестки дня и отслеживания последующих действий.
 
-Creates structured, time-boxed agendas. Transforms raw meeting notes or transcripts into clean, structured minutes with executive summaries, key discussion points, decisions, and action items. Extracts every commitment with owner, deadline, and priority. Drafts follow-up emails and schedules reminders. Synthesizes across multiple related meetings to identify themes and gaps.
+Создает структурированные, ограниченные по времени повестки встреч. Превращает сырые заметки или транскрипты встреч в чистые структурированные протоколы с резюме для руководства, ключевыми моментами обсуждения, принятыми решениями и списком задач. Извлекает каждое обязательство с указанием ответственного, срока и приоритета. Составляет письма по итогам встречи и планирует напоминания. Синтезирует информацию по нескольким связанным встречам для выявления общих тем и пробелов.
 
-- **Tags**: `meetings`, `notes`, `action-items`, `agenda`, `follow-up`, `productivity`
-- **Temperature**: 0.3
-- **Max tokens**: 8192
-- **Token quota**: 150,000/hour
-- **Max concurrent tools**: 5
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `meetings`, `notes`, `action-items`, `agenda`, `follow-up`, `productivity`
+- **Температура**: 0.3
+- **Макс. токенов**: 8192
+- **Квота токенов**: 150,000/час
+- **Макс. параллельных инструментов**: 5
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn meeting-assistant
@@ -610,22 +610,22 @@ openfang spawn meeting-assistant
 
 ---
 
-### ops
+### ops (эксплуатация)
 
-**Tier 4 -- Fast** | `groq/llama-3.1-8b-instant` | No fallback
+**Уровень 4 — Fast** | `groq/llama-3.1-8b-instant` | Без фоллбэка
 
-> DevOps agent. Monitors systems, runs diagnostics, manages deployments.
+> DevOps-агент. Мониторит системы, проводит диагностику, управляет развертываниями.
 
-Monitors system health, runs diagnostics, and helps with deployments. Precise and cautious -- explains what a command does before running it. Prefers read-only operations unless explicitly asked to make changes. Reports in structured format: status, details, recommended action. Uses the smallest model in the fleet (8B) for maximum speed on routine ops checks.
+Следит за здоровьем системы, проводит диагностику и помогает с деплоем. Точен и осторожен — объясняет, что делает команда, перед ее запуском. Предпочитает операции "только для чтения", если явно не попросили внести изменения. Отчитывается в структурированном формате: статус, детали, рекомендуемое действие. Использует самую маленькую модель во флоте (8B) для максимальной скорости рутинных проверок.
 
-- **Tags**: none
-- **Temperature**: 0.2
-- **Max tokens**: 2048
-- **Token quota**: 50,000/hour
-- **Schedule**: Periodic every 5 minutes
-- **Tools**: `shell_exec`, `file_read`, `file_list`
-- **Shell access**: `docker *`, `git *`, `cargo *`, `systemctl *`, `ps *`, `df *`, `free *`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*"]`
+- **Теги**: нет
+- **Температура**: 0.2
+- **Макс. токенов**: 2048
+- **Квота токенов**: 50,000/час
+- **Расписание**: Периодически каждые 5 минут
+- **Инструменты**: `shell_exec`, `file_read`, `file_list`
+- **Доступ к шеллу**: `docker *`, `git *`, `cargo *`, `systemctl *`, `ps *`, `df *`, `free *`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*"]`
 
 ```bash
 openfang spawn ops
@@ -634,20 +634,20 @@ openfang spawn ops
 
 ---
 
-### hello-world
+### hello-world (привет, мир)
 
-**Tier 4 -- Fast** | `groq/llama-3.3-70b-versatile` | No fallback
+**Уровень 4 — Fast** | `groq/llama-3.3-70b-versatile` | Без фоллбэка
 
-> A friendly greeting agent that can read files and fetch web pages.
+> Дружелюбный приветственный агент, умеющий читать файлы и загружать веб-страницы.
 
-The simplest agent template -- a minimal starter agent with basic read-only capabilities. No system prompt, no tags, no shell access. Useful as a starting point for custom agents or for testing that the agent system is working.
+Самый простой шаблон агента — минимальный стартовый агент с базовыми возможностями только для чтения. Нет системного промпта, тегов или доступа к шеллу. Полезен как отправная точка для кастомных агентов или для тестирования работоспособности системы.
 
-- **Tags**: none
-- **Temperature**: default
-- **Max tokens**: default
-- **Token quota**: 100,000/hour
-- **Tools**: `file_read`, `file_list`, `web_fetch`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*"]`, `agent_spawn = false`
+- **Теги**: нет
+- **Температура**: по умолчанию
+- **Макс. токенов**: по умолчанию
+- **Квота токенов**: 100,000/час
+- **Инструменты**: `file_read`, `file_list`, `web_fetch`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*"]`, `agent_spawn = false`
 
 ```bash
 openfang spawn hello-world
@@ -656,21 +656,21 @@ openfang spawn hello-world
 
 ---
 
-### translator
+### translator (переводчик)
 
-**Tier 4 -- Fast** | `groq/llama-3.3-70b-versatile` | No fallback
+**Уровень 4 — Fast** | `groq/llama-3.3-70b-versatile` | Без фоллбэка
 
-> Multi-language translation agent for document translation, localization, and cross-cultural communication.
+> Агент многоязычного перевода для документов, локализации и межкультурной коммуникации.
 
-Translates between 20+ major languages with high fidelity to meaning, tone, and intent. Handles contextual and cultural adaptation, document format preservation, software localization (JSON, YAML, PO/POT, XLIFF), technical/specialized translation, translation quality assurance (back-translation, consistency checks), and glossary management. Flags ambiguous phrases with multiple translation options.
+Переводит между 20+ основными языками с высокой точностью передачи смысла, тона и намерений. Обрабатывает контекстную и культурную адаптацию, сохранение формата документа, локализацию ПО (JSON, YAML, PO/POT, XLIFF), технические/специализированные тексты, контроль качества перевода (обратный перевод, проверка согласованности) и управление глоссарием. Помечает двусмысленные фразы с несколькими вариантами перевода.
 
-- **Tags**: `translation`, `languages`, `localization`, `multilingual`, `communication`, `i18n`
-- **Temperature**: 0.3
-- **Max tokens**: 8192
-- **Token quota**: 200,000/hour
-- **Max concurrent tools**: 5
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
-- **Capabilities**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `translation`, `languages`, `localization`, `multilingual`, `communication`, `i18n`
+- **Температура**: 0.3
+- **Макс. токенов**: 8192
+- **Квота токенов**: 200,000/час
+- **Макс. параллельных инструментов**: 5
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
+- **Возможности**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn translator
@@ -679,22 +679,22 @@ openfang spawn translator
 
 ---
 
-### tutor
+### tutor (тьютор/учитель)
 
-**Tier 4 -- Fast** | `groq/llama-3.3-70b-versatile` | No fallback
+**Уровень 4 — Fast** | `groq/llama-3.3-70b-versatile` | Без фоллбэка
 
-> Teaching and explanation agent for learning, tutoring, and educational content creation.
+> Агент для обучения и объяснений, создания образовательного контента.
 
-Explains concepts at the learner's level using the Feynman Technique. Uses Socratic questioning to guide discovery. Teaches across mathematics, computer science, natural sciences, humanities, social sciences, and professional skills. Walks through problems step-by-step showing reasoning, not just solutions. Creates structured learning plans with spaced repetition. Provides practice questions with detailed, constructive feedback.
+Объясняет концепции на уровне учащегося, используя технику Фейнмана. Использует сократический метод для направления процесса познания. Преподает математику, информатику, естественные науки, гуманитарные науки, социальные науки и профессиональные навыки. Разбирает задачи пошагово, показывая рассуждения, а не только ответы. Создает структурированные планы обучения с интервальными повторениями. Предоставляет практические вопросы с подробной конструктивной обратной связью.
 
-- **Tags**: `education`, `teaching`, `tutoring`, `learning`, `explanation`, `knowledge`
-- **Temperature**: 0.5
-- **Max tokens**: 8192
-- **Token quota**: 200,000/hour
-- **Max concurrent tools**: 5
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `shell_exec`, `web_fetch`
-- **Shell access**: `python *`
-- **Capabilities**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `education`, `teaching`, `tutoring`, `learning`, `explanation`, `knowledge`
+- **Температура**: 0.5
+- **Макс. токенов**: 8192
+- **Квота токенов**: 200,000/час
+- **Макс. параллельных инструментов**: 5
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `shell_exec`, `web_fetch`
+- **Доступ к шеллу**: `python *`
+- **Возможности**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn tutor
@@ -703,22 +703,22 @@ openfang spawn tutor
 
 ---
 
-### health-tracker
+### health-tracker (трекер здоровья)
 
-**Tier 4 -- Fast** | `groq/llama-3.3-70b-versatile` | No fallback
+**Уровень 4 — Fast** | `groq/llama-3.3-70b-versatile` | Без фоллбэка
 
-> Wellness tracking agent for health metrics, medication reminders, fitness goals, and lifestyle habits.
+> Агент для отслеживания показателей здоровья, напоминаний о приеме лекарств, фитнес-целей и привычек.
 
-Tracks weight, blood pressure, heart rate, sleep, water intake, steps, mood, and custom metrics. Manages medication schedules with dosage, timing, and refill dates. Sets SMART fitness goals with progressive training plans. Logs meals and estimates nutritional content. Applies evidence-based habit formation principles. Generates periodic wellness reports. Always includes a disclaimer that it is not a medical professional.
+Отслеживает вес, артериальное давление, частоту сердечных сокращений, сон, потребление воды, шаги, настроение и кастомные метрики. Управляет графиками приема лекарств с указанием дозировки, времени и дат пополнения. Устанавливает SMART фитнес-цели с планами прогрессивных тренировок. Логирует приемы пищи и оценивает питательную ценность. Применяет научно обоснованные принципы формирования привычек. Генерирует периодические отчеты о состоянии здоровья. Всегда включает дисклеймер о том, что он не является медицинским работником.
 
-- **Tags**: `health`, `wellness`, `fitness`, `medication`, `habits`, `tracking`
-- **Temperature**: 0.3
-- **Max tokens**: 4096
-- **Token quota**: 100,000/hour
-- **Max concurrent tools**: 5
-- **Schedule**: Periodic every 1 hour
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*"]`
+- **Теги**: `health`, `wellness`, `fitness`, `medication`, `habits`, `tracking`
+- **Температура**: 0.3
+- **Макс. токенов**: 4096
+- **Квота токенов**: 100,000/час
+- **Макс. параллельных инструментов**: 5
+- **Расписание**: Периодически каждый 1 час
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*"]`
 
 ```bash
 openfang spawn health-tracker
@@ -727,22 +727,22 @@ openfang spawn health-tracker
 
 ---
 
-### personal-finance
+### personal-finance (личные финансы)
 
-**Tier 4 -- Fast** | `groq/llama-3.3-70b-versatile` | No fallback
+**Уровень 4 — Fast** | `groq/llama-3.3-70b-versatile` | Без фоллбэка
 
-> Personal finance agent for budget tracking, expense analysis, savings goals, and financial planning.
+> Агент по личным финансам для отслеживания бюджета, анализа расходов, целей сбережений и финансового планирования.
 
-Creates detailed budgets using frameworks like 50/30/20, zero-based budgeting, and envelope method. Processes expense data in any format (CSV, manual lists) and categorizes transactions. Defines and tracks savings goals with projected timelines. Analyzes debt portfolios and models avalanche vs. snowball payoff strategies. Produces financial health reports with net worth, debt-to-income ratio, and savings rate. Always disclaims that output is not financial advice.
+Создает подробные бюджеты, используя такие фреймворки, как 50/30/20, бюджетирование с нулевой базой и метод конвертов. Обрабатывает данные о расходах в любом формате (CSV, ручные списки) и классифицирует транзакции. Определяет и отслеживает цели сбережений с прогнозируемыми сроками. Анализирует долговые портфели и моделирует стратегии погашения ("лавина" против "снежного кома"). Создает отчеты о финансовом состоянии с чистой стоимостью активов, соотношением долга к доходу и нормой сбережений. Всегда предупреждает, что результат не является финансовым советом.
 
-- **Tags**: `finance`, `budget`, `expenses`, `savings`, `planning`, `money`
-- **Temperature**: 0.2
-- **Max tokens**: 8192
-- **Token quota**: 150,000/hour
-- **Max concurrent tools**: 5
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `shell_exec`
-- **Shell access**: `python *`
-- **Capabilities**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `finance`, `budget`, `expenses`, `savings`, `planning`, `money`
+- **Температура**: 0.2
+- **Макс. токенов**: 8192
+- **Квота токенов**: 150,000/час
+- **Макс. параллельных инструментов**: 5
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `shell_exec`
+- **Доступ к шеллу**: `python *`
+- **Возможности**: `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn personal-finance
@@ -751,21 +751,21 @@ openfang spawn personal-finance
 
 ---
 
-### travel-planner
+### travel-planner (планировщик путешествий)
 
-**Tier 4 -- Fast** | `groq/llama-3.3-70b-versatile` | No fallback
+**Уровень 4 — Fast** | `groq/llama-3.3-70b-versatile` | Без фоллбэка
 
-> Trip planning agent for itinerary creation, booking research, budget estimation, and travel logistics.
+> Агент для планирования поездок, составления маршрутов, поиска бронирований, оценки бюджета и логистики.
 
-Builds day-by-day itineraries with estimated times, transportation, meal recommendations, and contingency plans. Provides comprehensive destination guides covering best times to visit, attractions, customs, safety, cuisine, and visa requirements. Creates detailed travel budgets at multiple price tiers. Recommends accommodations by type, neighborhood, and budget. Plans transportation logistics including flights, trains, and local transit. Generates customized packing lists.
+Составляет подневные маршруты с примерным временем, транспортом, рекомендациями по еде и запасными планами. Предоставляет подробные путеводители, охватывающие лучшее время для посещения, достопримечательности, обычаи, безопасность, кухню и визовые требования. Создает подробные бюджеты поездок в нескольких ценовых категориях. Рекомендует жилье по типу, району и бюджету. Планирует логистику транспорта, включая перелеты, поезда и местный транспорт. Генерирует индивидуальные списки вещей.
 
-- **Tags**: `travel`, `planning`, `itinerary`, `booking`, `logistics`, `vacation`
-- **Temperature**: 0.5
-- **Max tokens**: 8192
-- **Token quota**: 150,000/hour
-- **Max concurrent tools**: 5
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
-- **Capabilities**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `travel`, `planning`, `itinerary`, `booking`, `logistics`, `vacation`
+- **Температура**: 0.5
+- **Макс. токенов**: 8192
+- **Квота токенов**: 150,000/час
+- **Макс. параллельных инструментов**: 5
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `web_fetch`
+- **Возможности**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn travel-planner
@@ -774,22 +774,22 @@ openfang spawn travel-planner
 
 ---
 
-### home-automation
+### home-automation (умный дом)
 
-**Tier 4 -- Fast** | `groq/llama-3.3-70b-versatile` | No fallback
+**Уровень 4 — Fast** | `groq/llama-3.3-70b-versatile` | Без фоллбэка
 
-> Smart home control agent for IoT device management, automation rules, and home monitoring.
+> Агент для управления умным домом, IoT-устройствами, правилами автоматизации и мониторинга.
 
-Manages smart home devices (lights, thermostats, security, appliances, sensors). Designs automation workflows using event-condition-action patterns. Configures multi-device scenes for common scenarios (morning routine, movie night, bedtime, away mode). Monitors energy consumption and recommends optimizations. Configures home security workflows. Troubleshoots IoT connectivity and bridges different ecosystems (Home Assistant, HomeKit, SmartThings). Understands Matter/Thread protocol adoption.
+Управляет устройствами умного дома (свет, термостаты, безопасность, бытовая техника, датчики). Разрабатывает воркфлоу автоматизации, используя паттерны "событие-условие-действие". Настраивает сцены для нескольких устройств для обычных сценариев (утренний распорядок, вечер кино, время сна, режим отсутствия). Мониторит энергопотребление и рекомендует оптимизации. Настраивает воркфлоу безопасности дома. Устраняет проблемы с подключением IoT и связывает различные экосистемы (Home Assistant, HomeKit, SmartThings). Понимает внедрение протоколов Matter/Thread.
 
-- **Tags**: `smart-home`, `iot`, `automation`, `devices`, `monitoring`, `home`
-- **Temperature**: 0.2
-- **Max tokens**: 4096
-- **Token quota**: 100,000/hour
-- **Max concurrent tools**: 10
-- **Tools**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `shell_exec`, `web_fetch`
-- **Shell access**: `curl *`, `python *`, `ping *`
-- **Capabilities**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
+- **Теги**: `smart-home`, `iot`, `automation`, `devices`, `monitoring`, `home`
+- **Температура**: 0.2
+- **Макс. токенов**: 4096
+- **Квота токенов**: 100,000/час
+- **Макс. параллельных инструментов**: 10
+- **Инструменты**: `file_read`, `file_write`, `file_list`, `memory_store`, `memory_recall`, `shell_exec`, `web_fetch`
+- **Доступ к шеллу**: `curl *`, `python *`, `ping *`
+- **Возможности**: `network = ["*"]`, `memory_read = ["*"]`, `memory_write = ["self.*", "shared.*"]`
 
 ```bash
 openfang spawn home-automation
@@ -798,150 +798,150 @@ openfang spawn home-automation
 
 ---
 
-## Custom Templates
+## Кастомные шаблоны
 
-The `agents/custom/` directory is reserved for your own agent templates. Create a new `agent.toml` file following the manifest format below.
+Директория `agents/custom/` зарезервирована для ваших собственных шаблонов агентов. Создайте новый файл `agent.toml`, следуя формату манифеста ниже.
 
-### Manifest Format
+### Формат манифеста
 
 ```toml
-# Required fields
+# Обязательные поля
 name = "my-agent"
 version = "0.1.0"
-description = "What this agent does in one sentence."
+description = "Что делает этот агент, одним предложением."
 author = "your-name"
 module = "builtin:chat"
 
-# Optional metadata
+# Опциональные метаданные
 tags = ["tag1", "tag2"]
 
-# Optional per-agent history cap (issue #871). Falls back to the runtime
-# default (20) when unset. Bump it for primary/orchestrator agents that need
-# longer conversational memory, lower it for short-lived worker agents so
-# their agent_send results stay focused.
-# max_history_messages = 40   # primary/orchestrator
-# max_history_messages = 6    # worker
+# Опциональное ограничение истории на агента (issue #871).
+# Возвращается к значению по умолчанию (20), если не установлено.
+# Увеличьте для основных/оркестрирующих агентов, которым нужна длинная память,
+# уменьшите для кратковременных рабочих агентов.
+# max_history_messages = 40   # основной/оркестратор
+# max_history_messages = 6    # рабочий агент
 
-# Model configuration (required)
+# Конфигурация модели (обязательно)
 [model]
-provider = "gemini"                  # Provider: gemini, deepseek, groq, openai, anthropic, etc.
-model = "gemini-2.5-flash"           # Model identifier
-api_key_env = "GEMINI_API_KEY"       # Env var holding the API key
-max_tokens = 4096                    # Max output tokens per response
-temperature = 0.3                    # Creativity (0.0 = deterministic, 1.0 = creative)
-system_prompt = """Your agent's personality, capabilities, and instructions go here.
-Be specific about what the agent should and should not do."""
+provider = "gemini"                  # Провайдер: gemini, deepseek, groq, openai, anthropic и т.д.
+model = "gemini-2.5-flash"           # Идентификатор модели
+api_key_env = "GEMINI_API_KEY"       # Переменная окружения с ключом
+max_tokens = 4096                    # Макс. токенов вывода на ответ
+temperature = 0.3                    # Креативность (0.0 = детерминировано, 1.0 = креативно)
+system_prompt = """Личность вашего агента, его возможности и инструкции пишутся здесь.
+Будьте конкретны в том, что агент должен и не должен делать."""
 
-# Optional fallback model (used when primary is unavailable)
+# Опциональная фоллбэк-модель (используется, когда основная недоступна)
 [[fallback_models]]
 provider = "groq"
 model = "llama-3.3-70b-versatile"
 api_key_env = "GROQ_API_KEY"
 
 [schedule]
-periodic = { cron = "every 5m" }                                     # Periodic execution
-# continuous = { check_interval_secs = 120 }                         # Continuous loop
-# proactive = { conditions = ["event:agent_spawned"] }               # Event-triggered
+periodic = { cron = "every 5m" }                                     # Периодическое выполнение
+# continuous = { check_interval_secs = 120 }                         # Непрерывный цикл
+# proactive = { conditions = ["event:agent_spawned"] }               # Срабатывание по событию
 
-# Resource limits
+# Ограничения ресурсов
 [resources]
-max_llm_tokens_per_hour = 150000    # Token budget per hour
-max_concurrent_tools = 5            # Max parallel tool executions
+max_llm_tokens_per_hour = 150000    # Бюджет токенов в час
+max_concurrent_tools = 5            # Макс. параллельных вызовов инструментов
 
-# Capability grants (principle of least privilege)
+# Предоставление возможностей (принцип наименьших привилегий)
 [capabilities]
 tools = ["file_read", "file_write", "file_list", "shell_exec",
          "memory_store", "memory_recall", "web_fetch",
          "agent_send", "agent_list", "agent_spawn", "agent_kill"]
-network = ["*"]                     # Network access patterns
-memory_read = ["*"]                 # Memory namespaces agent can read
-memory_write = ["self.*"]           # Memory namespaces agent can write
-agent_spawn = true                  # Can this agent spawn other agents?
-agent_message = ["*"]               # Which agents can it message?
-shell = ["python *", "cargo *"]     # Allowed shell command patterns (whitelist)
+network = ["*"]                     # Паттерны сетевого доступа
+memory_read = ["*"]                 # Пространства имен памяти, доступные для чтения
+memory_write = ["self.*"]           # Пространства имен памяти, доступные для записи
+agent_spawn = true                  # Может ли этот агент запускать других агентов?
+agent_message = ["*"]               # Каким агентам он может отправлять сообщения?
+shell = ["python *", "cargo *"]     # Разрешенные паттерны команд шелла (белый список)
 ```
 
-### Available Tools
+### Доступные инструменты
 
-| Tool | Description |
+| Инструмент | Описание |
 |------|-------------|
-| `file_read` | Read file contents |
-| `file_write` | Write/create files |
-| `file_list` | List directory contents |
-| `shell_exec` | Execute shell commands (restricted by `shell` whitelist) |
-| `memory_store` | Persist key-value data to memory |
-| `memory_recall` | Retrieve data from memory |
-| `web_fetch` | Fetch content from URLs (SSRF-protected) |
-| `agent_send` | Send a message to another agent |
-| `agent_list` | List all running agents |
-| `agent_spawn` | Spawn a new agent |
-| `agent_kill` | Terminate a running agent |
+| `file_read` | Чтение содержимого файлов |
+| `file_write` | Запись/создание файлов |
+| `file_list` | Список содержимого директории |
+| `shell_exec` | Выполнение команд шелла (ограничено белым списком `shell`) |
+| `memory_store` | Сохранение данных в память (ключ-значение) |
+| `memory_recall` | Извлечение данных из памяти |
+| `web_fetch` | Загрузка контента по URL (с защитой от SSRF) |
+| `agent_send` | Отправка сообщения другому агенту |
+| `agent_list` | Список всех работающих агентов |
+| `agent_spawn` | Запуск нового агента |
+| `agent_kill` | Завершение работы агента |
 
-### Tips for Custom Agents
+### Советы по созданию кастомных агентов
 
-1. **Start minimal**. Grant only the tools and capabilities the agent actually needs. You can always add more later.
-2. **Write a clear system prompt**. The system prompt is the most important part of the template. Be specific about the agent's role, methodology, output format, and limitations.
-3. **Set appropriate temperature**. Use 0.2 for precise/analytical tasks, 0.5 for balanced tasks, 0.7+ for creative tasks.
-4. **Use shell whitelists**. Never grant `shell = ["*"]`. Whitelist specific command patterns like `shell = ["python *", "cargo test *"]`.
-5. **Set token budgets**. Use `max_llm_tokens_per_hour` to prevent runaway costs. Start with 100,000 and adjust based on usage.
-6. **Add fallback models**. If your primary model has rate limits or availability issues, add a `[[fallback_models]]` entry.
-7. **Use memory for continuity**. Grant `memory_store` and `memory_recall` so the agent can persist context across sessions.
+1. **Начинайте с минимума**. Предоставляйте только те инструменты и возможности, которые агенту действительно необходимы. Вы всегда сможете добавить больше позже.
+2. **Пишите четкий системный промпт**. Системный промпт — самая важная часть шаблона. Будьте конкретны в описании роли агента, методологии, формата вывода и ограничений.
+3. **Устанавливайте подходящую температуру**. Используйте 0.2 для точных/аналитических задач, 0.5 для сбалансированных задач, 0.7+ для творческих.
+4. **Используйте белые списки для шелла**. Никогда не разрешайте `shell = ["*"]`. Указывайте конкретные паттерны команд, например `shell = ["python *", "cargo test *"]`.
+5. **Устанавливайте бюджеты токенов**. Используйте `max_llm_tokens_per_hour` для предотвращения неконтролируемых затрат. Начните со 100 000 и корректируйте в зависимости от использования.
+6. **Добавляйте фоллбэк-модели**. Если у вашей основной модели есть лимиты скорости или проблемы с доступностью, добавьте запись `[[fallback_models]]`.
+7. **Используйте память для непрерывности**. Разрешите `memory_store` и `memory_recall`, чтобы агент мог сохранять контекст между сессиями.
 
 ---
 
-## Spawning Agents
+## Запуск агентов
 
 ### CLI
 
 ```bash
-# Spawn by template name
+# Запуск по имени шаблона
 openfang spawn coder
 
-# Spawn with a custom name
+# Запуск с кастомным именем
 openfang spawn coder --name "backend-coder"
 
-# Spawn from a TOML file path
+# Запуск из файла манифеста TOML
 openfang spawn --template agents/custom/my-agent.toml
 
-# List running agents
+# Список работающих агентов
 openfang agents
 
-# Send a message
+# Отправка сообщения
 openfang message <agent-id> "Write a function to parse TOML files"
 
-# Kill an agent
+# Остановка агента
 openfang kill <agent-id>
 ```
 
 ### REST API
 
 ```bash
-# Spawn from template
+# Запуск из шаблона
 POST /api/agents
 {"template": "coder"}
 
-# Spawn with overrides
+# Запуск с переопределениями
 POST /api/agents
 {"template": "coder", "name": "backend-coder", "model": "deepseek-chat"}
 
-# Send message
+# Отправка сообщения
 POST /api/agents/{id}/message
 {"content": "Implement the auth module"}
 
-# WebSocket (streaming)
+# WebSocket (потоковая передача)
 WS /api/agents/{id}/ws
 
-# List agents
+# Список агентов
 GET /api/agents
 
-# Delete agent
+# Удаление агента
 DELETE /api/agents/{id}
 ```
 
-### OpenAI-Compatible API
+### OpenAI-совместимый API
 
 ```bash
-# Use any agent through the OpenAI-compatible endpoint
+# Использование любого агента через OpenAI-совместимый эндпоинт
 POST /v1/chat/completions
 {
   "model": "openfang:coder",
@@ -949,34 +949,34 @@ POST /v1/chat/completions
   "stream": true
 }
 
-# List available models
+# Список доступных моделей
 GET /v1/models
 ```
 
-### Orchestrator Delegation
+### Делегирование оркестратора
 
-The orchestrator agent can spawn and delegate to any other agent programmatically:
+Агент-оркестратор может запускать других агентов и делегировать им задачи программно:
 
 ```
-User: "Build a REST API with tests and documentation"
+Пользователь: "Build a REST API with tests and documentation"
 
-Orchestrator:
+Оркестратор:
 1. agent_send(coder, "Implement the REST API endpoints")
 2. agent_send(test-engineer, "Write integration tests for these endpoints")
 3. agent_send(doc-writer, "Document the API endpoints")
-4. Synthesize all results into a final report
+4. Синтезирует все результаты в итоговый отчет
 ```
 
 ---
 
-## Environment Variables
+## Переменные окружения
 
-Set the following API keys to enable the corresponding model providers:
+Установите следующие ключи API, чтобы включить соответствующих провайдеров моделей:
 
-| Variable | Provider | Used By |
+| Переменная | Провайдер | Кем используется |
 |----------|----------|---------|
-| `DEEPSEEK_API_KEY` | DeepSeek | Tier 1 (orchestrator, architect, security-auditor) |
-| `GEMINI_API_KEY` | Google Gemini | Tier 2 primary, Tier 3 fallback |
-| `GROQ_API_KEY` | Groq | Tier 3 primary, Tier 1/2 fallback, Tier 4 |
+| `DEEPSEEK_API_KEY` | DeepSeek | Уровень 1 (orchestrator, architect, security-auditor) |
+| `GEMINI_API_KEY` | Google Gemini | Основной для Уровня 2, фоллбэк для Уровня 3 |
+| `GROQ_API_KEY` | Groq | Основной для Уровня 3, фоллбэк для Уровней 1/2, Уровень 4 |
 
-At minimum, set `GROQ_API_KEY` to enable all Tier 3 and Tier 4 agents. Add `GEMINI_API_KEY` for Tier 2 agents. Add `DEEPSEEK_API_KEY` for Tier 1 frontier agents.
+Как минимум установите `GROQ_API_KEY`, чтобы включить всех агентов Уровня 3 и Уровня 4. Добавьте `GEMINI_API_KEY` для агентов Уровня 2. Добавьте `DEEPSEEK_API_KEY` для агентов Уровня 1 (frontier).

@@ -1,4 +1,4 @@
-# OpenFang CLI Reference (рус.)
+# Справочник OpenFang CLI (рус.)
 
 Краткая справка по основным командам `openfang`.
 
@@ -40,24 +40,29 @@ openfang hand activate <name>
 
 `openfang --help` и `openfang <cmd> --help` показывают полные опции для команд.
 
+---
 
-**Checks performed:**
+### openfang doctor
 
-1. **OpenFang directory** -- `~/.openfang/` exists
-2. **.env file** -- exists and has correct permissions (0600 on Unix)
-3. **Config TOML syntax** -- `config.toml` parses without errors
-4. **Daemon status** -- whether a daemon is running
-5. **Port 4200 availability** -- if daemon is not running, checks if the port is free
-6. **Stale daemon.json** -- leftover `daemon.json` from a crashed daemon
-7. **Database file** -- SQLite magic bytes validation
-8. **Disk space** -- warns if less than 100MB available (Unix only)
-9. **Agent manifests** -- validates all `.toml` files in `~/.openfang/agents/`
-10. **LLM provider keys** -- checks env vars for 10 providers (Groq, OpenRouter, Anthropic, OpenAI, DeepSeek, Gemini, Google, Together, Mistral, Fireworks), performs live validation (401/403 detection)
-11. **Channel tokens** -- format validation for Telegram, Discord, Slack tokens
-12. **Config consistency** -- checks that `api_key_env` references in config match actual environment variables
-13. **Rust toolchain** -- `rustc --version`
+Проверяет работоспособность и конфигурацию окружения.
 
-**Example:**
+**Выполняемые проверки:**
+
+1. **Директория OpenFang** — проверка существования `~/.openfang/`
+2. **Файл .env** — существует и имеет правильные права доступа (0600 в Unix)
+3. **Синтаксис Config TOML** — проверка корректности парсинга `config.toml`
+4. **Статус демона** — запущен ли демон
+5. **Доступность порта 4200** — если демон не запущен, проверяется, свободен ли порт
+6. **Устаревший daemon.json** — остатки `daemon.json` от аварийно завершенного демона
+7. **Файл базы данных** — проверка магических байтов SQLite
+8. **Дисковое пространство** — предупреждение, если доступно менее 100 МБ (только для Unix)
+9. **Манифесты агентов** — валидация всех `.toml` файлов в `~/.openfang/agents/`
+10. **Ключи провайдеров LLM** — проверка переменных окружения для 10 провайдеров (Groq, OpenRouter, Anthropic, OpenAI, DeepSeek, Gemini, Google, Together, Mistral, Fireworks), выполнение живой валидации (обнаружение ошибок 401/403)
+11. **Токены каналов** — валидация формата токенов Telegram, Discord, Slack
+12. **Согласованность конфигурации** — проверка того, что ссылки `api_key_env` в конфигурации соответствуют фактическим переменным окружения
+13. **Инструментарий Rust** — `rustc --version`
+
+**Пример:**
 
 ```bash
 openfang doctor
@@ -71,19 +76,19 @@ openfang doctor --json
 
 ### openfang dashboard
 
-Open the web dashboard in the default browser.
+Открыть веб-панель управления в браузере по умолчанию.
 
 ```
 openfang dashboard
 ```
 
-**Behavior:**
+**Поведение:**
 
-- Requires a running daemon.
-- Opens the daemon URL (e.g. `http://127.0.0.1:4200/`) in the system browser.
-- Copies the URL to the system clipboard (uses PowerShell on Windows, `pbcopy` on macOS, `xclip`/`xsel` on Linux).
+- Требуется запущенный демон.
+- Открывает URL демона (например, `http://127.0.0.1:4200/`) в системном браузере.
+- Копирует URL в системный буфер обмена (использует PowerShell в Windows, `pbcopy` в macOS, `xclip`/`xsel` в Linux).
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang dashboard
@@ -93,19 +98,19 @@ openfang dashboard
 
 ### openfang completion
 
-Generate shell completion scripts.
+Генерация скриптов автодополнения для командной оболочки.
 
 ```
 openfang completion <SHELL>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<SHELL>` | Target shell. One of: `bash`, `zsh`, `fish`, `elvish`, `powershell`. |
+| `<SHELL>` | Целевая оболочка. Одна из: `bash`, `zsh`, `fish`, `elvish`, `powershell`. |
 
-**Example:**
+**Пример:**
 
 ```bash
 # Bash
@@ -123,39 +128,39 @@ openfang completion powershell > openfang.ps1
 
 ---
 
-## Agent Commands
+## Команды агентов
 
 ### openfang agent new
 
-Spawn an agent from a built-in template.
+Создать агента на основе встроенного шаблона.
 
 ```
 openfang agent new [<TEMPLATE>]
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<TEMPLATE>` | Template name (e.g. `coder`, `assistant`, `researcher`). If omitted, displays an interactive picker listing all available templates. |
+| `<TEMPLATE>` | Имя шаблона (например, `coder`, `assistant`, `researcher`). Если опущено, отображается интерактивный список всех доступных шаблонов. |
 
-**Behavior:**
+**Поведение:**
 
-- Templates are discovered from: the repo `agents/` directory (dev builds), `~/.openfang/agents/` (installed), and `OPENFANG_AGENTS_DIR` (env override).
-- Each template is a directory containing an `agent.toml` manifest.
-- In daemon mode: sends `POST /api/agents` with the manifest. Agent is persistent.
-- In standalone mode: boots an in-process kernel. Agent is ephemeral.
+- Шаблоны обнаруживаются в: директории `agents/` репозитория (для разработчиков), `~/.openfang/agents/` (установленные) и `OPENFANG_AGENTS_DIR` (переопределение через переменные окружения).
+- Каждый шаблон представляет собой директорию, содержащую манифест `agent.toml`.
+- В режиме демона: отправляет `POST /api/agents` с манифестом. Агент является постоянным.
+- В автономном режиме: запускает временное ядро в процессе. Агент является эфемерным.
 
-**Example:**
+**Пример:**
 
 ```bash
-# Interactive picker
+# Интерактивный выбор
 openfang agent new
 
-# Spawn by name
+# Создание по имени
 openfang agent new coder
 
-# Spawn the assistant template
+# Создание по шаблону assistant
 openfang agent new assistant
 ```
 
@@ -163,25 +168,25 @@ openfang agent new assistant
 
 ### openfang agent spawn
 
-Spawn an agent from a custom manifest file.
+Создать агента из пользовательского файла манифеста.
 
 ```
 openfang agent spawn <MANIFEST>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<MANIFEST>` | Path to an agent manifest TOML file. |
+| `<MANIFEST>` | Путь к файлу манифеста агента в формате TOML. |
 
-**Behavior:**
+**Поведение:**
 
-- Reads and parses the TOML manifest file.
-- In daemon mode: sends the raw TOML to `POST /api/agents`.
-- In standalone mode: boots an in-process kernel and spawns the agent locally.
+- Читает и парсит файл манифеста TOML.
+- В режиме демона: отправляет необработанный TOML в `POST /api/agents`.
+- В автономном режиме: запускает временное ядро и создает агента локально.
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang agent spawn ./my-agent/agent.toml
@@ -191,21 +196,21 @@ openfang agent spawn ./my-agent/agent.toml
 
 ### openfang agent list
 
-List all running agents.
+Список всех запущенных агентов.
 
 ```
 openfang agent list [--json]
 ```
 
-**Options:**
+**Опции:**
 
-| Option | Description |
+| Опция | Описание |
 |---|---|
-| `--json` | Output as JSON array for scripting. |
+| `--json` | Вывод в формате JSON массива для скриптов. |
 
-**Output columns:** ID, NAME, STATE, PROVIDER, MODEL (daemon mode) or ID, NAME, STATE, CREATED (in-process mode).
+**Колонки вывода:** ID, NAME, STATE, PROVIDER, MODEL (режим демона) или ID, NAME, STATE, CREATED (автономный режим).
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang agent list
@@ -217,26 +222,26 @@ openfang agent list --json | jq '.[].name'
 
 ### openfang agent chat
 
-Start an interactive chat session with a specific agent.
+Начать интерактивную сессию чата с конкретным агентом.
 
 ```
 openfang agent chat <AGENT_ID>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<AGENT_ID>` | Agent UUID. Obtain from `openfang agent list`. |
+| `<AGENT_ID>` | UUID агента. Можно получить через `openfang agent list`. |
 
-**Behavior:**
+**Поведение:**
 
-- Opens a REPL-style chat loop.
-- Type messages at the `you>` prompt.
-- Agent responses display at the `agent>` prompt, followed by token usage and iteration count.
-- Type `exit`, `quit`, or press `Ctrl+C` to end the session.
+- Открывает цикл чата в стиле REPL.
+- Вводите сообщения в приглашении `you>`.
+- Ответы агента отображаются в приглашении `agent>`, после чего следует информация об использовании токенов и количестве итераций.
+- Введите `exit`, `quit` или нажмите `Ctrl+C`, чтобы завершить сессию.
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang agent chat a1b2c3d4-e5f6-7890-abcd-ef1234567890
@@ -246,19 +251,19 @@ openfang agent chat a1b2c3d4-e5f6-7890-abcd-ef1234567890
 
 ### openfang agent kill
 
-Terminate a running agent.
+Завершить работу запущенного агента.
 
 ```
 openfang agent kill <AGENT_ID>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<AGENT_ID>` | Agent UUID to terminate. |
+| `<AGENT_ID>` | UUID агента для завершения. |
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang agent kill a1b2c3d4-e5f6-7890-abcd-ef1234567890
@@ -266,37 +271,37 @@ openfang agent kill a1b2c3d4-e5f6-7890-abcd-ef1234567890
 
 ---
 
-## Workflow Commands
+## Команды воркфлоу (Workflow)
 
-All workflow commands require a running daemon.
+Все команды воркфлоу требуют запущенного демона.
 
 ### openfang workflow list
 
-List all registered workflows.
+Список всех зарегистрированных воркфлоу.
 
 ```
 openfang workflow list
 ```
 
-**Output columns:** ID, NAME, STEPS, CREATED.
+**Колонки вывода:** ID, NAME, STEPS, CREATED.
 
 ---
 
 ### openfang workflow create
 
-Create a workflow from a JSON definition file.
+Создать воркфлоу из файла определения JSON.
 
 ```
 openfang workflow create <FILE>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<FILE>` | Path to a JSON file describing the workflow steps. |
+| `<FILE>` | Путь к JSON-файлу, описывающему шаги воркфлоу. |
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang workflow create ./my-workflow.json
@@ -306,20 +311,20 @@ openfang workflow create ./my-workflow.json
 
 ### openfang workflow run
 
-Execute a workflow by ID.
+Выполнить воркфлоу по ID.
 
 ```
 openfang workflow run <WORKFLOW_ID> <INPUT>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<WORKFLOW_ID>` | Workflow UUID. Obtain from `openfang workflow list`. |
-| `<INPUT>` | Input text to pass to the workflow. |
+| `<WORKFLOW_ID>` | UUID воркфлоу. Можно получить через `openfang workflow list`. |
+| `<INPUT>` | Входной текст для передачи в воркфлоу. |
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang workflow run abc123 "Analyze this code for security issues"
@@ -327,63 +332,63 @@ openfang workflow run abc123 "Analyze this code for security issues"
 
 ---
 
-## Trigger Commands
+## Команды триггеров
 
-All trigger commands require a running daemon.
+Все команды триггеров требуют запущенного демона.
 
 ### openfang trigger list
 
-List all event triggers.
+Список всех триггеров событий.
 
 ```
 openfang trigger list [--agent-id <ID>]
 ```
 
-**Options:**
+**Опции:**
 
-| Option | Description |
+| Опция | Описание |
 |---|---|
-| `--agent-id <ID>` | Filter triggers by the owning agent's UUID. |
+| `--agent-id <ID>` | Фильтровать триггеры по UUID владеющего агента. |
 
-**Output columns:** TRIGGER ID, AGENT ID, ENABLED, FIRES, PATTERN.
+**Колонки вывода:** TRIGGER ID, AGENT ID, ENABLED, FIRES, PATTERN.
 
 ---
 
 ### openfang trigger create
 
-Create an event trigger for an agent.
+Создать триггер события для агента.
 
 ```
 openfang trigger create <AGENT_ID> <PATTERN_JSON> [--prompt <TEMPLATE>] [--max-fires <N>]
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<AGENT_ID>` | UUID of the agent that owns the trigger. |
-| `<PATTERN_JSON>` | Trigger pattern as a JSON string. |
+| `<AGENT_ID>` | UUID агента, которому принадлежит триггер. |
+| `<PATTERN_JSON>` | Шаблон триггера в виде JSON-строки. |
 
-**Options:**
+**Опции:**
 
-| Option | Default | Description |
+| Опция | По умолчанию | Описание |
 |---|---|---|
-| `--prompt <TEMPLATE>` | `"Event: {{event}}"` | Prompt template. Use `{{event}}` as a placeholder for the event data. |
-| `--max-fires <N>` | `0` (unlimited) | Maximum number of times the trigger will fire. |
+| `--prompt <TEMPLATE>` | `"Event: {{event}}"` | Шаблон промпта. Используйте `{{event}}` как плейсхолдер для данных события. |
+| `--max-fires <N>` | `0` (безлимитно) | Максимальное количество срабатываний триггера. |
 
-**Pattern examples:**
+**Примеры шаблонов:**
 
 ```bash
-# Fire on any lifecycle event
+# Срабатывание на любое событие жизненного цикла
 openfang trigger create <AGENT_ID> '{"lifecycle":{}}'
 
-# Fire when a specific agent is spawned
+# Срабатывание при создании конкретного агента
 openfang trigger create <AGENT_ID> '{"agent_spawned":{"name_pattern":"*"}}'
 
-# Fire on agent termination
+# Срабатывание при завершении работы агента
 openfang trigger create <AGENT_ID> '{"agent_terminated":{}}'
 
-# Fire on all events (limited to 10 fires)
+# Срабатывание на все события (ограничено 10 разами)
 openfang trigger create <AGENT_ID> '{"all":{}}' --max-fires 10
 ```
 
@@ -391,65 +396,65 @@ openfang trigger create <AGENT_ID> '{"all":{}}' --max-fires 10
 
 ### openfang trigger delete
 
-Delete a trigger by ID.
+Удалить триггер по ID.
 
 ```
 openfang trigger delete <TRIGGER_ID>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<TRIGGER_ID>` | UUID of the trigger to delete. |
+| `<TRIGGER_ID>` | UUID триггера для удаления. |
 
 ---
 
-## Skill Commands
+## Команды навыков (Skill)
 
 ### openfang skill list
 
-List all installed skills.
+Список всех установленных навыков.
 
 ```
 openfang skill list
 ```
 
-**Output columns:** NAME, VERSION, TOOLS, DESCRIPTION.
+**Колонки вывода:** NAME, VERSION, TOOLS, DESCRIPTION.
 
-Loads skills from `~/.openfang/skills/` plus bundled skills compiled into the binary.
+Загружает навыки из `~/.openfang/skills/`, а также встроенные навыки, скомпилированные в бинарный файл.
 
 ---
 
 ### openfang skill install
 
-Install a skill from a local directory, git URL, or FangHub marketplace.
+Установить навык из локальной директории, URL git или маркетплейса FangHub.
 
 ```
 openfang skill install <SOURCE>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<SOURCE>` | Skill name (FangHub), local directory path, or git URL. |
+| `<SOURCE>` | Имя навыка (FangHub), путь к локальной директории или URL git. |
 
-**Behavior:**
+**Поведение:**
 
-- **Local directory:** Looks for `skill.toml` in the directory. If not found, checks for OpenClaw-format skills (SKILL.md with YAML frontmatter) and auto-converts them.
-- **Remote (FangHub):** Fetches and installs from the FangHub marketplace. Skills pass through SHA256 verification and prompt injection scanning.
+- **Локальная директория:** Ищет `skill.toml` в директории. Если не найдено, проверяет наличие навыков в формате OpenClaw (SKILL.md с YAML frontmatter) и автоматически конвертирует их.
+- **Удаленный источник (FangHub):** Загружает и устанавливает из маркетплейса FangHub. Навыки проходят проверку SHA256 и сканирование на наличие инъекций в промпты.
 
-**Example:**
+**Пример:**
 
 ```bash
-# Install from local directory
+# Установка из локальной директории
 openfang skill install ./my-skill/
 
-# Install from FangHub
+# Установка из FangHub
 openfang skill install web-search
 
-# Install an OpenClaw-format skill
+# Установка навыка в формате OpenClaw
 openfang skill install ./openclaw-skill/
 ```
 
@@ -457,19 +462,19 @@ openfang skill install ./openclaw-skill/
 
 ### openfang skill remove
 
-Remove an installed skill.
+Удалить установленный навык.
 
 ```
 openfang skill remove <NAME>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<NAME>` | Name of the skill to remove. |
+| `<NAME>` | Имя навыка для удаления. |
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang skill remove web-search
@@ -479,19 +484,19 @@ openfang skill remove web-search
 
 ### openfang skill search
 
-Search the FangHub marketplace for skills.
+Поиск навыков в маркетплейсе FangHub.
 
 ```
 openfang skill search <QUERY>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<QUERY>` | Search query string. |
+| `<QUERY>` | Поисковый запрос. |
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang skill search "docker kubernetes"
@@ -501,24 +506,24 @@ openfang skill search "docker kubernetes"
 
 ### openfang skill create
 
-Interactively scaffold a new skill project.
+Интерактивное создание каркаса нового проекта навыка.
 
 ```
 openfang skill create
 ```
 
-**Behavior:**
+**Поведение:**
 
-Prompts for:
-- Skill name
-- Description
-- Runtime (`python`, `node`, or `wasm`; defaults to `python`)
+Запрашивает:
+- Имя навыка
+- Описание
+- Среда выполнения (`python`, `node` или `wasm`; по умолчанию `python`)
 
-Creates a directory under `~/.openfang/skills/<name>/` with:
-- `skill.toml` -- manifest file
-- `src/main.py` (or `src/index.js`) -- entry point with boilerplate
+Создает директорию в `~/.openfang/skills/<name>/` с:
+- `skill.toml` — файл манифеста
+- `src/main.py` (или `src/index.js`) — точка входа с шаблонным кодом
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang skill create
@@ -529,54 +534,54 @@ openfang skill create
 
 ---
 
-## Channel Commands
+## Команды каналов (Channel)
 
 ### openfang channel list
 
-List configured channels and their status.
+Список настроенных каналов и их статус.
 
 ```
 openfang channel list
 ```
 
-**Output columns:** CHANNEL, ENV VAR, STATUS.
+**Колонки вывода:** CHANNEL, ENV VAR, STATUS.
 
-Checks `config.toml` for channel configuration sections and environment variables for required tokens. Status is one of: `Ready`, `Missing env`, `Not configured`.
+Проверяет `config.toml` на наличие разделов конфигурации каналов и переменные окружения на наличие необходимых токенов. Статус может быть: `Ready`, `Missing env`, `Not configured`.
 
-**Channels checked:** webchat, telegram, discord, slack, whatsapp, signal, matrix, email.
+**Проверяемые каналы:** webchat, telegram, discord, slack, whatsapp, signal, matrix, email.
 
 ---
 
 ### openfang channel setup
 
-Interactive setup wizard for a channel integration.
+Интерактивный мастер настройки интеграции канала.
 
 ```
 openfang channel setup [<CHANNEL>]
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<CHANNEL>` | Channel name. If omitted, displays an interactive picker. |
+| `<CHANNEL>` | Имя канала. Если опущено, отображается интерактивный выбор. |
 
-**Supported channels:** `telegram`, `discord`, `slack`, `whatsapp`, `email`, `signal`, `matrix`.
+**Поддерживаемые каналы:** `telegram`, `discord`, `slack`, `whatsapp`, `email`, `signal`, `matrix`.
 
-Each wizard:
-1. Displays step-by-step instructions for obtaining credentials.
-2. Prompts for tokens/credentials.
-3. Saves tokens to `~/.openfang/.env` with owner-only permissions.
-4. Appends the channel configuration block to `config.toml` (prompts for confirmation).
-5. Warns to restart the daemon if one is running.
+Каждый мастер:
+1. Отображает пошаговые инструкции для получения учетных данных.
+2. Запрашивает токены/учетные данные.
+3. Сохраняет токены в `~/.openfang/.env` с правами доступа только для владельца.
+4. Добавляет блок конфигурации канала в `config.toml` (запрашивает подтверждение).
+5. Предупреждает о необходимости перезапуска демона, если он запущен.
 
-**Example:**
+**Пример:**
 
 ```bash
-# Interactive picker
+# Интерактивный выбор
 openfang channel setup
 
-# Direct setup
+# Прямая настройка
 openfang channel setup telegram
 openfang channel setup discord
 openfang channel setup slack
@@ -586,21 +591,21 @@ openfang channel setup slack
 
 ### openfang channel test
 
-Send a test message through a configured channel.
+Отправить тестовое сообщение через настроенный канал.
 
 ```
 openfang channel test <CHANNEL>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<CHANNEL>` | Channel name to test. |
+| `<CHANNEL>` | Имя канала для тестирования. |
 
-Requires a running daemon. Sends `POST /api/channels/<channel>/test`.
+Требуется запущенный демон. Отправляет `POST /api/channels/<channel>/test`.
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang channel test telegram
@@ -610,81 +615,81 @@ openfang channel test telegram
 
 ### openfang channel enable
 
-Enable a channel integration.
+Включить интеграцию канала.
 
 ```
 openfang channel enable <CHANNEL>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<CHANNEL>` | Channel name to enable. |
+| `<CHANNEL>` | Имя канала для включения. |
 
-In daemon mode: sends `POST /api/channels/<channel>/enable`. Without a daemon: prints a note that the change will take effect on next start.
+В режиме демона: отправляет `POST /api/channels/<channel>/enable`. Без демона: выводит уведомление о том, что изменения вступят в силу при следующем запуске.
 
 ---
 
 ### openfang channel disable
 
-Disable a channel without removing its configuration.
+Отключить канал без удаления его конфигурации.
 
 ```
 openfang channel disable <CHANNEL>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<CHANNEL>` | Channel name to disable. |
+| `<CHANNEL>` | Имя канала для отключения. |
 
-In daemon mode: sends `POST /api/channels/<channel>/disable`. Without a daemon: prints a note to edit `config.toml`.
+В режиме демона: отправляет `POST /api/channels/<channel>/disable`. Без демона: выводит уведомление о необходимости отредактировать `config.toml`.
 
 ---
 
-## Config Commands
+## Команды конфигурации (Config)
 
 ### openfang config show
 
-Display the current configuration file.
+Отобразить текущий файл конфигурации.
 
 ```
 openfang config show
 ```
 
-Prints the contents of `~/.openfang/config.toml` with the file path as a header comment.
+Выводит содержимое `~/.openfang/config.toml` с путем к файлу в виде комментария в заголовке.
 
 ---
 
 ### openfang config edit
 
-Open the configuration file in your editor.
+Открыть файл конфигурации в вашем редакторе.
 
 ```
 openfang config edit
 ```
 
-Uses `$EDITOR`, then `$VISUAL`, then falls back to `notepad` (Windows) or `vi` (Unix).
+Использует `$EDITOR`, затем `$VISUAL`, при их отсутствии переходит к `notepad` (Windows) или `vi` (Unix).
 
 ---
 
 ### openfang config get
 
-Get a single configuration value by dotted key path.
+Получить отдельное значение конфигурации по пути к ключу через точку.
 
 ```
 openfang config get <KEY>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<KEY>` | Dotted key path into the TOML structure. |
+| `<KEY>` | Путь к ключу в структуре TOML через точку. |
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang config get default_model.provider
@@ -701,22 +706,22 @@ openfang config get memory.decay_rate
 
 ### openfang config set
 
-Set a configuration value by dotted key path.
+Установить значение конфигурации по пути к ключу через точку.
 
 ```
 openfang config set <KEY> <VALUE>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<KEY>` | Dotted key path. |
-| `<VALUE>` | New value. Type is inferred from the existing value (integer, float, boolean, or string). |
+| `<KEY>` | Путь к ключу через точку. |
+| `<VALUE>` | Новое значение. Тип определяется на основе существующего значения (целое число, число с плавающей точкой, логическое значение или строка). |
 
-**Warning:** This command re-serializes the TOML file, which strips all comments.
+**Предупреждение:** Эта команда повторно сериализует TOML-файл, что удаляет все комментарии.
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang config set default_model.provider anthropic
@@ -728,26 +733,26 @@ openfang config set api_listen "0.0.0.0:4200"
 
 ### openfang config set-key
 
-Save an LLM provider API key to `~/.openfang/.env`.
+Сохранить API-ключ провайдера LLM в `~/.openfang/.env`.
 
 ```
 openfang config set-key <PROVIDER>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<PROVIDER>` | Provider name (e.g. `groq`, `anthropic`, `openai`, `gemini`, `deepseek`, `openrouter`, `together`, `mistral`, `fireworks`, `perplexity`, `cohere`, `xai`, `brave`, `tavily`). |
+| `<PROVIDER>` | Имя провайдера (например, `groq`, `anthropic`, `openai`, `gemini`, `deepseek`, `openrouter`, `together`, `mistral`, `fireworks`, `perplexity`, `cohere`, `xai`, `brave`, `tavily`). |
 
-**Behavior:**
+**Поведение:**
 
-- Prompts interactively for the API key.
-- Saves to `~/.openfang/.env` as `<PROVIDER_NAME>_API_KEY=<value>`.
-- Runs a live validation test against the provider's API.
-- File permissions are restricted to owner-only on Unix.
+- Запрашивает API-ключ в интерактивном режиме.
+- Сохраняет в `~/.openfang/.env` как `<PROVIDER_NAME>_API_KEY=<value>`.
+- Запускает живой тест валидации через API провайдера.
+- Права доступа к файлу ограничены только владельцем в Unix.
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang config set-key groq
@@ -760,19 +765,19 @@ openfang config set-key groq
 
 ### openfang config delete-key
 
-Remove an API key from `~/.openfang/.env`.
+Удалить API-ключ из `~/.openfang/.env`.
 
 ```
 openfang config delete-key <PROVIDER>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<PROVIDER>` | Provider name. |
+| `<PROVIDER>` | Имя провайдера. |
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang config delete-key openai
@@ -782,26 +787,26 @@ openfang config delete-key openai
 
 ### openfang config test-key
 
-Test provider connectivity with the stored API key.
+Протестировать соединение с провайдером, используя сохраненный API-ключ.
 
 ```
 openfang config test-key <PROVIDER>
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<PROVIDER>` | Provider name. |
+| `<PROVIDER>` | Имя провайдера. |
 
-**Behavior:**
+**Поведение:**
 
-- Reads the API key from the environment (loaded from `~/.openfang/.env`).
-- Hits the provider's models/health endpoint.
-- Reports `OK` (key accepted) or `FAILED (401/403)` (key rejected).
-- Exits with code 1 on failure.
+- Читает API-ключ из окружения (загруженного из `~/.openfang/.env`).
+- Обращается к эндпоинту моделей/здоровья провайдера.
+- Сообщает `OK` (ключ принят) или `FAILED (401/403)` (ключ отклонен).
+- Завершается с кодом 1 в случае неудачи.
 
-**Example:**
+**Пример:**
 
 ```bash
 openfang config test-key groq
@@ -810,119 +815,119 @@ openfang config test-key groq
 
 ---
 
-## Quick Chat
+## Быстрый чат (Quick Chat)
 
 ### openfang chat
 
-Quick alias for starting a chat session.
+Быстрый псевдоним для запуска сессии чата.
 
 ```
 openfang chat [<AGENT>]
 ```
 
-**Arguments:**
+**Аргументы:**
 
-| Argument | Description |
+| Аргумент | Описание |
 |---|---|
-| `<AGENT>` | Optional agent name or UUID. |
+| `<AGENT>` | Необязательное имя агента или UUID. |
 
-**Behavior:**
+**Поведение:**
 
-- **Daemon mode:** Finds the agent by name or ID among running agents. If no agent name is given, uses the first available agent. If no agents exist, suggests `openfang agent new`.
-- **Standalone mode (no daemon):** Boots an in-process kernel and auto-spawns an agent from templates. Searches for an agent matching the given name, then falls back to `assistant`, then to the first available template.
+- **Режим демона:** Находит агента по имени или ID среди запущенных агентов. Если имя агента не указано, использует первого доступного агента. Если агентов нет, предлагает `openfang agent new`.
+- **Автономный режим (без демона):** Запускает временное ядро и автоматически создает агента из шаблонов. Ищет агента, соответствующего указанному имени, затем переходит к `assistant`, затем к первому доступному шаблону.
 
-This is the simplest way to start chatting -- it works with or without a daemon.
+Это самый простой способ начать общение — он работает как с демоном, так и без него.
 
-**Example:**
+**Пример:**
 
 ```bash
-# Chat with the default agent
+# Чат с агентом по умолчанию
 openfang chat
 
-# Chat with a specific agent by name
+# Чат с конкретным агентом по имени
 openfang chat coder
 
-# Chat with a specific agent by UUID
+# Чат с конкретным агентом по UUID
 openfang chat a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
 ---
 
-## Migration
+## Миграция
 
 ### openfang migrate
 
-Migrate configuration and agents from another agent framework.
+Миграция конфигурации и агентов из другого фреймворка агентов.
 
 ```
 openfang migrate --from <FRAMEWORK> [--source-dir <PATH>] [--dry-run]
 ```
 
-**Options:**
+**Опции:**
 
-| Option | Description |
+| Опция | Описание |
 |---|---|
-| `--from <FRAMEWORK>` | Source framework. One of: `openclaw`, `langchain`, `autogpt`. |
-| `--source-dir <PATH>` | Path to the source workspace. Auto-detected if not set (e.g. `~/.openclaw`, `~/.langchain`, `~/Auto-GPT`). |
-| `--dry-run` | Show what would be imported without making changes. |
+| `--from <FRAMEWORK>` | Исходный фреймворк. Один из: `openclaw`, `langchain`, `autogpt`. |
+| `--source-dir <PATH>` | Путь к исходному рабочему пространству. Автоматически определяется, если не задан (например, `~/.openclaw`, `~/.langchain`, `~/Auto-GPT`). |
+| `--dry-run` | Показать, что будет импортировано, без внесения изменений. |
 
-**Behavior:**
+**Поведение:**
 
-- Converts agent configurations, YAML manifests, and settings from the source framework into OpenFang format.
-- Saves imported data to `~/.openfang/`.
-- Writes a `migration_report.md` summarizing what was imported.
+- Конвертирует конфигурации агентов, манифесты YAML и настройки из исходного фреймворка в формат OpenFang.
+- Сохраняет импортированные данные в `~/.openfang/`.
+- Записывает `migration_report.md` с кратким изложением того, что было импортировано.
 
-**Example:**
+**Пример:**
 
 ```bash
-# Dry run migration from OpenClaw
+# Предварительный просмотр миграции из OpenClaw
 openfang migrate --from openclaw --dry-run
 
-# Migrate from OpenClaw (auto-detect source)
+# Миграция из OpenClaw (автоопределение источника)
 openfang migrate --from openclaw
 
-# Migrate from LangChain with explicit source
+# Миграция из LangChain с указанием пути к источнику
 openfang migrate --from langchain --source-dir /home/user/.langchain
 
-# Migrate from AutoGPT
+# Миграция из AutoGPT
 openfang migrate --from autogpt
 ```
 
 ---
 
-## MCP Server
+## MCP-сервер
 
 ### openfang mcp
 
-Start an MCP (Model Context Protocol) server over stdio.
+Запуск сервера MCP (Model Context Protocol) через stdio.
 
 ```
 openfang mcp
 ```
 
-**Behavior:**
+**Поведение:**
 
-- Exposes running OpenFang agents as MCP tools via JSON-RPC 2.0 over stdin/stdout with Content-Length framing.
-- Each agent becomes a callable tool named `openfang_agent_<name>` (hyphens replaced with underscores).
-- Connects to a running daemon via HTTP if available; otherwise boots an in-process kernel.
-- Protocol version: `2024-11-05`.
-- Maximum message size: 10MB (security limit).
+- Предоставляет запущенных агентов OpenFang как инструменты MCP через JSON-RPC 2.0 по stdin/stdout с фреймингом Content-Length.
+- Каждый агент становится вызываемым инструментом с именем `openfang_agent_<name>` (дефисы заменяются на подчеркивания).
+- Подключается к запущенному демону через HTTP, если он доступен; в противном случае запускает временное ядро.
+- Версия протокола: `2024-11-05`.
+- Максимальный размер сообщения: 10 МБ (лимит безопасности).
 
-**Supported MCP methods:**
+**Поддерживаемые методы MCP:**
 
-| Method | Description |
+| Метод | Описание |
 |---|---|
-| `initialize` | Returns server capabilities and info. |
-| `tools/list` | Lists all available agent tools. |
-| `tools/call` | Sends a message to an agent and returns the response. |
+| `initialize` | Возвращает возможности и информацию сервера. |
+| `tools/list` | Выводит список всех доступных инструментов агентов. |
+| `tools/call` | Отправляет сообщение агенту и возвращает ответ. |
 
-**Tool input schema:**
+**Схема входных данных инструмента:**
 
-Each agent tool accepts a single `message` (string) argument.
+Каждый инструмент агента принимает один аргумент `message` (строка).
 
-**Integration with Claude Desktop / other MCP clients:**
+**Интеграция с Claude Desktop / другими MCP-клиентами:**
 
-Add to your MCP client configuration:
+Добавьте в конфигурацию вашего MCP-клиента:
 
 ```json
 {
@@ -937,34 +942,34 @@ Add to your MCP client configuration:
 
 ---
 
-## Daemon Auto-Detect
+## Автоопределение демона
 
-The CLI uses a two-step mechanism to detect a running daemon:
+CLI использует двухэтапный механизм для обнаружения запущенного демона:
 
-1. **Read `daemon.json`:** On startup, the daemon writes `~/.openfang/daemon.json` containing the listen address (e.g. `127.0.0.1:4200`). The CLI reads this file to learn where the daemon is.
+1. **Чтение `daemon.json`:** При запуске демон записывает в `~/.openfang/daemon.json` адрес прослушивания (например, `127.0.0.1:4200`). CLI читает этот файл, чтобы узнать, где находится демон.
 
-2. **Health check:** The CLI sends `GET http://<listen_addr>/api/health` with a 2-second timeout. If the health check succeeds, the daemon is considered running and the CLI uses HTTP to communicate with it.
+2. **Проверка состояния (Health check):** CLI отправляет `GET http://<listen_addr>/api/health` с таймаутом в 2 секунды. Если проверка прошла успешно, демон считается запущенным, и CLI использует HTTP для связи с ним.
 
-If either step fails (no `daemon.json`, stale file, health check timeout), the CLI falls back to in-process mode for commands that support it. Commands that require a daemon (workflows, triggers, channel test/enable/disable, dashboard) will exit with an error and a helpful message.
+Если любой из этапов завершается неудачно (нет `daemon.json`, файл устарел, таймаут проверки состояния), CLI переходит в автономный режим для команд, которые его поддерживают. Команды, требующие демона (workflows, triggers, channel test/enable/disable, dashboard), завершатся с ошибкой и информативным сообщением.
 
-**Daemon lifecycle:**
+**Жизненный цикл демона:**
 
 ```
-openfang start          # Starts daemon, writes daemon.json
-                        # Other CLI instances detect daemon.json
-openfang status         # Connects to daemon via HTTP
-Ctrl+C                  # Daemon shuts down, daemon.json removed
+openfang start          # Запускает демон, записывает daemon.json
+                        # Другие экземпляры CLI обнаруживают daemon.json
+openfang status         # Подключается к демону через HTTP
+Ctrl+C                  # Демон завершает работу, daemon.json удаляется
 
-openfang doctor --repair  # Cleans up stale daemon.json from crashes
+openfang doctor --repair  # Очищает устаревший daemon.json после сбоев
 ```
 
 ---
 
-## Environment File
+## Файл окружения
 
-OpenFang loads `~/.openfang/.env` into the process environment on every CLI invocation. System environment variables take priority over `.env` values.
+OpenFang загружает `~/.openfang/.env` в окружение процесса при каждом вызове CLI. Переменные окружения системы имеют приоритет над значениями из `.env`.
 
-The `.env` file stores API keys and secrets:
+Файл `.env` хранит API-ключи и секреты:
 
 ```bash
 GROQ_API_KEY=gsk_...
@@ -973,200 +978,200 @@ GEMINI_API_KEY=AIza...
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 ```
 
-Manage keys with the `config set-key` / `config delete-key` commands rather than editing the file directly, as these commands enforce correct permissions.
+Управляйте ключами с помощью команд `config set-key` / `config delete-key`, а не редактируйте файл напрямую, так как эти команды обеспечивают правильные права доступа.
 
 ---
 
-## Exit Codes
+## Коды выхода
 
-| Code | Meaning |
+| Код | Значение |
 |---|---|
-| `0` | Success. |
-| `1` | General error (invalid arguments, failed operations, missing daemon, parse errors, spawn failures). |
-| `130` | Interrupted by second `Ctrl+C` (force exit). |
+| `0` | Успех. |
+| `1` | Общая ошибка (неверные аргументы, сбой операций, отсутствие демона, ошибки парсинга, ошибки создания агента). |
+| `130` | Прервано вторым нажатием `Ctrl+C` (принудительный выход). |
 
 ---
 
-## Examples
+## Примеры
 
-### First-time setup
+### Первая настройка
 
 ```bash
-# 1. Set your API key
+# 1. Установите ваш API-ключ
 export GROQ_API_KEY="gsk_your_key_here"
 
-# 2. Initialize OpenFang
+# 2. Инициализируйте OpenFang
 openfang init --quick
 
-# 3. Start the daemon
+# 3. Запустите демон
 openfang start
 ```
 
-### Daily usage
+### Ежедневное использование
 
 ```bash
-# Quick chat (auto-spawns agent if needed)
+# Быстрый чат (агент создается автоматически при необходимости)
 openfang chat
 
-# Chat with a specific agent
+# Чат с конкретным агентом
 openfang chat coder
 
-# Check what's running
+# Проверка того, что запущено
 openfang status
 
-# Open the web dashboard
+# Открыть веб-панель управления
 openfang dashboard
 ```
 
-### Agent management
+### Управление агентами
 
 ```bash
-# Spawn from a template
+# Создание из шаблона
 openfang agent new assistant
 
-# Spawn from a custom manifest
+# Создание из пользовательского манифеста
 openfang agent spawn ./agents/custom-agent/agent.toml
 
-# List running agents
+# Список запущенных агентов
 openfang agent list
 
-# Chat with an agent by UUID
+# Чат с агентом по UUID
 openfang agent chat <UUID>
 
-# Kill an agent
+# Завершение работы агента
 openfang agent kill <UUID>
 ```
 
-### Workflow automation
+### Автоматизация воркфлоу
 
 ```bash
-# Create a workflow
+# Создание воркфлоу
 openfang workflow create ./review-pipeline.json
 
-# List workflows
+# Список воркфлоу
 openfang workflow list
 
-# Run a workflow
+# Запуск воркфлоу
 openfang workflow run <WORKFLOW_ID> "Review the latest PR"
 ```
 
-### Event triggers
+### Триггеры событий
 
 ```bash
-# Create a trigger that fires on agent spawn
+# Создание триггера, который срабатывает при создании агента
 openfang trigger create <AGENT_ID> '{"agent_spawned":{"name_pattern":"*"}}' \
   --prompt "New agent spawned: {{event}}" \
   --max-fires 100
 
-# List all triggers
+# Список всех триггеров
 openfang trigger list
 
-# List triggers for a specific agent
+# Список триггеров для конкретного агента
 openfang trigger list --agent-id <AGENT_ID>
 
-# Delete a trigger
+# Удаление триггера
 openfang trigger delete <TRIGGER_ID>
 ```
 
-### Skill management
+### Управление навыками
 
 ```bash
-# Search FangHub
+# Поиск в FangHub
 openfang skill search "code review"
 
-# Install a skill
+# Установка навыка
 openfang skill install code-reviewer
 
-# List installed skills
+# Список установленных навыков
 openfang skill list
 
-# Create a new skill
+# Создание нового навыка
 openfang skill create
 
-# Remove a skill
+# Удаление навыка
 openfang skill remove code-reviewer
 ```
 
-### Channel setup
+### Настройка каналов
 
 ```bash
-# Interactive channel picker
+# Интерактивный выбор канала
 openfang channel setup
 
-# Direct channel setup
+# Прямая настройка канала
 openfang channel setup telegram
 
-# Check channel status
+# Проверка статуса каналов
 openfang channel list
 
-# Test a channel
+# Тестирование канала
 openfang channel test telegram
 
-# Enable/disable channels
+# Включение/выключение каналов
 openfang channel enable discord
 openfang channel disable slack
 ```
 
-### Configuration
+### Конфигурация
 
 ```bash
-# View config
+# Просмотр конфигурации
 openfang config show
 
-# Get a specific value
+# Получение конкретного значения
 openfang config get default_model.provider
 
-# Change provider
+# Смена провайдера
 openfang config set default_model.provider anthropic
 openfang config set default_model.model claude-sonnet-4-20250514
 openfang config set default_model.api_key_env ANTHROPIC_API_KEY
 
-# Manage API keys
+# Управление API-ключами
 openfang config set-key anthropic
 openfang config test-key anthropic
 openfang config delete-key openai
 
-# Open in editor
+# Открыть в редакторе
 openfang config edit
 ```
 
-### Migration from other frameworks
+### Миграция из других фреймворков
 
 ```bash
-# Preview migration
+# Предварительный просмотр миграции
 openfang migrate --from openclaw --dry-run
 
-# Run migration
+# Запуск миграции
 openfang migrate --from openclaw
 
-# Migrate from LangChain
+# Миграция из LangChain
 openfang migrate --from langchain --source-dir ~/.langchain
 ```
 
-### MCP integration
+### Интеграция MCP
 
 ```bash
-# Start MCP server for Claude Desktop or other MCP clients
+# Запуск MCP-сервера для Claude Desktop или других MCP-клиентов
 openfang mcp
 ```
 
-### Diagnostics
+### Диагностика
 
 ```bash
-# Run all diagnostic checks
+# Запуск всех диагностических проверок
 openfang doctor
 
-# Auto-repair issues
+# Автоматическое исправление проблем
 openfang doctor --repair
 
-# Machine-readable diagnostics
+# Машиночитаемая диагностика
 openfang doctor --json
 ```
 
-### Shell completions
+### Автодополнение оболочки
 
 ```bash
-# Generate and install completions for your shell
+# Генерация и установка дополнений для вашей оболочки
 openfang completion bash >> ~/.bashrc
 openfang completion zsh > "${fpath[1]}/_openfang"
 openfang completion fish > ~/.config/fish/completions/openfang.fish
@@ -1174,14 +1179,14 @@ openfang completion fish > ~/.config/fish/completions/openfang.fish
 
 ---
 
-## Supported LLM Providers
+## Поддерживаемые провайдеры LLM
 
-The following providers are recognized by `openfang config set-key` and `openfang doctor`:
+Следующие провайдеры распознаются командами `openfang config set-key` и `openfang doctor`:
 
-| Provider | Environment Variable | Default Model |
+| Провайдер | Переменная окружения | Модель по умолчанию |
 |---|---|---|
 | Groq | `GROQ_API_KEY` | `llama-3.3-70b-versatile` |
-| Gemini | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `gemini-2.5-flash` |
+| Gemini | `GEMINI_API_KEY` или `GOOGLE_API_KEY` | `gemini-2.5-flash` |
 | DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-chat` |
 | Anthropic | `ANTHROPIC_API_KEY` | `claude-sonnet-4-20250514` |
 | OpenAI | `OPENAI_API_KEY` | `gpt-4o` |
@@ -1193,4 +1198,4 @@ The following providers are recognized by `openfang config set-key` and `openfan
 | Cohere | `COHERE_API_KEY` | -- |
 | xAI | `XAI_API_KEY` | -- |
 
-Additional search/fetch provider keys: `BRAVE_API_KEY`, `TAVILY_API_KEY`.
+Дополнительные ключи провайдеров поиска/получения данных: `BRAVE_API_KEY`, `TAVILY_API_KEY`.

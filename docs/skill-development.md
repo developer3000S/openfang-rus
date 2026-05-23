@@ -1,107 +1,109 @@
-# Skill Development
+# Разработка навыков
 
-Skills are pluggable tool bundles that extend agent capabilities in OpenFang. A skill packages one or more tools with their implementation, letting agents do things that built-in tools do not cover. This guide covers skill creation, the manifest format, Python and WASM runtimes, publishing to FangHub, and CLI management.
+Навыки (skills) — это подключаемые наборы инструментов, расширяющие возможности агентов в OpenFang. Навык объединяет один или несколько инструментов с их реализацией, позволяя агентам выполнять задачи, не предусмотренные встроенными средствами. Это руководство охватывает создание навыков, формат манифеста, среды выполнения Python и WASM, публикацию в FangHub и управление через CLI.
 
-## Table of Contents
+## Содержание
 
-- [Overview](#overview)
-- [Skill Format](#skill-format)
-- [Python Skills](#python-skills)
-- [WASM Skills](#wasm-skills)
-- [Skill Requirements](#skill-requirements)
-- [Installing Skills](#installing-skills)
-- [Publishing to FangHub](#publishing-to-fanghub)
-- [CLI Commands](#cli-commands)
-- [OpenClaw Compatibility](#openclaw-compatibility)
-- [Best Practices](#best-practices)
+- [Обзор](#overview)
+- [Формат навыка](#skill-format)
+- [Навыки на Python](#python-skills)
+- [Навыки на WASM](#wasm-skills)
+- [Требования навыка](#skill-requirements)
+- [Установка навыков](#installing-skills)
+- [Публикация в FangHub](#publishing-to-fanghub)
+- [Команды CLI](#cli-commands)
+- [Совместимость с OpenClaw](#openclaw-compatibility)
+- [Лучшие практики](#best-practices)
 
 ---
 
-## Overview
+<a name="overview"></a>
+## Обзор
 
-A skill consists of:
+Навык состоит из:
 
-1. A **manifest** (`skill.toml` or `SKILL.md`) that declares metadata, runtime type, provided tools, and requirements.
-2. An **entry point** (Python script, WASM module, Node.js module, or prompt-only Markdown) that implements the tool logic.
+1. **Манифеста** (`skill.toml` или `SKILL.md`), который объявляет метаданные, тип среды выполнения, предоставляемые инструменты и требования.
+2. **Точки входа** (скрипт Python, модуль WASM, модуль Node.js или Markdown только с промптами), которая реализует логику инструментов.
 
-Skills are installed to `~/.openfang/skills/` and made available to agents through the skill registry. OpenFang ships with **60 bundled skills** that are compiled into the binary and available immediately.
+Навыки устанавливаются в директорию `~/.openfang/skills/` и становятся доступными для агентов через реестр навыков. OpenFang поставляется с **60 встроенными навыками**, которые скомпилированы в бинарный файл и доступны сразу.
 
-### Supported Runtimes
+### Поддерживаемые среды выполнения
 
-| Runtime | Language | Sandboxed | Notes |
+| Среда | Язык | Песочница | Примечания |
 |---------|----------|-----------|-------|
-| `python` | Python 3.8+ | No (subprocess with `env_clear()`) | Easiest to write. Uses stdin/stdout JSON protocol. |
-| `wasm` | Rust, C, Go, etc. | Yes (Wasmtime dual metering) | Fully sandboxed. Best for security-sensitive tools. |
-| `node` | JavaScript/TypeScript | No (subprocess) | OpenClaw compatibility. |
-| `prompt_only` | Markdown | N/A | Expert knowledge injected into system prompt. No code execution. |
-| `builtin` | Rust | N/A | Compiled into the binary. For core tools only. |
+| `python` | Python 3.8+ | Нет (подпроцесс с `env_clear()`) | Проще всего в написании. Использует протокол JSON через stdin/stdout. |
+| `wasm` | Rust, C, Go и др. | Да (Wasmtime) | Полная изоляция в песочнице. Лучший выбор для инструментов, критичных к безопасности. |
+| `node` | JavaScript/TypeScript | Нет (подпроцесс) | Для совместимости с OpenClaw. |
+| `prompt_only` | Markdown | Н/Д | Экспертные знания, внедряемые в системный промпт. Без выполнения кода. |
+| `builtin` | Rust | Н/Д | Скомпилированы в бинарный файл. Только для основных инструментов. |
 
-### 60 Bundled Skills
+### 60 встроенных навыков
 
-OpenFang includes 60 expert knowledge skills compiled into the binary (no installation needed):
+OpenFang включает 60 экспертных навыков, встроенных в систему (установка не требуется):
 
-| Category | Skills |
+| Категория | Навыки |
 |----------|--------|
-| DevOps & Infra | `ci-cd`, `ansible`, `prometheus`, `nginx`, `kubernetes`, `terraform`, `helm`, `docker`, `sysadmin`, `shell-scripting`, `linux-networking` |
-| Cloud | `aws`, `gcp`, `azure` |
-| Languages | `rust-expert`, `python-expert`, `typescript-expert`, `golang-expert` |
-| Frontend | `react-expert`, `nextjs-expert`, `css-expert` |
-| Databases | `postgres-expert`, `redis-expert`, `sqlite-expert`, `mongodb`, `elasticsearch`, `sql-analyst` |
-| APIs & Web | `graphql-expert`, `openapi-expert`, `api-tester`, `oauth-expert` |
+| DevOps и инфраструктура | `ci-cd`, `ansible`, `prometheus`, `nginx`, `kubernetes`, `terraform`, `helm`, `docker`, `sysadmin`, `shell-scripting`, `linux-networking` |
+| Облака | `aws`, `gcp`, `azure` |
+| Языки | `rust-expert`, `python-expert`, `typescript-expert`, `golang-expert` |
+| Фронтенд | `react-expert`, `nextjs-expert`, `css-expert` |
+| Базы данных | `postgres-expert`, `redis-expert`, `sqlite-expert`, `mongodb`, `elasticsearch`, `sql-analyst` |
+| API и Web | `graphql-expert`, `openapi-expert`, `api-tester`, `oauth-expert` |
 | AI/ML | `ml-engineer`, `llm-finetuning`, `vector-db`, `prompt-engineer` |
-| Security | `security-audit`, `crypto-expert`, `compliance` |
-| Dev Tools | `github`, `git-expert`, `jira`, `linear-tools`, `sentry`, `code-reviewer`, `regex-expert` |
-| Writing | `technical-writer`, `writing-coach`, `email-writer`, `presentation` |
-| Data | `data-analyst`, `data-pipeline` |
-| Collaboration | `slack-tools`, `notion`, `confluence`, `figma-expert` |
-| Career | `interview-prep`, `project-manager` |
-| Advanced | `wasm-expert`, `pdf-reader`, `web-search` |
+| Безопасность | `security-audit`, `crypto-expert`, `compliance` |
+| Инструменты разработчика | `github`, `git-expert`, `jira`, `linear-tools`, `sentry`, `code-reviewer`, `regex-expert` |
+| Письмо | `technical-writer`, `writing-coach`, `email-writer`, `presentation` |
+| Данные | `data-analyst`, `data-pipeline` |
+| Коллаборация | `slack-tools`, `notion`, `confluence`, `figma-expert` |
+| Карьера | `interview-prep`, `project-manager` |
+| Продвинутые | `wasm-expert`, `pdf-reader`, `web-search` |
 
-These are `prompt_only` skills using the SKILL.md format -- expert knowledge that gets injected into the agent's system prompt.
+Это навыки типа `prompt_only` в формате SKILL.md — экспертные знания, которые добавляются в системный промпт агента.
 
-### SKILL.md Format
+### Формат SKILL.md
 
-The SKILL.md format (also used by OpenClaw) uses YAML frontmatter and a Markdown body:
+Формат SKILL.md (также используемый в OpenClaw) использует заголовок YAML и тело в формате Markdown:
 
 ```markdown
 ---
 name: rust-expert
-description: Expert Rust programming knowledge
+description: Экспертные знания в программировании на Rust
 ---
 
 # Rust Expert
 
-## Key Principles
-- Ownership and borrowing rules...
-- Lifetime annotations...
+## Ключевые принципы
+- Правила владения и заимствования (ownership and borrowing)...
+- Аннотации времени жизни (lifetime annotations)...
 
-## Common Patterns
+## Распространенные паттерны
 ...
 ```
 
-SKILL.md files are automatically parsed and converted to `prompt_only` skills. All SKILL.md files pass through an automated **prompt injection scanner** that detects override attempts, data exfiltration patterns, and shell references before inclusion.
+Файлы SKILL.md автоматически парсятся и конвертируются в навыки типа `prompt_only`. Все такие файлы проходят через автоматический **сканер инъекций**, который ищет попытки обхода ограничений или эксфильтрации данных.
 
 ---
 
-## Skill Format
+<a name="skill-format"></a>
+## Формат навыка
 
-### Directory Structure
+### Структура директории
 
 ```
 my-skill/
-  skill.toml          # Manifest (required)
+  skill.toml          # Манифест (обязательно)
   src/
-    main.py           # Entry point (for Python skills)
-  README.md           # Optional documentation
+    main.py           # Точка входа (для навыков на Python)
+  README.md           # Опциональная документация
 ```
 
-### Manifest (skill.toml)
+### Манифест (skill.toml)
 
 ```toml
 [skill]
 name = "web-summarizer"
 version = "0.1.0"
-description = "Summarizes any web page into bullet points"
+description = "Сжимает любую веб-страницу в список ключевых тезисов"
 author = "openfang-community"
 license = "MIT"
 tags = ["web", "summarizer", "research"]
@@ -112,12 +114,12 @@ entry = "src/main.py"
 
 [[tools.provided]]
 name = "summarize_url"
-description = "Fetch a URL and return a concise bullet-point summary"
-input_schema = { type = "object", properties = { url = { type = "string", description = "The URL to summarize" } }, required = ["url"] }
+description = "Загрузить URL и вернуть краткое саммари по пунктам"
+input_schema = { type = "object", properties = { url = { type = "string", description = "URL для обработки" } }, required = ["url"] }
 
 [[tools.provided]]
 name = "extract_links"
-description = "Extract all links from a web page"
+description = "Извлечь все ссылки с веб-страницы"
 input_schema = { type = "object", properties = { url = { type = "string" } }, required = ["url"] }
 
 [requirements]
@@ -125,52 +127,16 @@ tools = ["web_fetch"]
 capabilities = ["NetConnect(*)"]
 ```
 
-### Manifest Sections
-
-#### [skill] -- Metadata
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Unique skill name (used as install directory name) |
-| `version` | string | No | Semantic version (default: `"0.1.0"`) |
-| `description` | string | No | Human-readable description |
-| `author` | string | No | Author name or organization |
-| `license` | string | No | License identifier (e.g., `"MIT"`, `"Apache-2.0"`) |
-| `tags` | array | No | Tags for discovery on FangHub |
-
-#### [runtime] -- Execution Configuration
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | Yes | `"python"`, `"wasm"`, `"node"`, or `"builtin"` |
-| `entry` | string | Yes | Relative path to the entry point file |
-
-#### [[tools.provided]] -- Tool Definitions
-
-Each `[[tools.provided]]` entry defines one tool that the skill provides:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Tool name (must be unique across all tools) |
-| `description` | string | Yes | Description shown to the LLM |
-| `input_schema` | object | Yes | JSON Schema defining the tool's input parameters |
-
-#### [requirements] -- Host Requirements
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `tools` | array | Built-in tools this skill needs the host to provide |
-| `capabilities` | array | Capability strings the agent must have |
-
 ---
 
-## Python Skills
+<a name="python-skills"></a>
+## Навыки на Python
 
-Python skills are the simplest to write. They run as subprocesses and communicate via JSON over stdin/stdout.
+Навыки на Python писать проще всего. Они запускаются как подпроцессы и взаимодействуют через JSON через stdin/stdout.
 
-### Protocol
+### Протокол
 
-1. OpenFang sends a JSON payload to the script's stdin:
+1. OpenFang отправляет JSON-объект в stdin скрипта:
 
 ```json
 {
@@ -183,57 +149,41 @@ Python skills are the simplest to write. They run as subprocesses and communicat
 }
 ```
 
-2. The script processes the input and writes a JSON result to stdout:
+2. Скрипт обрабатывает входные данные и выводит JSON-результат в stdout:
 
 ```json
 {
-  "result": "- Point one\n- Point two\n- Point three"
+  "result": "- Пункт один\n- Пункт два\n- Пункт три"
 }
 ```
 
-If an error occurs, return an error object:
+В случае ошибки верните объект ошибки:
 
 ```json
 {
-  "error": "Failed to fetch URL: connection refused"
+  "error": "Не удалось загрузить URL: соединение отклонено"
 }
 ```
 
-### Example: Web Summarizer
+### Пример реализации
 
 `src/main.py`:
 
 ```python
 #!/usr/bin/env python3
-"""OpenFang skill: web-summarizer"""
 import json
 import sys
 import urllib.request
 
-
 def summarize_url(url: str) -> str:
-    """Fetch a URL and return a basic summary."""
+    """Загрузить URL и вернуть краткое описание."""
     req = urllib.request.Request(url, headers={"User-Agent": "OpenFang-Skill/1.0"})
     with urllib.request.urlopen(req, timeout=30) as resp:
         content = resp.read().decode("utf-8", errors="replace")
 
-    # Simple extraction: first 500 chars as summary
+    # Простейшее извлечение: первые 500 символов
     text = content[:500].strip()
     return f"Summary of {url}:\n{text}..."
-
-
-def extract_links(url: str) -> str:
-    """Extract all links from a web page."""
-    import re
-
-    req = urllib.request.Request(url, headers={"User-Agent": "OpenFang-Skill/1.0"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        content = resp.read().decode("utf-8", errors="replace")
-
-    links = re.findall(r'href="(https?://[^"]+)"', content)
-    unique_links = list(dict.fromkeys(links))
-    return "\n".join(unique_links[:50])
-
 
 def main():
     payload = json.loads(sys.stdin.read())
@@ -243,8 +193,6 @@ def main():
     try:
         if tool_name == "summarize_url":
             result = summarize_url(input_data["url"])
-        elif tool_name == "extract_links":
-            result = extract_links(input_data["url"])
         else:
             print(json.dumps({"error": f"Unknown tool: {tool_name}"}))
             return
@@ -253,44 +201,20 @@ def main():
     except Exception as e:
         print(json.dumps({"error": str(e)}))
 
-
 if __name__ == "__main__":
     main()
 ```
 
-### Using the OpenFang Python SDK
-
-For more advanced skills, use the Python SDK (`sdk/python/openfang_sdk.py`):
-
-```python
-#!/usr/bin/env python3
-from openfang_sdk import SkillHandler
-
-handler = SkillHandler()
-
-@handler.tool("summarize_url")
-def summarize_url(url: str) -> str:
-    # Your implementation here
-    return "Summary..."
-
-@handler.tool("extract_links")
-def extract_links(url: str) -> str:
-    # Your implementation here
-    return "link1\nlink2"
-
-if __name__ == "__main__":
-    handler.run()
-```
-
 ---
 
-## WASM Skills
+<a name="wasm-skills"></a>
+## Навыки на WASM
 
-WASM skills run inside a sandboxed Wasmtime environment. They are ideal for security-sensitive operations because the sandbox enforces resource limits and capability restrictions.
+Навыки на WASM запускаются в изолированной среде Wasmtime. Они идеальны для операций, требующих высокого уровня безопасности, так как песочница ограничивает ресурсы и права доступа.
 
-### Building a WASM Skill
+### Сборка навыка на WASM
 
-1. Write your skill in Rust (or any language that compiles to WASM):
+1. Напишите код на Rust (или другом языке, компилируемом в WASM):
 
 ```rust
 // src/lib.rs
@@ -317,13 +241,13 @@ pub extern "C" fn _start() {
 }
 ```
 
-2. Compile to WASM:
+2. Скомпилируйте в WASM:
 
 ```bash
 cargo build --target wasm32-wasi --release
 ```
 
-3. Reference the `.wasm` file in your manifest:
+3. Укажите путь к `.wasm` файлу в манифесте:
 
 ```toml
 [runtime]
@@ -331,36 +255,25 @@ type = "wasm"
 entry = "target/wasm32-wasi/release/my_skill.wasm"
 ```
 
-### Sandbox Limits
-
-The WASM sandbox enforces:
-
-- **Fuel limit**: Maximum computation steps (prevents infinite loops).
-- **Memory limit**: Maximum memory allocation.
-- **Capabilities**: Only the capabilities granted to the agent apply.
-
-These are derived from the agent's `[resources]` section in its manifest.
-
 ---
 
-## Skill Requirements
+<a name="skill-requirements"></a>
+## Требования навыка
 
-Skills can declare requirements in the `[requirements]` section:
+Навыки могут объявлять необходимые ресурсы в разделе `[requirements]`:
 
-### Tool Requirements
+### Требования к инструментам
 
-If your skill needs to call built-in tools (e.g., `web_fetch` to download a page before processing it):
+Если вашему навыку нужно вызывать встроенные инструменты (например, `web_fetch` для загрузки страницы перед её обработкой):
 
 ```toml
 [requirements]
 tools = ["web_fetch", "file_read"]
 ```
 
-The skill registry validates that the agent has these tools available before loading the skill.
+### Требования к возможностям (capabilities)
 
-### Capability Requirements
-
-If your skill needs specific capabilities:
+Если навыку нужны специфические права:
 
 ```toml
 [requirements]
@@ -369,227 +282,93 @@ capabilities = ["NetConnect(*)", "ShellExec(python3)"]
 
 ---
 
-## Installing Skills
+<a name="installing-skills"></a>
+## Установка навыков
 
-### From a Local Directory
+### Из локальной директории
 
 ```bash
 openfang skill install /path/to/my-skill
 ```
 
-This reads the `skill.toml`, validates the manifest, and copies the skill to `~/.openfang/skills/my-skill/`.
-
-### From FangHub
+### Из FangHub
 
 ```bash
 openfang skill install web-summarizer
 ```
 
-This downloads the skill from the FangHub marketplace registry.
-
-### From a Git Repository
+### Из Git-репозитория
 
 ```bash
 openfang skill install https://github.com/user/openfang-skill-example.git
 ```
 
-### Listing Installed Skills
+### Список установленных навыков
 
 ```bash
 openfang skill list
 ```
 
-Output:
-
-```
-3 skill(s) installed:
-
-NAME                 VERSION    TOOLS    DESCRIPTION
-----------------------------------------------------------------------
-web-summarizer       0.1.0      2        Summarizes any web page into bullet points
-data-analyzer        0.2.1      3        Statistical analysis tools
-code-formatter       1.0.0      1        Format code in 20+ languages
-```
-
-### Removing Skills
-
-```bash
-openfang skill remove web-summarizer
-```
-
 ---
 
-## Publishing to FangHub
+<a name="publishing-to-fanghub"></a>
+## Публикация в FangHub
 
-FangHub is the community skill marketplace for OpenFang.
+FangHub — это маркетплейс навыков сообщества OpenFang.
 
-### Preparing Your Skill
+### Подготовка навыка
 
-1. Ensure your `skill.toml` has complete metadata:
-   - `name`, `version`, `description`, `author`, `license`, `tags`
-2. Include a `README.md` with usage instructions.
-3. Test your skill locally:
+1. Убедитесь, что `skill.toml` содержит полные метаданные.
+2. Добавьте `README.md` с инструкциями по использованию.
+3. Протестируйте навык локально.
 
-```bash
-openfang skill install /path/to/my-skill
-# Spawn an agent with the skill's tools and test them
-```
-
-### Searching FangHub
+### Поиск в FangHub
 
 ```bash
 openfang skill search "web scraping"
 ```
 
-Output:
-
-```
-Skills matching "web scraping":
-
-  web-summarizer (42 stars)
-    Summarizes any web page into bullet points
-    https://fanghub.dev/skills/web-summarizer
-
-  page-scraper (28 stars)
-    Extract structured data from web pages
-    https://fanghub.dev/skills/page-scraper
-```
-
-### Publishing
-
-Publishing to FangHub will be available via:
-
-```bash
-openfang skill publish
-```
-
-This validates the manifest, packages the skill, and uploads it to the FangHub registry.
-
 ---
 
-## CLI Commands
+<a name="cli-commands"></a>
+## Команды CLI
 
-### Full Skill Command Reference
+### Основные команды
 
 ```bash
-# Install a skill (local directory, FangHub name, or git URL)
+# Установить навык
 openfang skill install <source>
 
-# List all installed skills
+# Список всех установленных навыков
 openfang skill list
 
-# Remove an installed skill
+# Удалить навык
 openfang skill remove <name>
 
-# Search FangHub for skills
+# Поиск в FangHub
 openfang skill search <query>
 
-# Create a new skill scaffold (interactive)
+# Создать заготовку нового навыка (интерактивно)
 openfang skill create
 ```
 
-### Creating a Skill Scaffold
+---
 
-```bash
-openfang skill create
-```
+<a name="openclaw-compatibility"></a>
+## Совместимость с OpenClaw
 
-This interactive command prompts for:
-- Skill name
-- Description
-- Runtime type (python/node/wasm)
-
-It generates:
-
-```
-~/.openfang/skills/my-skill/
-  skill.toml        # Pre-filled manifest
-  src/
-    main.py         # Starter entry point (for Python)
-```
-
-The generated entry point includes a working template that reads JSON from stdin and writes JSON to stdout.
-
-### Using Skills in Agent Manifests
-
-Reference skills in the agent manifest's `skills` field:
-
-```toml
-name = "my-assistant"
-version = "0.1.0"
-description = "An assistant with extra skills"
-author = "openfang"
-module = "builtin:chat"
-skills = ["web-summarizer", "data-analyzer"]
-
-[model]
-provider = "groq"
-model = "llama-3.3-70b-versatile"
-
-[capabilities]
-tools = ["file_read", "web_fetch", "summarize_url"]
-memory_read = ["*"]
-memory_write = ["self.*"]
-```
-
-The kernel loads skill tools and prompts at agent spawn time, merging them with the agent's base capabilities.
+OpenFang может устанавливать и запускать навыки в формате OpenClaw. Установщик автоматически обнаруживает такие навыки (по наличию `package.json` + `index.ts`/`index.js`) и конвертирует их.
 
 ---
 
-## OpenClaw Compatibility
+<a name="best-practices"></a>
+## Лучшие практики
 
-OpenFang can install and run OpenClaw-format skills. The skill installer auto-detects OpenClaw skills (by looking for `package.json` + `index.ts`/`index.js`) and converts them.
-
-### Automatic Conversion
-
-```bash
-openfang skill install /path/to/openclaw-skill
-```
-
-If the directory contains an OpenClaw-style skill (Node.js package), OpenFang:
-
-1. Detects the OpenClaw format.
-2. Generates a `skill.toml` manifest from `package.json`.
-3. Maps tool names to OpenFang conventions.
-4. Copies the skill to the OpenFang skills directory.
-
-### Manual Conversion
-
-If automatic conversion does not work, create a `skill.toml` manually:
-
-```toml
-[skill]
-name = "my-openclaw-skill"
-version = "1.0.0"
-description = "Converted from OpenClaw"
-
-[runtime]
-type = "node"
-entry = "index.js"
-
-[[tools.provided]]
-name = "my_tool"
-description = "Tool description"
-input_schema = { type = "object", properties = { input = { type = "string" } }, required = ["input"] }
-```
-
-Place this alongside the existing `index.js`/`index.ts` and install:
-
-```bash
-openfang skill install /path/to/skill-directory
-```
-
-Skills imported via `openfang migrate --from openclaw` are also scanned and reported in the migration report, with instructions for manual reinstallation.
-
----
-
-## Best Practices
-
-1. **Keep skills focused** -- one skill should do one thing well.
-2. **Declare minimal requirements** -- only request the tools and capabilities your skill actually needs.
-3. **Use descriptive tool names** -- the LLM reads the tool name and description to decide when to use it.
-4. **Provide clear input schemas** -- include descriptions for every parameter so the LLM knows what to pass.
-5. **Handle errors gracefully** -- always return a JSON error object rather than crashing.
-6. **Version carefully** -- use semantic versioning; breaking changes require a major version bump.
-7. **Test with multiple agents** -- verify your skill works with different agent templates and providers.
-8. **Include a README** -- document setup steps, dependencies, and example usage.
+1. **Фокус на одной задаче** — один навык должен хорошо делать одну вещь.
+2. **Минимальные требования** — запрашивайте только те инструменты и права, которые действительно нужны.
+3. **Понятные имена инструментов** — LLM использует имя и описание инструмента для принятия решения о его вызове.
+4. **Четкие схемы ввода** — добавляйте описания для каждого параметра, чтобы LLM знала, что передавать.
+5. **Обработка ошибок** — всегда возвращайте JSON-объект ошибки вместо аварийного завершения.
+6. **Версионность** — используйте семантическое версионирование.
+7. **Тестирование** — проверяйте работу навыка с разными агентами и провайдерами.
+8. **Документация** — всегда включайте README с примерами использования.
