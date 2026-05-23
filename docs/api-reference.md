@@ -1,83 +1,44 @@
-# API Reference
+# Справочник API
 
-OpenFang exposes a REST API, WebSocket endpoints, and SSE streaming when the daemon is running. The default listen address is `http://127.0.0.1:4200`.
+OpenFang предоставляет REST API, WebSocket и SSE-стриминг. По умолчанию API слушает `http://127.0.0.1:4200`.
 
-All responses include security headers (CSP, X-Frame-Options, X-Content-Type-Options, HSTS) and are protected by a GCRA cost-aware rate limiter with per-IP token bucket tracking and automatic stale entry cleanup. OpenFang implements 16 security systems including Merkle audit trails, taint tracking, WASM dual metering, Ed25519 manifest signing, SSRF protection, subprocess sandboxing, and secret zeroization.
+Все ответы защищены заголовками безопасности (CSP, X-Frame-Options, X-Content-Type-Options, HSTS) и проходят через GCRA rate limiter. Система безопасности включают Merkle-audit, taint tracking, WASM metering, Ed25519 подписи, SSRF-защиту и secret zeroization.
 
-## Table of Contents
+## Основные разделы
 
-- [Authentication](#authentication)
-- [Agent Endpoints](#agent-endpoints)
-- [Workflow Endpoints](#workflow-endpoints)
-- [Trigger Endpoints](#trigger-endpoints)
-- [Memory Endpoints](#memory-endpoints)
-- [Channel Endpoints](#channel-endpoints)
-- [Template Endpoints](#template-endpoints)
-- [System Endpoints](#system-endpoints)
-- [Model Catalog Endpoints](#model-catalog-endpoints)
-- [Provider Configuration Endpoints](#provider-configuration-endpoints)
-- [Skills & Marketplace Endpoints](#skills--marketplace-endpoints)
-- [ClawHub Endpoints](#clawhub-endpoints)
-- [MCP & A2A Protocol Endpoints](#mcp--a2a-protocol-endpoints)
-- [Audit & Security Endpoints](#audit--security-endpoints)
-- [Usage & Analytics Endpoints](#usage--analytics-endpoints)
-- [Migration Endpoints](#migration-endpoints)
-- [Session Management Endpoints](#session-management-endpoints)
-- [Cron/Scheduler Endpoints](#cronscheduler-endpoints)
-- [WebSocket Protocol](#websocket-protocol)
-- [SSE Streaming](#sse-streaming)
-- [OpenAI-Compatible API](#openai-compatible-api)
-- [Error Responses](#error-responses)
+- Аутентификация и health
+- Эндпойнты агентов (создание, чат, управление)
+- Workflows и triggers
+- Память и сессии
+- Каналы
+- Каталог моделей и провайдеры
+- OpenAI-совместимые эндпойнты (`/v1/chat/completions`)
 
----
+## Аутентификация
 
-## Authentication
-
-When an API key is configured in `config.toml`, all endpoints (except `/api/health` and `/`) require a Bearer token:
+Когда в `config.toml` указан `api_key`, защищённые маршруты требуют заголовок:
 
 ```
 Authorization: Bearer <your-api-key>
 ```
 
-### Setting the API Key
-
-Add to `~/.openfang/config.toml`:
-
-```toml
-api_key = "your-secret-api-key"
-```
-
-### No Authentication
-
-If `api_key` is empty or not set, the API is accessible without authentication. CORS is restricted to localhost origins in this mode.
-
-### Public Endpoints (No Auth Required)
-
-- `GET /api/health`
-- `GET /` (WebChat UI)
+Публичные маршруты (без auth): `GET /api/health`, `GET /` (WebChat UI).
 
 ---
 
-## Agent Endpoints
+## Эндпойнты агентов (выдержка)
 
-### GET /api/agents
+`GET /api/agents` — список агентов
 
-List all running agents.
+`GET /api/agents/{id}` — информация по агенту
 
-**Response** `200 OK`:
+`POST /api/agents` — создать агента (манифест в теле запроса)
 
-```json
-[
-  {
-    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "name": "hello-world",
-    "state": "Running",
-    "created_at": "2025-01-15T10:30:00Z",
-    "model_provider": "groq",
-    "model_name": "llama-3.3-70b-versatile"
-  }
-]
-```
+`POST /api/agents/{id}/message` — отправить сообщение агенту
+
+`POST /api/agents/{id}/stop` — остановить агента
+
+`GET /api/agents/{id}/session` — история сессии агента
 
 ### GET /api/agents/{id}
 

@@ -671,248 +671,76 @@ allowed_tenants = []
 | `app_id` | string | `""` | Azure Bot App ID. |
 | `app_password_env` | string | `"TEAMS_APP_PASSWORD"` | Env var holding the Azure Bot Framework app password. |
 | `webhook_port` | u16 | `3978` | Port for the Bot Framework incoming webhook. |
-| `allowed_tenants` | list of strings | `[]` | Azure AD tenant IDs allowed. Empty = allow all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
+# OpenFang Configuration Reference
 
-#### `[channels.mattermost]`
+Полный справочник по `config.toml`, охватывающий основные настраиваемые поля OpenFang.
 
-```toml
-[channels.mattermost]
-server_url = "https://mattermost.example.com"
-token_env = "MATTERMOST_TOKEN"
-allowed_channels = []
+---
+
+## Обзор
+
+OpenFang читает конфигурацию из одного TOML-файла:
+
+```
+~/.openfang/config.toml
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `server_url` | string | `""` | Mattermost server URL. |
-| `token_env` | string | `"MATTERMOST_TOKEN"` | Env var holding the Mattermost bot token. |
-| `allowed_channels` | list of strings | `[]` | Channel IDs to listen in. Empty = all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
+Основные моменты:
 
-#### `[channels.irc]`
+- `OPENFANG_HOME` (при наличии) имеет приоритет над `~/.openfang`.
+- Все структуры используют `#[serde(default)]` — большинство полей опциональны и получают значения по умолчанию при отсутствии.
+- Разделы каналов (`[channels.*]`) отсутствуют по умолчанию — адаптер считается выключенным, пока не появится секция.
+- Секреты не хранятся в файле: используйте поля `api_key_env` или `bot_token_env` для хранения имени переменной окружения с секретом.
 
-```toml
-[channels.irc]
-server = "irc.libera.chat"
-port = 6667
-nick = "openfang"
-# password_env = "IRC_PASSWORD"
-channels = ["#openfang"]
-use_tls = false
-```
+---
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `server` | string | `"irc.libera.chat"` | IRC server hostname. |
-| `port` | u16 | `6667` | IRC server port. |
-| `nick` | string | `"openfang"` | Bot nickname. |
-| `password_env` | string or null | `null` | Env var holding the server password (optional). |
-| `channels` | list of strings | `[]` | IRC channels to join (e.g., `["#openfang", "#general"]`). |
-| `use_tls` | bool | `false` | Use TLS for the connection. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
+## Минимальная конфигурация
 
-#### `[channels.google_chat]`
+Для старта достаточно установить API-ключ провайдера в окружении. По умолчанию используется Anthropic:
 
 ```toml
-[channels.google_chat]
-service_account_env = "GOOGLE_CHAT_SERVICE_ACCOUNT"
-space_ids = []
-webhook_port = 8444
+[default_model]
+provider = "anthropic"
+model = "claude-sonnet-4-20250514"
+api_key_env = "ANTHROPIC_API_KEY"
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `service_account_env` | string | `"GOOGLE_CHAT_SERVICE_ACCOUNT"` | Env var holding the service account JSON key. |
-| `space_ids` | list of strings | `[]` | Google Chat space IDs to listen in. |
-| `webhook_port` | u16 | `8444` | Port for the incoming webhook. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.twitch]`
+Или локальный Ollama без ключа:
 
 ```toml
-[channels.twitch]
-oauth_token_env = "TWITCH_OAUTH_TOKEN"
-channels = ["mychannel"]
-nick = "openfang"
+[default_model]
+provider = "ollama"
+model = "llama3.2:latest"
+base_url = "http://localhost:11434"
+api_key_env = ""
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `oauth_token_env` | string | `"TWITCH_OAUTH_TOKEN"` | Env var holding the Twitch OAuth token. |
-| `channels` | list of strings | `[]` | Twitch channels to join (without `#` prefix). |
-| `nick` | string | `"openfang"` | Bot nickname in Twitch chat. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
+---
 
-#### `[channels.rocketchat]`
+## Пример (сокращённый)
 
 ```toml
-[channels.rocketchat]
-server_url = "https://rocketchat.example.com"
-token_env = "ROCKETCHAT_TOKEN"
-user_id = ""
-allowed_channels = []
+home_dir = "~/.openfang"
+data_dir = "~/.openfang/data"
+log_level = "info"
+api_listen = "127.0.0.1:4200"
+
+[default_model]
+provider = "anthropic"
+model = "claude-sonnet-4-20250514"
+api_key_env = "ANTHROPIC_API_KEY"
+
+[memory]
+embedding_model = "all-MiniLM-L6-v2"
+consolidation_threshold = 10000
+decay_rate = 0.1
+
+[channels.telegram]
+bot_token_env = "TELEGRAM_BOT_TOKEN"
+default_agent = "assistant"
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `server_url` | string | `""` | Rocket.Chat server URL. |
-| `token_env` | string | `"ROCKETCHAT_TOKEN"` | Env var holding the Rocket.Chat auth token. |
-| `user_id` | string | `""` | Bot user ID. |
-| `allowed_channels` | list of strings | `[]` | Channel IDs to listen in. Empty = all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.zulip]`
-
-```toml
-[channels.zulip]
-server_url = "https://zulip.example.com"
-bot_email = "bot@zulip.example.com"
-api_key_env = "ZULIP_API_KEY"
-streams = []
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `server_url` | string | `""` | Zulip server URL. |
-| `bot_email` | string | `""` | Bot email address registered in Zulip. |
-| `api_key_env` | string | `"ZULIP_API_KEY"` | Env var holding the Zulip API key. |
-| `streams` | list of strings | `[]` | Stream names to listen in. Empty = all. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.xmpp]`
-
-```toml
-[channels.xmpp]
-jid = "bot@jabber.org"
-password_env = "XMPP_PASSWORD"
-server = ""
-port = 5222
-rooms = []
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `jid` | string | `""` | XMPP JID (e.g., `"bot@jabber.org"`). |
-| `password_env` | string | `"XMPP_PASSWORD"` | Env var holding the XMPP password. |
-| `server` | string | `""` | XMPP server hostname. Defaults to the JID domain if empty. |
-| `port` | u16 | `5222` | XMPP server port. |
-| `rooms` | list of strings | `[]` | MUC (multi-user chat) rooms to join. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.line]`
-
-```toml
-[channels.line]
-channel_secret_env = "LINE_CHANNEL_SECRET"
-access_token_env = "LINE_CHANNEL_ACCESS_TOKEN"
-webhook_port = 8450
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `channel_secret_env` | string | `"LINE_CHANNEL_SECRET"` | Env var holding the LINE channel secret. |
-| `access_token_env` | string | `"LINE_CHANNEL_ACCESS_TOKEN"` | Env var holding the LINE channel access token. |
-| `webhook_port` | u16 | `8450` | Port for the incoming webhook. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.viber]`
-
-```toml
-[channels.viber]
-auth_token_env = "VIBER_AUTH_TOKEN"
-webhook_url = ""
-webhook_port = 8451
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `auth_token_env` | string | `"VIBER_AUTH_TOKEN"` | Env var holding the Viber Bot auth token. |
-| `webhook_url` | string | `""` | Public URL for the Viber webhook endpoint. |
-| `webhook_port` | u16 | `8451` | Port for the incoming webhook. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.messenger]`
-
-```toml
-[channels.messenger]
-page_token_env = "MESSENGER_PAGE_TOKEN"
-verify_token_env = "MESSENGER_VERIFY_TOKEN"
-webhook_port = 8452
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `page_token_env` | string | `"MESSENGER_PAGE_TOKEN"` | Env var holding the Facebook page access token. |
-| `verify_token_env` | string | `"MESSENGER_VERIFY_TOKEN"` | Env var holding the webhook verify token. |
-| `webhook_port` | u16 | `8452` | Port for the incoming webhook. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.reddit]`
-
-```toml
-[channels.reddit]
-client_id = ""
-client_secret_env = "REDDIT_CLIENT_SECRET"
-username = ""
-password_env = "REDDIT_PASSWORD"
-subreddits = []
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `client_id` | string | `""` | Reddit app client ID. |
-| `client_secret_env` | string | `"REDDIT_CLIENT_SECRET"` | Env var holding the Reddit client secret. |
-| `username` | string | `""` | Reddit bot username. |
-| `password_env` | string | `"REDDIT_PASSWORD"` | Env var holding the Reddit bot password. |
-| `subreddits` | list of strings | `[]` | Subreddit names to monitor. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.mastodon]`
-
-```toml
-[channels.mastodon]
-instance_url = "https://mastodon.social"
-access_token_env = "MASTODON_ACCESS_TOKEN"
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `instance_url` | string | `""` | Mastodon instance URL (e.g., `"https://mastodon.social"`). |
-| `access_token_env` | string | `"MASTODON_ACCESS_TOKEN"` | Env var holding the Mastodon access token. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.bluesky]`
-
-```toml
-[channels.bluesky]
-identifier = "mybot.bsky.social"
-app_password_env = "BLUESKY_APP_PASSWORD"
-service_url = "https://bsky.social"
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `identifier` | string | `""` | Bluesky handle or DID. |
-| `app_password_env` | string | `"BLUESKY_APP_PASSWORD"` | Env var holding the Bluesky app password. |
-| `service_url` | string | `"https://bsky.social"` | PDS (Personal Data Server) URL. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
-
-#### `[channels.feishu]`
-
-```toml
-[channels.feishu]
-app_id = ""
-app_secret_env = "FEISHU_APP_SECRET"
-webhook_port = 8453
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `app_id` | string | `""` | Feishu/Lark app ID. |
-| `app_secret_env` | string | `"FEISHU_APP_SECRET"` | Env var holding the Feishu app secret. |
-| `webhook_port` | u16 | `8453` | Port for the incoming webhook. |
-| `default_agent` | string or null | `null` | Agent name to route messages to. |
+После изменения конфигурации перезапустите демон: `openfang restart`.
 
 #### `[channels.revolt]`
 

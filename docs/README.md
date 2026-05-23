@@ -1,105 +1,103 @@
-# OpenFang Documentation
+# Документация OpenFang
 
-Welcome to the OpenFang documentation. OpenFang is the open-source Agent Operating System -- 14 Rust crates, 40 channels, 60 skills, 20 LLM providers, 76 API endpoints, and 16 security systems in a single binary.
-
----
-
-## Getting Started
-
-| Guide | Description |
-|-------|-------------|
-| [Getting Started](getting-started.md) | Installation, first agent, first chat session |
-| [Configuration](configuration.md) | Complete `config.toml` reference with every field |
-| [CLI Reference](cli-reference.md) | Every command and subcommand with examples |
-| [Troubleshooting](troubleshooting.md) | Common issues, FAQ, diagnostics |
-
-## Core Concepts
-
-| Guide | Description |
-|-------|-------------|
-| [Architecture](architecture.md) | 12-crate structure, kernel boot, agent lifecycle, memory substrate |
-| [Agent Templates](agent-templates.md) | 30 pre-built agents across 4 performance tiers |
-| [Workflows](workflows.md) | Multi-agent pipelines with branching, fan-out, loops, and triggers |
-| [Security](security.md) | 16 defense-in-depth security systems |
-
-## Integrations
-
-| Guide | Description |
-|-------|-------------|
-| [Channel Adapters](channel-adapters.md) | 40 messaging channels -- setup, configuration, custom adapters |
-| [LLM Providers](providers.md) | 20 providers, 51 models, 23 aliases -- setup and model routing |
-| [Skills](skill-development.md) | 60 bundled skills, custom skill development, FangHub marketplace |
-| [MCP & A2A](mcp-a2a.md) | Model Context Protocol and Agent-to-Agent protocol integration |
-
-## Reference
-
-| Guide | Description |
-|-------|-------------|
-| [API Reference](api-reference.md) | All 76 REST/WS/SSE endpoints with request/response examples |
-| [Desktop App](desktop.md) | Tauri 2.0 native app -- build, features, architecture |
-
-## Release & Operations
-
-| Guide | Description |
-|-------|-------------|
-| [Production Checklist](production-checklist.md) | Every step before tagging v0.1.0 -- signing keys, secrets, verification |
-
-## Additional Resources
-
-| Resource | Description |
-|----------|-------------|
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | Development setup, code style, PR guidelines |
-| [MIGRATION.md](../MIGRATION.md) | Migrating from OpenClaw, LangChain, or AutoGPT |
-| [SECURITY.md](../SECURITY.md) | Security policy and vulnerability reporting |
-| [CHANGELOG.md](../CHANGELOG.md) | Release notes and version history |
+Добро пожаловать в документацию OpenFang. OpenFang — открытая операционная система для агентов: 14 Rust-crates, 40 каналов, 60 навыков, ~20 провайдеров LLM, 76 API-эндпойнтов и 16 систем безопасности в одном бинарнике.
 
 ---
 
-## Quick Reference
+## Быстрый доступ
 
-### Start in 30 Seconds
+| Руководство | Описание |
+|------------:|:---------|
+| [Getting Started](getting-started.md) | Установка, первый агент и первая сессия чата |
+| [Configuration](configuration.md) | Полный справочник `config.toml` |
+| [CLI Reference](cli-reference.md) | Команды CLI и примеры |
+| [Troubleshooting](troubleshooting.md) | Частые проблемы и диагностика |
+
+## Основные концепции
+
+| Руководство | Описание |
+|------------:|:---------|
+| [Architecture](architecture.md) | Структура crate'ов, загрузка ядра, жизненный цикл агента, подсистема памяти |
+| [Agent Templates](agent-templates.md) | 30 предустановленных шаблонов агентов |
+| [Workflows](workflows.md) | Мультиагентные конвейеры с ветвлениями и триггерами |
+| [Security](security.md) | 16 слоёв защиты (defense-in-depth) |
+
+## Интеграции
+
+| Руководство | Описание |
+|------------:|:---------|
+| [Channel Adapters](channel-adapters.md) | 40 каналов — настройка и адаптеры |
+| [LLM Providers](providers.md) | Провайдеры и маршрутизация моделей |
+| [Skills](skill-development.md) | Встроенные навыки и разработка новых |
+| [MCP & A2A](mcp-a2a.md) | Протоколы Model Context Protocol и Agent-to-Agent |
+
+## Справочник
+
+| Руководство | Описание |
+|------------:|:---------|
+| [API Reference](api-reference.md) | Все REST/WS/SSE эндпойнты с примерами |
+| [Desktop App](desktop.md) | Nativное приложение Tauri — сборка и архитектура |
+
+## Эксплуатация и релизы
+
+| Руководство | Описание |
+|------------:|:---------|
+| [Production Checklist](production-checklist.md) | Контрольный список перед продакшен-релизом |
+
+## Дополнительные ресурсы
+
+| Ресурс | Описание |
+|------:|:---------|
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Настройка разработки и правила PR |
+| [MIGRATION.md](../MIGRATION.md) | Миграция из OpenClaw / LangChain / AutoGPT |
+| [SECURITY.md](../SECURITY.md) | Политика безопасности и отчёты об уязвимостях |
+| [CHANGELOG.md](../CHANGELOG.md) | История релизов |
+
+---
+
+## Быстрый старт (30 секунд)
 
 ```bash
 export GROQ_API_KEY="your-key"
 openfang init && openfang start
-# Open http://127.0.0.1:4200
+# Откройте http://127.0.0.1:4200
 ```
 
-### Key Numbers
+## Ключевые числа
 
-| Metric | Count |
-|--------|-------|
+| Метрика | Количество |
+|--------:|:----------|
 | Crates | 14 |
-| Agent templates | 30 |
-| Messaging channels | 40 |
-| Bundled skills | 60 |
-| Built-in tools | 38 |
-| LLM providers | 20 |
-| Models in catalog | 51 |
-| Model aliases | 23 |
-| API endpoints | 76 |
-| Security systems | 16 |
-| Tests | 967 |
+| Шаблонов агентов | 30 |
+| Каналов | 40 |
+| Встроенных навыков | 60 |
+| Встроенных инструментов | 38 |
+| Провайдеров LLM | 20 |
+| Моделей в каталоге | 51 |
+| Псевдонимов моделей | 23 |
+| API-эндпойнтов | 76 |
+| Систем безопасности | 16 |
+| Тестов | 967 |
 
-### Important Paths
+## Важные пути
 
-| Path | Description |
-|------|-------------|
-| `~/.openfang/config.toml` | Main configuration file |
-| `~/.openfang/data/openfang.db` | SQLite database |
-| `~/.openfang/skills/` | Installed skills |
-| `~/.openfang/daemon.json` | Daemon PID and port info |
-| `agents/` | Agent template manifests |
+| Путь | Описание |
+|-----:|:--------|
+| `~/.openfang/config.toml` | Основной файл конфигурации |
+| `~/.openfang/data/openfang.db` | SQLite база данных |
+| `~/.openfang/skills/` | Установленные навыки |
+| `~/.openfang/daemon.json` | Информация о демоне (PID, порт) |
+| `agents/` | Шаблоны агентов |
 
-### Key Environment Variables
+## Переменные окружения (важные)
 
-| Variable | Provider |
-|----------|----------|
+| Переменная | Провайдер |
+|-----------:|:--------|
 | `ANTHROPIC_API_KEY` | Anthropic (Claude) |
-| `OPENAI_API_KEY` | OpenAI (GPT-4o) |
+| `OPENAI_API_KEY` | OpenAI |
 | `GEMINI_API_KEY` | Google Gemini |
-| `GROQ_API_KEY` | Groq (fast Llama/Mixtral) |
+| `GROQ_API_KEY` | Groq |
 | `DEEPSEEK_API_KEY` | DeepSeek |
-| `XAI_API_KEY` | xAI (Grok) |
+| `XAI_API_KEY` | xAI |
 
-Only one provider key is needed to get started. Groq offers a free tier.
+Достаточно одного ключа провайдера для запуска. Groq предоставляет бесплатный тариф.

@@ -19,91 +19,98 @@ Common issues, diagnostics, and answers to frequently asked questions about Open
 
 ## Quick Diagnostics
 
-Run the built-in diagnostic tool:
+## Проблемы с каналами
+
+### Telegram: бот не отвечает
+
+Проверьте:
+
+1. Токен бота установлен: `echo $TELEGRAM_BOT_TOKEN`
+2. Бот активирован (отправьте `/start` в чате)
+3. Если задано `allowed_users`, ваш Telegram ID присутствует в списке
+4. Просмотрите логи адаптера Telegram
+
+### Discord: бот оффлайн
+
+Проверьте:
+
+1. Токен корректен
+2. Включён Message Content Intent в настройках приложения Discord
+3. Бот приглашён на сервер с нужными правами
+4. Проверьте подключение Gateway в логах
+
+### Slack: бот не получает сообщения
+
+Проверьте:
+
+1. Установлены `SLACK_BOT_TOKEN` (xoxb-) и `SLACK_APP_TOKEN` (xapp-)
+2. Включён Socket Mode в настройках Slack-приложения
+3. Бот добавлен в каналы
+4. Требуемые scopes: `chat:write`, `app_mentions:read`, `im:history`, `im:read`, `im:write`
+
+### Вебхуки (WhatsApp, LINE, Viber и пр.)
+
+Проверьте:
+
+1. Сервер доступен публично или используйте туннель (ngrok)
+2. Webhook URL правильно сконфигурирован на платформе
+3. Порт открыт и не блокируется фаерволом
+4. Токен совпадает с настройками платформы
+
+### "Adapter failed to start"
+
+Причины:
+
+- Отсутствует или некорректен токен
+- Порт уже занят (для webhook-сервисов)
+- Сетевые проблемы
+
+Проверьте логи с повышенной детализацией:
 
 ```bash
-openfang doctor
-```
-
-This checks:
-- Configuration file exists and is valid TOML
-- API keys are set in environment
-- Database is accessible
-- Daemon status (running or not)
-- Port availability
-- Tool dependencies (Python, signal-cli, etc.)
-
-### Check Daemon Status
-
-```bash
-openfang status
-```
-
-### Check Health via API
-
-```bash
-curl http://127.0.0.1:4200/api/health
-curl http://127.0.0.1:4200/api/health/detail  # Requires auth
-```
-
-### View Logs
-
-OpenFang uses `tracing` for structured logging. Set the log level via environment:
-
-```bash
-RUST_LOG=info openfang start          # Default
-RUST_LOG=debug openfang start         # Verbose
-RUST_LOG=openfang=debug openfang start  # Only OpenFang debug, deps at info
+RUST_LOG=openfang_channels=debug openfang start
 ```
 
 ---
 
-## Installation Issues
+## Проблемы с агентами
 
-### `cargo install` fails with compilation errors
+### Агент зациклился
 
-**Cause**: Rust toolchain too old or missing system dependencies.
+Причина: агент многократно вызывает один и тот же инструмент с одинаковыми параметрами.
 
-**Fix**:
+Защита: OpenFang имеет loop guard:
+
+- Предупреждение при 3 одинаковых вызовах
+- Блокировка при 5 одинаковых вызовах
+- Circuit breaker при 30 заблокированных вызовах (останов агента)
+
+Ручная остановка запущенной задачи:
+
 ```bash
-rustup update stable
-rustup default stable
-rustc --version  # Need 1.75+
+curl -X POST http://127.0.0.1:4200/api/agents/{id}/stop
 ```
 
-On Linux, you may also need:
-```bash
-# Debian/Ubuntu
-sudo apt install pkg-config libssl-dev libsqlite3-dev
+Или через чат: `/stop`
 
-# Fedora
-sudo dnf install openssl-devel sqlite-devel
+### Агент исчерпал контекст
+
+Причина: история переписки превысила окно контекста модели.
+
+Решение: компактировать сессию:
+
+```bash
+curl -X POST http://127.0.0.1:4200/api/agents/{id}/session/compact
 ```
 
-### `openfang` command not found after install
+Или: `/compact` в чате. Авто-компакция включена по умолчанию и настраивается в `[compaction]`.
 
-**Fix**: Ensure `~/.cargo/bin` is in your PATH:
-```bash
-export PATH="$HOME/.cargo/bin:$PATH"
-# Add to ~/.bashrc or ~/.zshrc to persist
-```
+### Агент не использует инструменты
 
-### Black screen on login after install (Arch / CachyOS / fish users)
+Причина: инструменты не перечислены в возможностях агента (capabilities).
 
-**Cause**: Older OpenFang installers (`<v0.6.4`) appended a PATH line directly to `~/.config/fish/config.fish`. On Arch derivatives like CachyOS, the desktop session can source fish on login — a malformed or invalid PATH line then prevents the session from finishing, leaving you on a black screen.
-
-**Fix**: Boot to a TTY (`Ctrl+Alt+F2`) and remove any OpenFang PATH lines from `config.fish`:
-```bash
-sed -i '/openfang/d' ~/.config/fish/config.fish
-```
-Then re-run the installer — current versions write to `~/.config/fish/conf.d/openfang.fish` (a drop-in directory) instead, and guard the path with `test -d` so a missing install dir can never wedge fish startup.
-
-To remove OpenFang's PATH entry cleanly:
-```bash
-rm ~/.config/fish/conf.d/openfang.fish
-```
-
-### Docker container won't start
+Решение: проверьте манифест агента:
+```toml
 
 **Common causes**:
 - No API key provided: `docker run -e GROQ_API_KEY=... ghcr.io/RightNow-AI/openfang`

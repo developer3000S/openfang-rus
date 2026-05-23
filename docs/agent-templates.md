@@ -838,7 +838,6 @@ provider = "groq"
 model = "llama-3.3-70b-versatile"
 api_key_env = "GROQ_API_KEY"
 
-# Optional schedule (for autonomous/background agents)
 [schedule]
 periodic = { cron = "every 5m" }                                     # Periodic execution
 # continuous = { check_interval_secs = 120 }                         # Continuous loop

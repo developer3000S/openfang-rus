@@ -1,3 +1,24 @@
+# Провайдеры
+
+Список и заметки по настройке поддерживаемых провайдеров LLM.
+Поддерживаемые провайдеры: Anthropic, Gemini, OpenAI, Groq, DeepSeek, OpenRouter, Together, Mistral, Fireworks, Cohere, Perplexity, xAI, AI21, Cerebras, SambaNova, HuggingFace, Replicate, Ollama, vLLM, LM Studio, Qwen, MiniMax, Zhipu, Moonshot, Qianfan, Bedrock, и другие.
+
+Указывайте провайдера по умолчанию в `config.toml` в секции `[default_model]`. Каждый агент может переопределить провайдера в своём манифесте.
+### Общая настройка
+
+1. Установите API ключ в переменной окружения, например `export GROQ_API_KEY=...`.
+2. Укажите `api_key_env` в `config.toml` или в манифесте агента.
+### Локальные (self-hosted) провайдеры
+
+Для локальных раннеров (Ollama, vLLM, LM Studio) укажите `base_url` и оставьте `api_key_env` пустым.
+```toml
+[default_model]
+provider = "ollama"
+model = "llama-3.2"
+base_url = "http://localhost:11434"
+api_key_env = ""
+```
+
 # LLM Providers Guide
 
 OpenFang ships with a comprehensive model catalog covering **3 native LLM drivers**, **20 providers**, **51 builtin models**, and **23 aliases**. Every provider uses one of three battle-tested drivers: the native **Anthropic** driver, the native **Gemini** driver, or the universal **OpenAI-compatible** driver. This guide is the single source of truth for configuring, selecting, and managing LLM providers in OpenFang.

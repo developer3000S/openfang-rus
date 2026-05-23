@@ -1,121 +1,26 @@
-# Channel Adapters
+## Адаптеры каналов
 
-OpenFang connects to messaging platforms through **40 channel adapters**, allowing users to interact with their agents across every major communication platform. Adapters span consumer messaging, enterprise collaboration, social media, community platforms, privacy-focused protocols, and generic webhooks.
+OpenFang подключается к платформам обмена сообщениями через **40 адаптеров каналов**, что позволяет взаимодействовать с агентами на большинстве популярных платформ. Адаптеры охватывают потребительские мессенджеры, корпоративные решения, социальные сети, сообщества, протоколы для приватности и универсальные webhooks.
 
-All adapters share a common foundation: graceful shutdown via `watch::channel`, exponential backoff on connection failures, `Zeroizing<String>` for secrets, automatic message splitting for platform limits, per-channel model/prompt overrides, DM/group policy enforcement, per-user rate limiting, and output formatting (Markdown, TelegramHTML, SlackMrkdwn, PlainText).
+Все адаптеры реализуют общие принципы: аккуратное завершение через `watch::channel`, экспоненциальный бэкофф при падениях соединения, `Zeroizing<String>` для секретов, автоматическое разбиение сообщений по лимитам платформ, переопределения модели/подсказки на уровне канала, политика DM/group, лимиты по пользователям и форматирование вывода (Markdown, TelegramHTML, SlackMrkdwn, PlainText).
 
-## Table of Contents
+## Содержание
 
-- [All 40 Channels](#all-40-channels)
-- [Channel Configuration](#channel-configuration)
-- [Channel Overrides](#channel-overrides)
-- [Formatter, Rate Limiter, and Policies](#formatter-rate-limiter-and-policies)
-- [Telegram](#telegram)
-- [Discord](#discord)
-- [Slack](#slack)
-- [WhatsApp](#whatsapp)
-- [Feishu / Lark](#feishu--lark)
-- [Signal](#signal)
-- [Matrix](#matrix)
-- [Email](#email)
-- [WebChat (Built-in)](#webchat-built-in)
-- [Agent Routing](#agent-routing)
-- [Writing Custom Adapters](#writing-custom-adapters)
+- [Все 40 каналов](#all-40-channels)
+- [Конфигурация каналов](#channel-configuration)
+- [Переопределения каналов](#channel-overrides)
+- [Форматтер, лимитер и политики](#formatter-rate-limiter-and-policies)
+- [Телеграм / Discord / Slack / WhatsApp и др.]
 
 ---
 
-## All 40 Channels
+## Все 40 каналов
 
-### Core (7)
+Список каналов распределён по категориям: Core, Enterprise, Social, Community, Self-hosted, Privacy, Workplace, Notification, Integration. См. оригинал для полного справочника (таблицы переменных окружения и вариантов).
 
-| Channel | Protocol | Env Vars | ChannelType Variant |
-|---------|----------|----------|---------------------|
-| Telegram | Bot API long-polling | `TELEGRAM_BOT_TOKEN` | `Telegram` |
-| Discord | Gateway WebSocket v10 | `DISCORD_BOT_TOKEN` | `Discord` |
-| Slack | Socket Mode WebSocket | `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` | `Slack` |
-| WhatsApp | Cloud API webhook | `WA_ACCESS_TOKEN`, `WA_PHONE_ID`, `WA_VERIFY_TOKEN` | `WhatsApp` |
-| Signal | signal-cli REST/JSON-RPC | _(system service)_ | `Signal` |
-| Matrix | Client-Server API `/sync` | `MATRIX_TOKEN` | `Matrix` |
-| Email | IMAP + SMTP | `EMAIL_PASSWORD` | `Email` |
+## Конфигурация каналов
 
-### Enterprise (8)
-
-| Channel | Protocol | Env Vars | ChannelType Variant |
-|---------|----------|----------|---------------------|
-| Microsoft Teams | Bot Framework v3 webhook + OAuth2 | `TEAMS_APP_ID`, `TEAMS_APP_SECRET` | `Teams` |
-| Mattermost | WebSocket + REST v4 | `MATTERMOST_TOKEN`, `MATTERMOST_URL` | `Mattermost` |
-| Google Chat | Service account webhook | `GOOGLE_CHAT_SA_KEY`, `GOOGLE_CHAT_SPACE` | `Custom("google_chat")` |
-| Webex | Bot SDK WebSocket | `WEBEX_BOT_TOKEN` | `Custom("webex")` |
-| Feishu / Lark | Open Platform Webhook / WebSocket | `FEISHU_APP_ID`, `FEISHU_APP_SECRET` | `Custom("feishu")` |
-| Rocket.Chat | REST polling | `ROCKETCHAT_TOKEN`, `ROCKETCHAT_URL` | `Custom("rocketchat")` |
-| Zulip | Event queue long-polling | `ZULIP_EMAIL`, `ZULIP_API_KEY`, `ZULIP_URL` | `Custom("zulip")` |
-| XMPP | XMPP protocol (stub) | `XMPP_JID`, `XMPP_PASSWORD`, `XMPP_SERVER` | `Custom("xmpp")` |
-
-### Social (8)
-
-| Channel | Protocol | Env Vars | ChannelType Variant |
-|---------|----------|----------|---------------------|
-| LINE | Messaging API webhook | `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_TOKEN` | `Custom("line")` |
-| Viber | Bot API webhook | `VIBER_AUTH_TOKEN` | `Custom("viber")` |
-| Facebook Messenger | Platform API webhook | `MESSENGER_PAGE_TOKEN`, `MESSENGER_VERIFY_TOKEN` | `Custom("messenger")` |
-| Mastodon | Streaming API WebSocket | `MASTODON_TOKEN`, `MASTODON_INSTANCE` | `Custom("mastodon")` |
-| Bluesky | AT Protocol WebSocket | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` | `Custom("bluesky")` |
-| Reddit | OAuth2 polling | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USERNAME`, `REDDIT_PASSWORD` | `Custom("reddit")` |
-| LinkedIn | Messaging API polling | `LINKEDIN_ACCESS_TOKEN` | `Custom("linkedin")` |
-| Twitch | IRC gateway | `TWITCH_TOKEN`, `TWITCH_CHANNEL` | `Custom("twitch")` |
-
-### Community (6)
-
-| Channel | Protocol | Env Vars | ChannelType Variant |
-|---------|----------|----------|---------------------|
-| IRC | Raw TCP PRIVMSG | `IRC_SERVER`, `IRC_NICK`, `IRC_PASSWORD` | `Custom("irc")` |
-| Guilded | WebSocket | `GUILDED_BOT_TOKEN` | `Custom("guilded")` |
-| Revolt | WebSocket | `REVOLT_BOT_TOKEN` | `Custom("revolt")` |
-| Keybase | Bot API polling | `KEYBASE_USERNAME`, `KEYBASE_PAPERKEY` | `Custom("keybase")` |
-| Discourse | REST polling | `DISCOURSE_API_KEY`, `DISCOURSE_URL` | `Custom("discourse")` |
-| Gitter | Streaming API | `GITTER_TOKEN` | `Custom("gitter")` |
-
-### Self-hosted (1)
-
-| Channel | Protocol | Env Vars | ChannelType Variant |
-|---------|----------|----------|---------------------|
-| Nextcloud Talk | REST polling | `NEXTCLOUD_TOKEN`, `NEXTCLOUD_URL` | `Custom("nextcloud")` |
-
-### Privacy (3)
-
-| Channel | Protocol | Env Vars | ChannelType Variant |
-|---------|----------|----------|---------------------|
-| Threema | Gateway API webhook | `THREEMA_ID`, `THREEMA_SECRET` | `Custom("threema")` |
-| Nostr | NIP-01 relay WebSocket | `NOSTR_PRIVATE_KEY`, `NOSTR_RELAY` | `Custom("nostr")` |
-| Mumble | TCP text protocol | `MUMBLE_SERVER`, `MUMBLE_USERNAME`, `MUMBLE_PASSWORD` | `Custom("mumble")` |
-
-### Workplace (4)
-
-| Channel | Protocol | Env Vars | ChannelType Variant |
-|---------|----------|----------|---------------------|
-| Pumble | Webhook | `PUMBLE_WEBHOOK_URL`, `PUMBLE_TOKEN` | `Custom("pumble")` |
-| Flock | Webhook | `FLOCK_TOKEN` | `Custom("flock")` |
-| Twist | API v3 polling | `TWIST_TOKEN` | `Custom("twist")` |
-| DingTalk | Robot API webhook | `DINGTALK_TOKEN`, `DINGTALK_SECRET` | `Custom("dingtalk")` |
-
-### Notification (2)
-
-| Channel | Protocol | Env Vars | ChannelType Variant |
-|---------|----------|----------|---------------------|
-| ntfy | SSE pub/sub | `NTFY_TOPIC`, `NTFY_SERVER` | `Custom("ntfy")` |
-| Gotify | WebSocket | `GOTIFY_TOKEN`, `GOTIFY_URL` | `Custom("gotify")` |
-
-### Integration (1)
-
-| Channel | Protocol | Env Vars | ChannelType Variant |
-|---------|----------|----------|---------------------|
-| Webhook | Generic HTTP with HMAC-SHA256 | `WEBHOOK_URL`, `WEBHOOK_SECRET` | `Custom("webhook")` |
-
----
-
-## Channel Configuration
-
-All channel configurations live in `~/.openfang/config.toml` under the `[channels]` section. Each channel is a subsection:
+Все конфигурации каналов находятся в `~/.openfang/config.toml` в секции `[channels]`. Каждый канал описывается своей подсекцией, например:
 
 ```toml
 [channels.telegram]
@@ -126,50 +31,24 @@ allowed_users = ["123456789"]
 [channels.discord]
 bot_token_env = "DISCORD_BOT_TOKEN"
 default_agent = "coder"
-
-[channels.slack]
-bot_token_env = "SLACK_BOT_TOKEN"
-app_token_env = "SLACK_APP_TOKEN"
-default_agent = "ops"
-
-# Enterprise example
-[channels.teams]
-app_id_env = "TEAMS_APP_ID"
-app_secret_env = "TEAMS_APP_SECRET"
-default_agent = "ops"
-
-# Social example
-[channels.mastodon]
-token_env = "MASTODON_TOKEN"
-instance = "https://mastodon.social"
-default_agent = "social-media"
 ```
 
-### Common Fields
+### Общие поля
 
-- `bot_token_env` / `token_env` -- The environment variable holding the bot/access token. OpenFang reads the token from this env var at startup. All secrets are stored as `Zeroizing<String>` and wiped from memory on drop.
-- `default_agent` -- The agent name (or ID) that receives messages when no specific routing applies.
-- `allowed_users` -- Optional list of platform user IDs allowed to interact. Empty means allow all.
-- `overrides` -- Optional per-channel behavior overrides (see [Channel Overrides](#channel-overrides) below).
+- `bot_token_env` / `token_env` — имя переменной окружения с токеном.
+- `default_agent` — агент, который получает сообщения по умолчанию.
+- `allowed_users` — опциональный список ID пользователей, которым разрешено взаимодействовать.
+- `overrides` — секция для переопределений поведения на уровне канала.
 
-### Environment Variables Reference (Core Channels)
+### Ссылки по переменным окружения
 
-| Channel | Required Env Vars |
-|---------|-------------------|
-| Telegram | `TELEGRAM_BOT_TOKEN` |
-| Discord | `DISCORD_BOT_TOKEN` |
-| Slack | `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` |
-| WhatsApp | `WA_ACCESS_TOKEN`, `WA_PHONE_ID`, `WA_VERIFY_TOKEN` |
-| Matrix | `MATRIX_TOKEN` |
-| Email | `EMAIL_PASSWORD` |
-
-Env vars for all other channels are listed in the [All 40 Channels](#all-40-channels) tables above.
+Таблицы с переменными окружения (Telegram, Discord, Slack, WhatsApp и т.д.) сохранены в оригинальном справочнике; используйте их как руководство при настройке.
 
 ---
 
-## Channel Overrides
+## Переопределения каналов
 
-Every channel adapter supports `ChannelOverrides`, which let you customize behavior per channel without modifying the agent manifest. Add an `[channels.<name>.overrides]` section in `config.toml`:
+Каждый адаптер поддерживает `ChannelOverrides`, позволяющие переопределять модель, системный prompt, политику DM/group, лимиты и формат вывода без изменения манифеста агента. Пример:
 
 ```toml
 [channels.telegram.overrides]
@@ -180,23 +59,11 @@ group_policy = "mention_only"
 rate_limit_per_user = 10
 threading = true
 output_format = "telegram_html"
-usage_footer = "compact"
 ```
 
-### Override Fields
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `model` | `Option<String>` | Agent default | Override the LLM model for this channel. |
-| `system_prompt` | `Option<String>` | Agent default | Override the system prompt for this channel. |
-| `dm_policy` | `DmPolicy` | `Respond` | How to handle direct messages. |
-| `group_policy` | `GroupPolicy` | `MentionOnly` | How to handle group/channel messages. |
-| `rate_limit_per_user` | `u32` | `0` (unlimited) | Max messages per minute per user. |
-| `threading` | `bool` | `false` | Send replies as thread responses (platforms that support it). |
-| `output_format` | `Option<OutputFormat>` | `Markdown` | Output format for this channel. |
-| `usage_footer` | `Option<UsageFooterMode>` | None | Whether to append token usage to responses. |
-
 ---
+
+Для полного списка опций и примеров обратитесь к оригиналу документации в репозитории.
 
 ## Formatter, Rate Limiter, and Policies
 

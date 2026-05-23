@@ -140,7 +140,6 @@ export OPENAI_API_KEY=sk-...
 # Or Groq (free tier available)
 export GROQ_API_KEY=gsk_...
 ```
-
 Add the export to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to persist it.
 
 ### Edit the Config
@@ -203,7 +202,6 @@ module = "builtin:chat"
 provider = "groq"
 model = "llama-3.3-70b-versatile"
 
-[capabilities]
 tools = ["file_read", "file_list", "web_fetch"]
 memory_read = ["*"]
 memory_write = ["self.*"]
@@ -260,11 +258,9 @@ you> Hello! What can you do?
 
 agent> I'm the hello-world agent running on OpenFang. I can:
 - Read files from the filesystem
-- List directory contents
 - Fetch web pages
 
 Try asking me to read a file or look up something on the web!
-
   [tokens: 142 in / 87 out | iterations: 1]
 
 you> List the files in the current directory
@@ -294,9 +290,6 @@ openfang start
 
 Output:
 
-```
-Starting OpenFang daemon...
-OpenFang daemon running on http://127.0.0.1:4200
 Press Ctrl+C to stop.
 ```
 
@@ -306,18 +299,11 @@ The daemon provides:
 - **WebChat UI** at `http://127.0.0.1:4200/`
 - **OFP networking** on port 4200
 
-### Check Status
-
-```bash
-openfang status
-```
-
 ### Stop the Daemon
 
 Press `Ctrl+C` in the terminal running the daemon, or:
 
 ```bash
-curl -X POST http://127.0.0.1:4200/api/shutdown
 ```
 
 ---
@@ -336,10 +322,6 @@ The embedded WebChat UI allows you to:
 - See streaming responses as they are generated
 - View token usage per message
 
----
-
-## Next Steps
-
 Now that you have OpenFang running:
 
 - **Explore agent templates**: Browse the `agents/` directory for 30 pre-built agents (coder, researcher, writer, ops, analyst, security-auditor, and more).
@@ -355,7 +337,6 @@ Now that you have OpenFang running:
 - **Desktop app**: Run `cargo tauri dev` for a native desktop experience with system tray.
 - **Run diagnostics**: `openfang doctor` checks your entire setup.
 
-### Useful Commands Reference
 
 ```bash
 openfang init                          # Initialize ~/.openfang/
@@ -366,28 +347,11 @@ openfang doctor                        # Run diagnostic checks
 openfang agent spawn <manifest.toml>   # Spawn an agent
 openfang agent list                    # List all agents
 openfang agent chat <id>               # Chat with an agent
-openfang agent kill <id>               # Kill an agent
-
-openfang workflow list                 # List workflows
-openfang workflow create <file.json>   # Create a workflow
 openfang workflow run <id> <input>     # Run a workflow
-
 openfang trigger list                  # List event triggers
 openfang trigger create <args>         # Create a trigger
 openfang trigger delete <id>           # Delete a trigger
 
 openfang skill install <source>        # Install a skill
-openfang skill list                    # List installed skills
-openfang skill search <query>          # Search FangHub
-openfang skill create                  # Scaffold a new skill
-
-openfang channel list                  # List channel status
-openfang channel setup <channel>       # Interactive setup wizard
-
-openfang config show                   # Show current config
-openfang config edit                   # Open config in editor
-
-openfang chat [agent]                  # Quick chat (alias)
-openfang migrate --from openclaw       # Migrate from OpenClaw
 openfang mcp                           # Start MCP server (stdio)
 ```

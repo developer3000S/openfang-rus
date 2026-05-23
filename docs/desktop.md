@@ -1,3 +1,27 @@
+# Десктоп-приложение
+
+Десктоп-приложение OpenFang реализовано на Tauri 2.0. Оно предоставляет нативное окно, системный трей, уведомления и встроенный Web UI. Приложение общается с демоном по локальному HTTP и содержит хранилище токенов и упрощённый vault для секретов.
+Приложение поддерживает автообновления, глобальные хоткеи и контрол в трее для запуска/остановки демона.
+
+## Разработка
+
+Запуск приложения в режиме разработки:
+
+```bash
+ yarn && yarn tauri dev
+```
+```bash
+cargo tauri build
+```
+
+Собранные пакеты появятся в `src-tauri/target/release/bundle`.
+## Фичи
+
+- Системный трей с быстрыми действиями (start, stop, open dashboard)
+- Пересылка нотификаций
+- Хранение учётных данных (AES-256-GCM)
+- Автообновления через релизы GitHub
+
 # OpenFang Desktop App
 
 The OpenFang Desktop App is a native desktop wrapper built with [Tauri 2.0](https://v2.tauri.app/) that packages the entire OpenFang Agent OS into a single, installable application. Instead of running a CLI daemon and opening a browser, users get a native window with system tray integration, OS notifications, and single-instance enforcement -- all powered by the same kernel and API server that the headless deployment uses.

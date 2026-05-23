@@ -1,203 +1,45 @@
-# OpenFang CLI Reference
+# OpenFang CLI Reference (рус.)
 
-Complete command-line reference for `openfang`, the CLI tool for the OpenFang Agent OS.
+Краткая справка по основным командам `openfang`.
 
-## Overview
+## Режимы работы
 
-The `openfang` binary is the primary interface for managing the OpenFang Agent OS. It supports two modes of operation:
+- **Daemon mode** — при запущенном демоне CLI общается с ним по HTTP (рекомендуется для продакшена).
+- **In-process mode** — если демон не найден, некоторые команды поднимают временное ядро в процессе (данные не сохраняются).
 
-- **Daemon mode** -- When a daemon is running (`openfang start`), CLI commands communicate with it over HTTP. This is the recommended mode for production use.
-- **In-process mode** -- When no daemon is detected, commands that support it will boot an ephemeral in-process kernel. Agents spawned in this mode are not persisted and will be lost when the process exits.
+Запуск без подкоманды открывает TUI (ratatui) с полноэкранной панелью управления.
 
-Running `openfang` with no subcommand launches the interactive TUI (terminal user interface) built with ratatui, which provides a full dashboard experience in the terminal.
-
-## Installation
-
-### From source (cargo)
+## Установка (кратко)
 
 ```bash
 cargo install --path crates/openfang-cli
-```
-
-### Build from workspace
-
-```bash
+# или
 cargo build --release -p openfang-cli
-# Binary: target/release/openfang (or openfang.exe on Windows)
 ```
 
-### Docker
+## Глобальные опции
+
+- `--config <PATH>` — путь к файлу конфигурации
+- `--help`, `--version`
+
+Переменные окружения: `RUST_LOG`, `OPENFANG_AGENTS_DIR`, `EDITOR`/`VISUAL`.
+
+## Часто используемые команды
 
 ```bash
-docker run -it openfang/openfang:latest
+openfang init            # Инициализация ~/.openfang/
+openfang start           # Запуск демона
+openfang status          # Статус демона
+openfang doctor          # Диагностика окружения
+openfang agent spawn <manifest.toml>  # Запуск агента
+openfang agent list
+openfang agent chat <id|name>
+openfang hand list
+openfang hand activate <name>
 ```
 
-### Shell installer
+`openfang --help` и `openfang <cmd> --help` показывают полные опции для команд.
 
-```bash
-curl -fsSL https://get.openfang.ai | sh
-```
-
-## Global Options
-
-These options apply to all commands.
-
-| Option | Description |
-|---|---|
-| `--config <PATH>` | Path to a custom config file. Overrides the default `~/.openfang/config.toml`. |
-| `--help` | Print help information for any command or subcommand. |
-| `--version` | Print the version of the `openfang` binary. |
-
-**Environment variables:**
-
-| Variable | Description |
-|---|---|
-| `RUST_LOG` | Controls log verbosity (e.g. `info`, `debug`, `openfang_kernel=trace`). |
-| `OPENFANG_AGENTS_DIR` | Override the agent templates directory. |
-| `EDITOR` / `VISUAL` | Editor used by `openfang config edit`. Falls back to `notepad` (Windows) or `vi` (Unix). |
-
----
-
-## Command Reference
-
-### openfang (no subcommand)
-
-Launch the interactive TUI dashboard.
-
-```
-openfang [--config <PATH>]
-```
-
-The TUI provides a full-screen terminal interface with panels for agents, chat, workflows, channels, skills, settings, and more. Tracing output is redirected to `~/.openfang/tui.log` to avoid corrupting the terminal display.
-
-Press `Ctrl+C` to exit. A second `Ctrl+C` force-exits the process.
-
----
-
-### openfang init
-
-Initialize the OpenFang workspace. Creates `~/.openfang/` with subdirectories (`data/`, `agents/`) and a default `config.toml`.
-
-```
-openfang init [--quick]
-```
-
-**Options:**
-
-| Option | Description |
-|---|---|
-| `--quick` | Skip interactive prompts. Auto-detects the best available LLM provider and writes config immediately. Suitable for CI/scripts. |
-
-**Behavior:**
-
-- Without `--quick`: Launches an interactive 5-step onboarding wizard (ratatui TUI) that walks through provider selection, API key configuration, and optionally starts the daemon.
-- With `--quick`: Auto-detects providers by checking environment variables in priority order: Groq, Gemini, DeepSeek, Anthropic, OpenAI, OpenRouter. Falls back to Groq if none are found.
-- File permissions are restricted to owner-only (`0600` for files, `0700` for directories) on Unix.
-
-**Example:**
-
-```bash
-# Interactive setup
-openfang init
-
-# Non-interactive (CI/scripts)
-export GROQ_API_KEY="gsk_..."
-openfang init --quick
-```
-
----
-
-### openfang start
-
-Start the OpenFang daemon (kernel + API server).
-
-```
-openfang start [--config <PATH>]
-```
-
-**Behavior:**
-
-- Checks if a daemon is already running; exits with an error if so.
-- Boots the OpenFang kernel (loads config, initializes SQLite database, loads agents, connects MCP servers, starts background tasks).
-- Starts the HTTP API server on the address specified in `config.toml` (default: `127.0.0.1:4200`).
-- Writes `daemon.json` to `~/.openfang/` so other CLI commands can discover the running daemon.
-- Blocks until interrupted with `Ctrl+C`.
-
-**Output:**
-
-```
-  OpenFang Agent OS v0.1.0
-
-  Starting daemon...
-
-  [ok] Kernel booted (groq/llama-3.3-70b-versatile)
-  [ok] 50 models available
-  [ok] 3 agent(s) loaded
-
-  API:        http://127.0.0.1:4200
-  Dashboard:  http://127.0.0.1:4200/
-  Provider:   groq
-  Model:      llama-3.3-70b-versatile
-
-  hint: Open the dashboard in your browser, or run `openfang chat`
-  hint: Press Ctrl+C to stop the daemon
-```
-
-**Example:**
-
-```bash
-# Start with default config
-openfang start
-
-# Start with custom config
-openfang start --config /path/to/config.toml
-```
-
----
-
-### openfang status
-
-Show the current kernel/daemon status.
-
-```
-openfang status [--json]
-```
-
-**Options:**
-
-| Option | Description |
-|---|---|
-| `--json` | Output machine-readable JSON for scripting. |
-
-**Behavior:**
-
-- If a daemon is running: queries `GET /api/status` and displays agent count, provider, model, uptime, API URL, data directory, and lists active agents.
-- If no daemon is running: boots an in-process kernel and shows persisted state. Displays a warning that the daemon is not running.
-
-**Example:**
-
-```bash
-openfang status
-
-openfang status --json | jq '.agent_count'
-```
-
----
-
-### openfang doctor
-
-Run diagnostic checks on the OpenFang installation.
-
-```
-openfang doctor [--json] [--repair]
-```
-
-**Options:**
-
-| Option | Description |
-|---|---|
-| `--json` | Output results as JSON for scripting. |
-| `--repair` | Attempt to auto-fix issues (create missing directories, config, remove stale files). Prompts for confirmation before each repair. |
 
 **Checks performed:**
 

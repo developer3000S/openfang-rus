@@ -1,68 +1,44 @@
 # OpenFang Architecture
 
-This document describes the internal architecture of OpenFang, the open-source Agent Operating System built in Rust. It covers the crate structure, kernel boot sequence, agent lifecycle, memory substrate, LLM driver abstraction, capability-based security model, the OFP wire protocol, the security hardening stack, the channel and skill systems, and the agent stability subsystems.
-
-## Table of Contents
-
-- [Crate Structure](#crate-structure)
-- [Kernel Boot Sequence](#kernel-boot-sequence)
-- [Agent Lifecycle](#agent-lifecycle)
-- [Agent Loop Stability](#agent-loop-stability)
-- [Memory Substrate](#memory-substrate)
-- [LLM Driver Abstraction](#llm-driver-abstraction)
-- [Model Catalog](#model-catalog)
-- [Capability-Based Security Model](#capability-based-security-model)
-- [Security Hardening](#security-hardening)
-- [Channel System](#channel-system)
-- [Skill System](#skill-system)
-- [MCP and A2A Protocols](#mcp-and-a2a-protocols)
-- [Wire Protocol (OFP)](#wire-protocol-ofp)
-- [Desktop Application](#desktop-application)
-- [Subsystem Diagram](#subsystem-diagram)
+Документ описывает внутреннюю архитектуру OpenFang: структуру crate'ов, последовательность загрузки ядра, жизненный цикл агента, подсистему памяти, абстракцию драйверов LLM, модель безопасности на основе возможностей, протокол OFP, стек жёсткой безопасности, систему каналов и навыков, а также механизмы стабильности.
 
 ---
 
-## Crate Structure
+## Структура crate'ов
 
-OpenFang is organized as a Cargo workspace with 14 crates (13 code crates + xtask). Dependencies flow downward (lower crates depend on nothing above them).
+OpenFang организован как Cargo workspace с 14 crate'ами (13 кода + xtask). Ниже — краткое дерево зависимостей и назначение основных crate'ов.
 
 ```
-openfang-cli            CLI interface, daemon auto-detect, MCP server
+openfang-cli            CLI интерфейс, автопоиск демона, MCP-сервер
     |
-openfang-desktop        Tauri 2.0 desktop app (WebView + system tray)
+openfang-desktop        Tauri 2.0 десктоп-приложение (WebView + системный трей)
     |
-openfang-api            REST/WS/SSE API server (Axum 0.8), 76 endpoints
+openfang-api            REST/WS/SSE API сервер (Axum), 76 эндпойнтов
     |
-openfang-kernel         Kernel: assembles all subsystems, workflow engine, RBAC, metering
+openfang-kernel         Ядро: собирает подсистемы, workflow, RBAC, метрики
     |
-    +-- openfang-runtime    Agent loop, 3 LLM drivers, 23 tools, WASM sandbox, MCP, A2A
-    +-- openfang-channels   40 channel adapters, bridge, formatter, rate limiter
-    +-- openfang-wire       OFP peer-to-peer networking with HMAC-SHA256 auth
-    +-- openfang-migrate    Migration engine (OpenClaw YAML->TOML)
-    +-- openfang-skills     60 bundled skills, FangHub marketplace, ClawHub client
+    +-- openfang-runtime    Цикл агента, LLM-драйверы, встроенные инструменты, WASM-песочница
+    +-- openfang-channels   40 адаптеров каналов, форматтер, лимитер
+    +-- openfang-wire       OFP P2P с аутентификацией HMAC-SHA256
+    +-- openfang-migrate    Движок миграции (OpenClaw -> OpenFang)
+    +-- openfang-skills     Встроенные навыки и FangHub интеграция
     |
-openfang-memory         SQLite memory substrate, sessions, semantic search, usage tracking
+openfang-memory         SQLite-подсистема памяти, сессии, семантический поиск
     |
-openfang-types          Shared types: Agent, Capability, Event, Memory, Message, Tool, Config,
-                        Taint, ManifestSigning, ModelCatalog, MCP/A2A config, Web config
+openfang-types          Общие типы: Agent, Capability, Event, Tool, Config, Taint, ModelCatalog
 ```
 
-### Crate Responsibilities
+### Краткая ответственность crate'ов
 
-| Crate | Description |
-|-------|-------------|
-| **openfang-types** | Core type definitions used across all crates. Defines `AgentManifest`, `AgentId`, `Capability`, `Event`, `ToolDefinition`, `KernelConfig`, `OpenFangError`, taint tracking (`TaintLabel`, `TaintSet`), Ed25519 manifest signing, model catalog types (`ModelCatalogEntry`, `ProviderInfo`, `ModelTier`), tool compatibility mappings (21 OpenClaw-to-OpenFang), MCP/A2A config types, and web config types. All config structs use `#[serde(default)]` for forward-compatible TOML parsing. |
-| **openfang-memory** | SQLite-backed memory substrate (schema v5). Uses `Arc<Mutex<Connection>>` with `spawn_blocking` for async bridge. Provides structured KV storage, semantic search with vector embeddings, knowledge graph (entities and relations), session management, task board, usage event persistence (`usage_events` table, `UsageStore`), and canonical sessions for cross-channel memory. Five schema versions: V1 core, V2 collab, V3 embeddings, V4 usage, V5 canonical_sessions. |
-| **openfang-runtime** | Agent execution engine. Contains the agent loop (`run_agent_loop`, `run_agent_loop_streaming`), 3 native LLM drivers (Anthropic, Gemini, OpenAI-compatible covering 20 providers), 23 built-in tools, WASM sandbox (Wasmtime with dual fuel+epoch metering), MCP client/server (JSON-RPC 2.0 over stdio/SSE), A2A protocol (AgentCard, task management), web search engine (4 providers: Tavily/Brave/Perplexity/DuckDuckGo), web fetch with SSRF protection, loop guard (SHA256-based tool loop detection), session repair (history validation), LLM session compactor (block-aware), Merkle hash chain audit trail, and embedding driver. Defines the `KernelHandle` trait that enables inter-agent tools without circular crate dependencies. |
-| **openfang-kernel** | The central coordinator. `OpenFangKernel` assembles all subsystems: `AgentRegistry`, `AgentScheduler`, `CapabilityManager`, `EventBus`, `Supervisor`, `WorkflowEngine`, `TriggerEngine`, `BackgroundExecutor`, `WasmSandbox`, `ModelCatalog`, `MeteringEngine`, `ModelRouter`, `AuthManager` (RBAC), `HeartbeatMonitor`, `SetupWizard`, `SkillRegistry`, MCP connections, and `WebToolsContext`. Implements `KernelHandle` for inter-agent operations. Handles agent spawn/kill, message dispatch, workflow execution, trigger evaluation, capability inheritance validation, and graceful shutdown with state persistence. |
-| **openfang-api** | HTTP API server built on Axum 0.8 with 76 endpoints. Routes for agents, workflows, triggers, memory, channels, templates, models, providers, skills, ClawHub, MCP, health, status, version, and shutdown. WebSocket handler for real-time agent chat with streaming. SSE endpoint for streaming responses. OpenAI-compatible endpoints (`POST /v1/chat/completions`, `GET /v1/models`). A2A endpoints (`/.well-known/agent.json`, `/a2a/*`). Middleware: Bearer token auth, request ID injection, structured request logging, GCRA rate limiter (cost-aware), security headers (CSP, X-Frame-Options, etc.), health endpoint redaction. |
-| **openfang-channels** | Channel bridge layer with 40 adapters. Each adapter implements the `ChannelAdapter` trait. Includes: Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Email, SMS, Webhook, Teams, Mattermost, IRC, Google Chat, Twitch, Rocket.Chat, Zulip, XMPP, LINE, Viber, Messenger, Reddit, Mastodon, Bluesky, Feishu, Revolt, Nextcloud, Guilded, Keybase, Threema, Nostr, Webex, Pumble, Flock, Twist, Mumble, DingTalk, Discourse, Gitter, Ntfy, Gotify, LinkedIn. Features: `AgentRouter` for message routing, `BridgeManager` for lifecycle coordination, `ChannelRateLimiter` (per-user DashMap tracking), `formatter.rs` (Markdown to TelegramHTML/SlackMrkdwn/PlainText), `ChannelOverrides` (model/system_prompt/dm_policy/group_policy/rate_limit/threading/output_format), DM/group policy enforcement. |
-| **openfang-wire** | OpenFang Protocol (OFP) for peer-to-peer agent communication. JSON-framed messages over TCP with HMAC-SHA256 mutual authentication (nonce + constant-time verify via `subtle`). `PeerNode` listens for connections and manages peers. `PeerRegistry` tracks known remote peers and their agents. |
-| **openfang-cli** | Clap-based CLI. Supports all commands: `init`, `start`, `status`, `doctor`, `agent spawn/list/chat/kill`, `workflow list/create/run`, `trigger list/create/delete`, `migrate`, `skill install/list/remove/search/create`, `channel list/setup/test/enable/disable`, `config show/edit`, `chat`, `mcp`. Daemon auto-detect: checks `~/.openfang/daemon.json` and health pings; uses HTTP when a daemon is running, boots an in-process kernel as fallback. Built-in MCP server mode. |
-| **openfang-desktop** | Tauri 2.0 native desktop application. Boots the kernel in-process, runs the axum server on a background thread, and points a WebView at `http://127.0.0.1:{random_port}`. Features: system tray (Show/Browser/Status/Quit), single-instance enforcement, desktop notifications, hide-to-tray on close. IPC commands: `get_port`, `get_status`. Mobile-ready with `#[cfg(desktop)]` guards. |
-| **openfang-migrate** | Migration engine. Supports OpenClaw (`~/.openclaw/`). Converts YAML configs to TOML, maps tool names, maps provider names, imports agent manifests, copies memory files, converts channel configs. Produces a `MigrationReport` with imported items, skipped items, and warnings. |
-| **openfang-skills** | Skill system for pluggable tool bundles. 60 bundled skills compiled via `include_str!()`. Skills are `skill.toml` + Python/WASM/Node.js/PromptOnly code. `SkillManifest` defines metadata, runtime config, provided tools, and requirements. `SkillRegistry` manages installed and bundled skills. `FangHubClient` connects to FangHub marketplace. `ClawHubClient` connects to clawhub.ai for cross-ecosystem skill discovery. `SKILL.md` parser for OpenClaw compatibility (YAML frontmatter + Markdown body). `SkillVerifier` with SHA256 verification. Prompt injection scanner (`scan_prompt_content()`) detects override attempts, data exfiltration, and shell references. |
-| **xtask** | Build automation tasks (cargo-xtask pattern). |
+- `openfang-types` — определения общих типов, манифестов, схем подписей и каталога моделей.
+- `openfang-memory` — реализация памяти на SQLite: KV, векторные embeddings, канонические сессии и usage events.
+- `openfang-runtime` — движок исполнения агентов: loop агента, обработка инструментов, WASM, MCP/A2A и безопасность цикла.
+- `openfang-kernel` — координатор подсистем: реестр агентов, планировщик, менеджер способностей, EventBus и WorkflowEngine.
+- `openfang-api` — HTTP/WS сервер с 76 эндпойнтами и совместимостью OpenAI API.
+- `openfang-channels` — слой адаптеров для 40 каналов; форматирование и политика доставки.
+- `openfang-wire` — OFP протокол для P2P с HMAC аутентификацией.
+- `openfang-cli` — Clap CLI с командами управления и автоподключением к демону.
+- `openfang-desktop` — Tauri приложение, запускающее ядро in-process и WebView.
 
 ---
 
